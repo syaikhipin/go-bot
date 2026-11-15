@@ -1,3 +1,5 @@
+**English** · [简体中文](README.zh-CN.md)
+
 <p align="center">
   <img src="assets/harness-whale.png" width="184" alt="go-harness blue whale mascot">
 </p>
@@ -20,7 +22,7 @@ The included web UI is a lightweight test client for chat, file browsing, and
 downloads. Use the Controller's HTTP and server-sent events (SSE) API to
 build your own mobile, desktop, or messaging interface. [HTTP API](docs/api.md) · [Minimal frontend example](examples/frontend-minimal/index.html)
 
-[简体中文](README.zh-CN.md) · [Configuration](docs/configuration.md) · [Deployment](docs/deployment.md) · [HTTP API](docs/api.md) · [Architecture](docs/architecture.md)
+[Configuration](docs/configuration.md) · [Deployment](docs/deployment.md) · [HTTP API](docs/api.md) · [Architecture](docs/architecture.md)
 
 ## Demos
 

@@ -1,3 +1,5 @@
+[English](README.md) · **简体中文**
+
 <p align="center">
   <img src="assets/harness-whale.png" width="184" alt="go-harness 蓝鲸头像">
 </p>
@@ -16,7 +18,7 @@
 
 内置网页是用于测试的轻量界面，提供聊天、浏览文件和下载交付物。你可以通过 Controller 的 HTTP接口接入自己的移动端、桌面端或消息渠道。 [HTTP API](docs/api.md) · [最小前端示例](examples/frontend-minimal/index.html)
 
-[English](README.md) · [配置](docs/configuration.md) · [部署](docs/deployment.md) · [HTTP API](docs/api.md) · [架构](docs/architecture.md)
+[配置](docs/configuration.md) · [部署](docs/deployment.md) · [HTTP API](docs/api.md) · [架构](docs/architecture.md)
 
 ## 演示
 
