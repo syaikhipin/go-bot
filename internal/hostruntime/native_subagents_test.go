@@ -53,7 +53,7 @@ func TestNativeSiblingChildrenSettleTogetherWithoutLosingParentNotices(t *testin
 	factory := nativeRuntimeTestFactory(t, &nativeRuntimeStore{}, model)
 	factory.Storage = rootStore
 	worker := &NativeRuntime{Factory: factory, Identity: assembly.NativeRuntimeIdentity{
-		UserID: "alice", SessionID: "root", Workspace: "/root/harness/workspaces/root",
+		UserID: "alice", SessionID: "root", Workspace: t.TempDir(),
 	}}
 	if err := worker.Start(ctx, false); err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func TestNativeListAgentsHidesOneShotHistoryAcrossResume(t *testing.T) {
 	rootStore := nativeTreeNode{tree: tree, id: "root"}
 	factory := nativeRuntimeTestFactory(t, &nativeRuntimeStore{}, nativeRuntimeModel{})
 	factory.Storage = rootStore
-	identity := assembly.NativeRuntimeIdentity{UserID: "alice", SessionID: "root", Workspace: "/root/harness/workspaces/root"}
+	identity := assembly.NativeRuntimeIdentity{UserID: "alice", SessionID: "root", Workspace: t.TempDir()}
 	worker := &NativeRuntime{Factory: factory, Identity: identity}
 	if err := worker.Start(ctx, false); err != nil {
 		t.Fatal(err)
