@@ -1,0 +1,34 @@
+package sessionformat
+
+import (
+	"context"
+	"errors"
+	"regexp"
+)
+
+// OwnerClaim keeps one active writer for a Session journal.
+type OwnerClaim func(context.Context, string) (release func(), err error)
+
+var ErrV4UncertainWrite = errors.New("Session v4 append outcome is uncertain; reopen before continuing")
+
+// ErrV4WriteRolledBack means the failed batch was removed and fsynced at the
+// previous file size. The same in-memory suffix can be retried on this writer.
+var ErrV4WriteRolledBack = errors.New("Session v4 append was rolled back; retry the checkpoint")
+
+var v4KeyComponent = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+func validateSessionLineage(projectCWD, rootSessionID string, header Header) error {
+	if projectCWD != "" && header.CWD != projectCWD {
+		return errors.New("Session v4 header cwd differs from its project directory")
+	}
+	if rootSessionID == "" {
+		if header.ParentSession != "" || header.Origin == "subagent" || header.DelegationDepth != 0 {
+			return errors.New("top-level Session v4 header declares child lineage")
+		}
+		return nil
+	}
+	if header.ParentSession == "" || header.Origin != "subagent" || header.DelegationDepth < 1 {
+		return errors.New("child Session v4 header lacks lineage")
+	}
+	return nil
+}

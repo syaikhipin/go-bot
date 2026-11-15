@@ -1,0 +1,59 @@
+# go-harness browser test client
+
+Follow the [local Quickstart](../README.md#quickstart) from the repository root and open
+[http://127.0.0.1:8080/](http://127.0.0.1:8080/). The Controller serves the
+page and relays API calls and SSE to the selected account's Docker or ECI Host.
+Create or open an account by name. Configure Responses endpoints in Model settings, and use the model picker below a chat to change its model. Add a DeepSeek search API key under **Settings → Web search**.
+
+For a custom mobile, desktop or web interface, use the Controller's
+[HTTP and SSE API](../docs/api.md). The [minimal example](../examples/frontend-minimal/index.html)
+shows how to start a Host, create a session, send a message and read the native stream.
+
+Use **New chat** to create a session. Right-click a row in **Chats** to delete
+it from the list. The Host archives the session and retains its data on disk.
+On touch screens, the row menu offers the same action.
+
+Open the account menu at the bottom of the sidebar for **Settings**,
+**File system**, and **Stop Host**. Use **File system** to browse the account's Host data at
+`/root/harness`. Expand directories to see their contents, select an entry to
+copy its absolute path, or refresh the selected directory. The panel keeps
+its position when you switch chats.
+
+You can send more messages while a reply is generating. They appear above the
+composer. **Steer** adds that message to the current reply's next Agent step.
+**Delete** removes just that queued message. Questions from the Agent appear
+above the composer and can be answered there.
+
+Use the plus button to choose attachments, or paste files when your browser
+provides them in the clipboard. The composer keeps them in the draft until
+you send the message. You can remove individual attachments before sending.
+
+## Local development
+
+Use Node.js 22.12+ and the existing Controller configuration. A native
+Controller also needs a Redis instance, selected with `REDIS_ADDR` and
+defaulting to `127.0.0.1:6379`. Run these commands from the repository root
+in separate terminals.
+
+```sh
+go run ./cmd/controller serve --env-file .env --web-dev-origin http://127.0.0.1:5173
+npm --prefix frontend ci
+npm --prefix frontend run dev
+```
+
+Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/). Vite proxies `/v1`
+to Controller on port 8080. Set the exact loopback origin in
+`--web-dev-origin` when changing the Vite port. The production UI uses the
+Controller's own origin.
+
+```sh
+npm --prefix frontend test
+make build-web
+```
+
+`make build-web` embeds the production bundle into `bin/controller`.
+A plain Go build keeps the API-only Controller available. The Host image
+contains the compiled Host and agent tools. If using ECI, build the image cache from
+the same version so the Host supports cold history and archiving.
+
+The welcome robot is [Lucide Bot](https://lucide.dev/icons/bot).

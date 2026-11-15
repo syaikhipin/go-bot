@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Go Harness API example</title>
+<style>body{font:16px system-ui;max-width:800px;margin:3rem auto;padding:1rem}input,textarea,button{font:inherit;padding:.5rem;margin:.25rem;width:100%;box-sizing:border-box}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>
+<h1>Go Harness</h1><p>Serve this example on the configured Controller development origin. See the frontend README.</p>
+<label>Controller URL<input id="url" value="http://127.0.0.1:8080"></label>
+<label>Existing account name<input id="account" value="alice"></label>
+<button id="create">Create session</button><p id="session"></p>
+<textarea id="message" placeholder="Message"></textarea><button id="send">Send</button><pre id="output"></pre>
+<script type="module">
+let sid,abort,account;
+const $=id=>document.getElementById(id);
+async function request(path,options={}){
+ const headers=new Headers(options.headers);headers.set('X-User-ID',account);
+ const res=await fetch($('url').value.replace(/\/$/,'')+path,{...options,headers,credentials:"omit"});
+ if(!res.ok)throw new Error(`${res.status}: ${await res.text()}`);return res;
+}
+async function stream(){
+ abort?.abort();abort=new AbortController();const response=await request(`/v1/sessions/${sid}/stream`,{signal:abort.signal});
+ const reader=response.body.pipeThrough(new TextDecoderStream()).getReader();let pending='';
+ for(;;){const {value,done}=await reader.read();if(done)break;pending+=value;
+ let end;while((end=pending.indexOf('\n\n'))>=0){const frame=pending.slice(0,end);pending=pending.slice(end+2);$('output').textContent+=frame+'\n\n';}}
+}
+function report(e){if(e.name!=='AbortError')$('output').textContent+=`\n${e.message}`;}
+$('create').onclick=async()=>{try{abort?.abort();sid=undefined;account=$('account').value;await request('/v1/host/start',{method:'POST'});const res=await request('/v1/sessions',{method:'POST'});sid=(await res.json()).sessionId;$('session').textContent=sid;stream().catch(report);}catch(e){report(e)}};
+$('send').onclick=async()=>{try{if(!sid)throw new Error('Create a session first');await request(`/v1/sessions/${sid}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:$('message').value})});$('message').value='';}catch(e){report(e)}};
+</script></html>

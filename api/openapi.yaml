@@ -1,0 +1,1632 @@
+openapi: 3.0.3
+info:
+  title: Go Harness HTTP API
+  version: 0.1.0
+  description: The local Controller selects an account through X-User-ID.
+    Direct Host requests use the internal Host token instead.
+servers:
+- url: http://127.0.0.1:8080
+paths:
+  /healthz:
+    get:
+      summary: Process liveness
+      operationId: get__healthz
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+  /readyz:
+    get:
+      summary: Application readiness
+      operationId: get__readyz
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+  /v1/capabilities:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Current Host capabilities
+      operationId: get__v1_capabilities
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: &id001
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+  /v1/accounts:
+    post:
+      summary: Create an account by name
+      operationId: post__v1_accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId]
+                properties:
+                  userId:
+                    type: string
+        '400':
+          description: Invalid account name
+        '409':
+          description: Account already exists
+        '503':
+          description: Account store unavailable
+  /v1/settings/models:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read the model catalog with redacted credentials
+      responses:
+        '200':
+          description: Catalog containing defaultEndpointId and endpoints keyed by ID
+        '404': {description: Account not found}
+  /v1/settings/models/endpoints:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Add an OpenAI-compatible Responses endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: "#/components/schemas/ModelEndpointInput"
+              - type: object
+                required: [name, baseUrl, apiKey, models]
+      responses:
+        '201': {description: Endpoint saved, returning endpointId and status}
+        '503': {description: Settings could not be saved or the running Host could not apply them}
+        '400': {description: Invalid model endpoint}
+  /v1/settings/models/endpoints/{endpointId}:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - name: endpointId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    patch:
+      summary: Edit supplied endpoint fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelEndpointInput"
+      responses:
+        '200': {description: Endpoint updated}
+        '503': {description: Settings could not be saved or the running Host could not apply them}
+        '400': {description: Invalid endpoint or API key missing for a new origin}
+        '404': {description: Endpoint not found}
+    delete:
+      summary: Remove an endpoint and clear it if it was the default
+      responses:
+        '200': {description: Endpoint removed}
+        '503': {description: Settings could not be saved or the running Host could not apply them}
+        '404': {description: Endpoint not found}
+  /v1/settings/models/default:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    put:
+      summary: Change the default endpoint for new sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpointId]
+              properties:
+                endpointId:
+                  type: string
+                  description: Endpoint ID, or an empty string to clear the default
+      responses:
+        '200': {description: Default saved}
+        '503': {description: Settings could not be saved or the running Host could not apply them}
+        '400': {description: Invalid endpoint}
+  /v1/host:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Controller runtime state
+      operationId: get__v1_host
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+  /v1/host/schedules:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read the Host task catalog without activating sessions
+      responses:
+        '200':
+          description: Active tasks first, followed by paused and ended tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tasks]
+                properties:
+                  tasks:
+                    type: array
+                    items: {$ref: "#/components/schemas/ScheduleEntry"}
+        '503': {description: Host or Schedule unavailable}
+    post:
+      summary: Create a scheduled task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, prompt, timing]
+              properties:
+                title: {type: string, maxLength: 120}
+                prompt: {type: string}
+                timing: {$ref: "#/components/schemas/ScheduleTiming"}
+                target: {$ref: "#/components/schemas/ScheduleTarget"}
+      responses:
+        '201':
+          description: Task stored
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ScheduleEntry"}
+        '400': {description: Invalid rule or destination}
+  /v1/host/schedules/list:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: List a page from the Host task catalog
+      parameters:
+      - {name: active, in: query, schema: {type: boolean}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      responses:
+        '200': {description: Page with items, shown, total, limit and offset}
+        '400': {description: Invalid page options}
+  /v1/host/schedules/limits:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read the per-task delivery interval for tasks that always create a new session
+      responses:
+        '200': {description: newSessionIntervalSeconds in seconds}
+  /v1/host/schedules/ended:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    delete:
+      summary: Remove all ended tasks and their delivery histories
+      responses:
+        '200': {description: Count of deleted tasks}
+  /v1/host/schedules/stream:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Invalidate a cached task catalog when task data or execution activity changes
+      responses:
+        '200':
+          description: schedule/changed events
+          content:
+            text/event-stream:
+              schema: {type: string}
+  /v1/host/schedules/{scheduleId}:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - &scheduleId {name: scheduleId, in: path, required: true, schema: {type: string}}
+    get:
+      summary: Read a task by ID
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ScheduleEntry"}
+        '404': {description: Task missing}
+    patch:
+      summary: Edit or delete a scheduled task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: {type: string, enum: [update, delete]}
+                expectedUpdatedAt: {type: string, format: date-time, nullable: true}
+                patch:
+                  type: object
+                  properties:
+                    title: {type: string, maxLength: 120}
+                    prompt: {type: string}
+                    target: {$ref: "#/components/schemas/ScheduleTarget"}
+                    timing: {$ref: "#/components/schemas/ScheduleTiming"}
+                    active: {type: boolean}
+      responses:
+        '200': {description: Updated task or deletion receipt}
+        '400': {description: Invalid edit}
+        '404': {description: Task missing}
+        '409': {description: The task changed since the submitted revision}
+  /v1/host/schedules/{scheduleId}/run:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - *scheduleId
+    post:
+      summary: Deliver a task now without advancing its next occurrence
+      responses:
+        '200':
+          description: Task with the accepted delivery receipt
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ScheduleEntry"}
+        '404': {description: Task missing}
+        '409': {description: Execution is queued, running, or inside its minimum interval}
+  /v1/host/schedules/{scheduleId}/history:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - *scheduleId
+    get:
+      summary: Read durable deliveries without activating their sessions
+      parameters:
+      - {name: limit, in: query, required: true, schema: {type: integer, minimum: 1, maximum: 100}}
+      - {name: before, in: query, schema: {type: string}, description: Exclusive delivery message ID}
+      responses:
+        '200': {description: Receipts in newest-first order, retention limits and optional nextBefore cursor}
+        '404': {description: Task or cursor missing}
+  /v1/host/files:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: List an account Host directory
+      description: Read file metadata under /root/harness without starting a session.
+      parameters:
+      - name: path
+        in: query
+        description: Relative directory path. Omit it for the root.
+        schema: {type: string}
+      - name: offset
+        in: query
+        schema: {type: integer, minimum: 0, default: 0}
+      responses:
+        '200':
+          description: Directory entries and the next offset, when available
+          headers:
+            X-Harness-Storage:
+              schema: {type: string, enum: [docker-volume, nas, instance]}
+            X-Harness-Storage-Source:
+              description: Docker volume name or NAS subdirectory
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rootPath, path, files, truncated]
+                properties:
+                  rootPath: {type: string, example: /root/harness}
+                  path: {type: string}
+                  truncated: {type: boolean}
+                  nextOffset: {type: integer}
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, path, isDir, size]
+                      properties:
+                        name: {type: string}
+                        path: {type: string}
+                        isDir: {type: boolean}
+                        size: {type: integer, format: int64}
+        '400':
+          description: Invalid directory path or offset
+        '404':
+          description: Account or directory not found
+        '503':
+          description: Host unavailable
+  /v1/host/instance:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    delete:
+      summary: Delete precisely owned compute, retain external data
+      operationId: delete__v1_host_instance
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+        '504':
+          description: Runtime operation could not be confirmed before the deadline
+  /v1/hosts/{hostId}:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read an instance of the selected account
+      operationId: get__v1_hosts_hostId
+      parameters:
+      - in: path
+        name: hostId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Host state
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Instance absent or assigned to a different account
+        '503':
+          description: Service unavailable
+  /v1/host/start:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Start or reconnect the selected account Host
+      operationId: post__v1_host_start
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+        '504':
+          description: Runtime operation could not be confirmed before the deadline
+  /v1/host/stop:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Stop Host
+      operationId: post__v1_host_stop
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+        '504':
+          description: Runtime operation could not be confirmed before the deadline
+  /v1/settings/web-search:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read account web search settings
+      responses:
+        '200':
+          description: Available providers, current selection and saved settings with credentials redacted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolProviderSettings"
+        '404':
+          description: Account not found
+    put:
+      summary: Save settings or select an account web search provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider: {type: string, default: deepseek, enum: [deepseek, zhipu, doubao]}
+                activate:
+                  type: boolean
+                  description: Set false to save without changing the active provider. Set true to use this provider with a saved key. Omit for legacy save-and-select behavior.
+                apiKey: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+      responses:
+        '200':
+          description: Settings saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolProviderSettings"
+        '503':
+          description: Settings could not be saved or the running Host could not apply them
+        '400':
+          description: Invalid provider settings
+        '404':
+          description: Account not found
+    delete:
+      summary: Remove the specified provider's API key
+      parameters:
+      - name: provider
+        in: query
+        schema: {type: string, default: deepseek}
+      responses:
+        '200':
+          description: API key removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolProviderSettings"
+        '503':
+          description: Settings could not be saved or the running Host could not apply them
+        '400':
+          description: Unsupported provider
+        '404':
+          description: Account not found
+  /v1/settings/image-generation:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read account image generation settings
+      responses:
+        '200':
+          description: Available providers, current selection and saved settings with credentials redacted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolProviderSettings"
+        '404':
+          description: Account not found
+    put:
+      summary: Save settings or select an account image generation provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider: {type: string, default: seedream, enum: [seedream, openai, nanobanana]}
+                activate:
+                  type: boolean
+                  description: Set false to save without changing the active provider. Set true to use this provider with a saved key. Omit for legacy save-and-select behavior.
+                model:
+                  type: string
+                  minLength: 1
+                  maxLength: 256
+                  description: Required on initial save and legacy writes. Selection can reuse the stored model.
+                apiKey: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+      responses:
+        '200':
+          description: Settings saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolProviderSettings"
+        '503':
+          description: Settings could not be saved or the running Host could not apply them
+        '400':
+          description: Invalid provider settings
+        '404':
+          description: Account not found
+    delete:
+      summary: Remove the specified provider's API key
+      parameters:
+      - name: provider
+        in: query
+        schema: {type: string, default: seedream}
+      responses:
+        '200':
+          description: API key removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolProviderSettings"
+        '503':
+          description: Settings could not be saved or the running Host could not apply them
+        '400':
+          description: Unsupported provider
+        '404':
+          description: Account not found
+  /v1/sessions:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Create a top-level session
+      operationId: post__v1_sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspaceSessionId:
+                  type: string
+                  format: uuid
+                  description: Reuse the recorded working directory of this session.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - sessionId
+                properties:
+                  sessionId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: No valid account default model (model_default_required)
+        '503':
+          description: Service unavailable
+    get:
+      summary: List persisted and unarchived top-level sessions
+      operationId: get__v1_sessions
+      parameters:
+      - name: latest
+        in: query
+        description: When true, return only the most recently created unarchived session, if one exists.
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions]
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      required: [sessionId, createdAt, mode]
+                      properties:
+                        sessionId:
+                          type: string
+                          format: uuid
+                        createdAt:
+                          type: string
+                          format: date-time
+                        mode:
+                          type: string
+                        title:
+                          type: string
+                        cwd:
+                          type: string
+                  nextCursor:
+                    type: string
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      - name: cursor
+        in: query
+        schema:
+          type: string
+  /v1/sessions/{id}:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    delete:
+      summary: Archive a top-level session and retain its data on disk
+      operationId: archiveSession
+      parameters:
+      - name: stopActivity
+        in: query
+        schema: {type: boolean, default: false}
+        description: Stop running work and remove active schedules that deliver to this session.
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Session archived, including a repeated request for the same session
+        '404':
+          description: Session not found
+        '409':
+          description: Session is busy or is the destination of a pending scheduled reminder
+        '503':
+          description: Archive storage is unavailable
+    get:
+      summary: Active session state
+      operationId: get__v1_sessions_id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/model:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - name: id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      summary: Read the selection and availability for one session
+      responses:
+        '200': {description: Session model selection and status}
+        '404': {description: Session not found}
+    put:
+      summary: Switch this session's endpoint and model for its next turn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpointId, modelId]
+              properties:
+                endpointId: {type: string, format: uuid}
+                modelId: {type: string}
+      responses:
+        '200': {description: Session model updated}
+        '503': {description: Settings could not be saved or the running Host could not apply them}
+        '404': {description: Session not found}
+        '409': {description: Model selection unavailable}
+  /v1/sessions/{id}/messages:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Durably admit a new message
+      operationId: post__v1_sessions_id_messages
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - messageId
+                properties:
+                  messageId:
+                    type: string
+                  files:
+                    type: array
+                    items: *id001
+                  images:
+                    type: array
+                    items: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - content
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                files:
+                  type: array
+                  maxItems: 8
+                  items:
+                    type: string
+                    format: binary
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+  /v1/sessions/{id}/events:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Durable event page
+      operationId: get__v1_sessions_id_events
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: *id001
+                  nextCursor:
+                    type: integer
+                    nullable: true
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: after
+        in: query
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        schema:
+          type: integer
+  /v1/sessions/{id}/transcript:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - name: id
+      in: path
+      required: true
+      schema: {type: string}
+    get:
+      summary: Web transcript page with whole turns
+      description: The first page includes current queue and question snapshots and a durable SSE cursor.
+      parameters:
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      - name: before
+        in: query
+        schema: {type: integer, minimum: 0}
+      responses:
+        '200':
+          description: Transcript page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: *id001
+                  before: {type: integer, nullable: true}
+                  throughSeq: {type: integer, nullable: true}
+                  queue:
+                    type: array
+                    items: {type: object}
+                  questions:
+                    type: array
+                    nullable: true
+                    items: {type: object}
+        '400':
+          description: Invalid turn cursor or limit
+        '404':
+          description: Session not found
+        '503':
+          description: Transcript unavailable
+  /v1/sessions/{id}/queue/{messageId}:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - name: id
+      in: path
+      required: true
+      schema: {type: string}
+    - name: messageId
+      in: path
+      required: true
+      schema: {type: string}
+    delete:
+      summary: Remove one queued user message
+      responses:
+        '204':
+          description: Message removed
+        '404':
+          description: Session or queued message not found
+        '503':
+          description: Queue unavailable
+  /v1/sessions/{id}/queue/{messageId}/steer:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - name: id
+      in: path
+      required: true
+      schema: {type: string}
+    - name: messageId
+      in: path
+      required: true
+      schema: {type: string}
+    post:
+      summary: Move one queued user message into the active turn's next step
+      responses:
+        '204':
+          description: Message moved
+        '404':
+          description: Session or queued message not found
+        '409':
+          description: No active turn for steering
+        '503':
+          description: Queue unavailable
+  /v1/sessions/{id}/stream:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Live assistant chunks and replayable durable events
+      operationId: get__v1_sessions_id_stream
+      responses:
+        '200':
+          description: Success
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: after
+        in: query
+        schema:
+          type: integer
+      - name: view
+        in: query
+        description: Select the Web transcript projection, queue and question snapshots. The default is the native view.
+        schema: {type: string, enum: [chat]}
+      - name: Last-Event-ID
+        in: header
+        schema:
+          type: string
+  /v1/sessions/{id}/turns/{turnId}/cancel:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Cancel queued or running turn
+      operationId: post__v1_sessions_id_turns_turnId_cancel
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: turnId
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/commands/compact:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Compact idle session
+      operationId: post__v1_sessions_id_commands_compact
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/files:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Page workspace directory entries
+      operationId: get__v1_sessions_id_files
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: query
+        schema:
+          type: string
+      - name: offset
+        in: query
+        schema:
+          type: integer
+  /v1/sessions/{id}/files/content:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Download regular workspace file
+      description: A present file block supplies the absolute Host path. The requested file must be inside the session workspace.
+      operationId: get__v1_sessions_id_files_content
+      responses:
+        '200':
+          description: Success
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: query
+        description: Workspace-relative path or absolute Host path within the workspace.
+        schema:
+          type: string
+        required: true
+  /v1/sessions/{id}/usage:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read usage
+      operationId: get__v1_sessions_id_usage
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/goal:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read goal
+      operationId: get__v1_sessions_id_goal
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/plan:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read plan
+      operationId: get__v1_sessions_id_plan
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Set plan mode
+      operationId: post__v1_sessions_id_plan
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - active
+              properties:
+                active:
+                  type: boolean
+  /v1/sessions/{id}/permissions:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Read the session permission
+      operationId: getSessionPermission
+      responses:
+        '200':
+          description: Effective session permission
+          content:
+            application/json:
+              schema: &sessionPermission
+                type: object
+                required: [mode, approval]
+                properties:
+                  mode: &permissionMode
+                    type: string
+                    enum: [danger-full-access, workspace-write, read-only]
+                  approval:
+                    type: string
+                    enum: [ask, never]
+        '404':
+          description: Session not found
+    post:
+      summary: Change the permission of an idle session
+      operationId: setSessionPermission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: *permissionMode
+      responses:
+        '200':
+          description: Saved session permission
+          content:
+            application/json:
+              schema: *sessionPermission
+        '400':
+          description: Invalid permission mode
+        '404':
+          description: Session not found
+        '409':
+          description: Turn or background work is active
+        '503':
+          description: Session or sandbox unavailable
+  /v1/sessions/{id}/questions:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read questions
+      operationId: get__v1_sessions_id_questions
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/goal/resume:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Resume a goal at its exact revision
+      operationId: post__v1_sessions_id_goal_resume
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - goalId
+              - revision
+              properties:
+                goalId:
+                  type: string
+                revision:
+                  type: integer
+                  minimum: 1
+  /v1/sessions/{id}/questions/{callId}/answer:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Answer pending or continued questions and resolve a pending approval
+      operationId: post__v1_sessions_id_questions_callId_answer
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: callId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - answers
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - id
+                    properties:
+                      id:
+                        type: string
+                      selected:
+                        type: array
+                        items:
+                          type: string
+                      custom:
+                        type: string
+  /v1/sessions/{id}/questions/{callId}/cancel:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Cancel a pending question
+      operationId: post__v1_sessions_id_questions_callId_cancel
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: callId
+        in: path
+        required: true
+        schema:
+          type: string
+  /v1/sessions/{id}/attachments/{attachmentId}:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Download an attachment referenced by this session
+      operationId: get_session_attachment
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+      - name: name
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Verified attachment bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No available attachment with that identity in this session
+        '503':
+          description: Session history unavailable
+  /v1/sessions/{id}/schedules/{scheduleId}/history:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    get:
+      summary: Read delivery receipts
+      operationId: get__v1_sessions_id_schedules_scheduleId_history
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: Invalid request
+        '404':
+          description: Not found
+        '409':
+          description: State conflict
+        '503':
+          description: Service unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: scheduleId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      - name: before
+        in: query
+        schema:
+          type: string
+components:
+  parameters:
+    AccountName:
+      in: header
+      name: X-User-ID
+      required: true
+      description: Account name on Controller requests
+      schema:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
+  schemas:
+    ScheduleEntry:
+      type: object
+      required: [record, status, scheduledAtLocal]
+      properties:
+        record:
+          type: object
+          required: [id, title, prompt, kind, scheduledAt]
+          properties:
+            id: {type: string}
+            title: {type: string}
+            prompt: {type: string}
+            kind: {type: string, enum: [after, at, every, daily, weekly, cron, rrule]}
+            scheduledAt: {type: string, format: date-time}
+            afterSeconds: {type: integer}
+            everySeconds: {type: integer}
+            time: {type: string}
+            timeZone: {type: string}
+            weekdays: {type: array, items: {type: integer, minimum: 1, maximum: 7}}
+            expression: {type: string}
+            rrule: {type: string}
+        status: {type: string, enum: [active, paused, ended]}
+        sessionId: {type: string, description: Existing destination session}
+        target: {$ref: "#/components/schemas/ScheduleTarget"}
+        involvedSessionIds: {type: array, items: {type: string}}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        scheduledAtLocal: {type: string, format: date-time}
+        executionActive: {type: boolean}
+        deliveryFloorEndsAt: {type: string, format: date-time}
+        lastDelivery:
+          type: object
+          required: [scheduledAt, deliveredAt, messageId]
+          properties:
+            scheduledAt: {type: string, format: date-time}
+            deliveredAt: {type: string, format: date-time}
+            messageId: {type: string}
+            targetSessionId: {type: string}
+    ScheduleTarget:
+      type: object
+      required: [kind]
+      properties:
+        kind: {type: string, enum: [session, new_once, new]}
+        sessionId: {type: string, description: Existing destination or a server-reserved new-once session ID in responses}
+        create:
+          type: object
+          properties:
+            cwd: {type: string}
+            agentPreset: {type: string}
+    ScheduleTiming:
+      type: object
+      required: [kind]
+      description: Supply the one property matching kind. After and every use seconds.
+      properties:
+        kind: {type: string, enum: [after, at, every, daily, weekly, cron, rrule]}
+        after_seconds: {type: integer, minimum: 1}
+        every_seconds: {type: integer, minimum: 60}
+        at:
+          oneOf:
+          - {type: string, format: date-time}
+          - type: object
+            required: [date, time, time_zone]
+            properties:
+              date: {type: string, format: date}
+              time: {type: string}
+              time_zone: {type: string}
+        daily:
+          type: object
+          required: [time, time_zone]
+          properties:
+            time: {type: string}
+            time_zone: {type: string}
+        weekly:
+          type: object
+          required: [time, time_zone, weekdays]
+          properties:
+            time: {type: string}
+            time_zone: {type: string}
+            weekdays: {type: array, items: {type: integer, minimum: 1, maximum: 7}}
+        cron:
+          type: object
+          required: [expression, time_zone]
+          properties:
+            expression: {type: string}
+            time_zone: {type: string}
+        rrule: {type: string}
+    ToolProviderSettings:
+      type: object
+      required: [defaultProvider, provider, providers, entries, hasApiKey]
+      properties:
+        defaultProvider: {type: string}
+        provider: {type: string}
+        providers:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: {type: string}
+              name: {type: string}
+              defaultModel: {type: string}
+        entries:
+          type: object
+          additionalProperties:
+            type: object
+            required: [hasApiKey]
+            properties:
+              hasApiKey: {type: boolean}
+              model: {type: string}
+        hasApiKey: {type: boolean}
+    ModelEndpointInput:
+      type: object
+      properties:
+        name: {type: string}
+        baseUrl: {type: string, format: uri}
+        apiKey: {type: string, writeOnly: true}
+        models:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Ordered model IDs. The first model is the endpoint default.
+          items: {type: string}

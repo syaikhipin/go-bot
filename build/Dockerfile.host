@@ -1,0 +1,99 @@
+# syntax=docker/dockerfile:1.7
+FROM node:22-trixie-slim AS node
+# Bootstrap modern trust roots before Debian's ca-certificates package exists.
+RUN node -e 'process.stdout.write(require("tls").rootCertificates.join("\n"))' > /tmp/bootstrap-ca.crt
+FROM golang:1.26-trixie AS toolchain
+FROM toolchain AS source
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=secret,id=build_ca,required=false --mount=type=cache,target=/go/pkg/mod \
+    if [ -s /run/secrets/build_ca ]; then cat /run/secrets/build_ca >> /etc/ssl/certs/ca-certificates.crt; fi; go mod download
+COPY . .
+FROM source AS compile
+ARG TARGETOS=linux TARGETARCH
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -o /out/host ./cmd/host
+
+FROM debian:trixie-slim AS asset-downloads
+COPY --from=node /tmp/bootstrap-ca.crt /etc/ssl/certs/ca-certificates.crt
+RUN --mount=type=secret,id=build_ca,required=false \
+    if [ -s /run/secrets/build_ca ]; then cat /run/secrets/build_ca >> /etc/ssl/certs/ca-certificates.crt; fi; \
+    sed -i 's#http://deb.debian.org#https://deb.debian.org#g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt -o Acquire::Retries=5 update && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* \
+    && if [ -s /run/secrets/build_ca ]; then cat /run/secrets/build_ca >> /etc/ssl/certs/ca-certificates.crt; fi
+FROM asset-downloads AS officecli
+ARG TARGETARCH
+ARG OFFICECLI_VERSION=v1.0.160
+COPY build/officecli.sha256 /tmp/SHA256SUMS
+RUN case "$TARGETARCH" in amd64) asset=officecli-linux-x64;; arm64) asset=officecli-linux-arm64;; *) exit 1;; esac \
+    && curl -fL --retry 5 --connect-timeout 15 "https://github.com/iOfficeAI/OfficeCLI/releases/download/${OFFICECLI_VERSION}/${asset}" -o "/tmp/${asset}" \
+    && cd /tmp && grep " ${asset}$" SHA256SUMS | sha256sum -c - \
+    && install -m 0755 "/tmp/${asset}" /usr/local/bin/officecli
+
+# Use the official Codex installer layout and embedded resources from the same
+# verified binary. The isolated HOME is only used to assemble the image seed.
+RUN --network=none set -eu; \
+    export HOME=/tmp/officecli-home OFFICECLI_SKIP_UPDATE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1; \
+    mkdir -p "$HOME/.agents" /out; \
+    officecli skills codex; \
+    for skill in word excel pptx academic-paper data-dashboard financial-model pitch-deck word-form morph-ppt morph-ppt-3d; do \
+      officecli skills install "$skill" codex; \
+    done; \
+    for bundle in officecli officecli-docx officecli-xlsx officecli-pptx officecli-academic-paper officecli-data-dashboard officecli-financial-model officecli-pitch-deck officecli-word-form morph-ppt morph-ppt-3d; do \
+      test -s "$HOME/.agents/skills/$bundle/SKILL.md"; \
+    done; \
+    test -s "$HOME/.agents/skills/morph-ppt/reference/styles/INDEX.md"; \
+    mv "$HOME/.agents/skills" /out/skills
+
+FROM debian:trixie-slim AS computer
+ENV DEBIAN_FRONTEND=noninteractive
+COPY --from=node /tmp/bootstrap-ca.crt /etc/ssl/certs/ca-certificates.crt
+RUN --mount=type=secret,id=build_ca,required=false \
+    if [ -s /run/secrets/build_ca ]; then cat /run/secrets/build_ca >> /etc/ssl/certs/ca-certificates.crt; fi; \
+    sed -i 's#http://deb.debian.org#https://deb.debian.org#g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt -o Acquire::Retries=5 update && apt-get -o Acquire::https::CaInfo=/etc/ssl/certs/ca-certificates.crt -o Acquire::Retries=5 install -y --no-install-recommends \
+      ca-certificates bash git curl ripgrep tzdata python3 python3-pip python3-venv \
+      chromium libicu76 fontconfig fonts-liberation fonts-noto-cjk fonts-crosextra-carlito fonts-crosextra-caladea \
+      libreoffice-writer libreoffice-calc libreoffice-impress poppler-utils poppler-data qpdf mupdf-tools \
+      tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-chi-tra \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/agent-venv \
+    && if [ -s /run/secrets/build_ca ]; then cat /run/secrets/build_ca >> /etc/ssl/certs/ca-certificates.crt; fi
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+ENV HOME=/root PATH="/opt/agent-venv/bin:/root/.local/bin:${PATH}" NPM_CONFIG_PREFIX=/root/.local NODE_PATH=/root/.local/lib/node_modules OFFICECLI_SKIP_UPDATE=1
+RUN python -m pip install --cert /etc/ssl/certs/ca-certificates.crt --no-cache-dir pypdf pdfplumber reportlab PyMuPDF pypdfium2 python-pptx numpy lxml defusedxml pdf2image Pillow pytesseract \
+    && npm --cafile=/etc/ssl/certs/ca-certificates.crt install --global --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1 pdfjs-dist@4.10.38
+COPY --from=officecli /usr/local/bin/officecli /usr/local/bin/officecli
+COPY build/fontconfig/60-office-fonts.conf /etc/fonts/conf.d/60-office-fonts.conf
+RUN mkdir -p /root/harness && fc-cache -f
+
+FROM computer AS host
+ARG AGENT_BROWSER_VERSION=0.43.0
+ARG AGENT_BROWSER_SKILL_REF=1cc19526f3641c8543d55aa6700e7c55b37ac356
+ARG SKILLS_CLI_VERSION=1.8.1
+COPY --from=officecli /out/skills/ /usr/share/go-harness/skill-seed/
+RUN set -eu; \
+    npm --cafile=/etc/ssl/certs/ca-certificates.crt install --global --prefix /usr/local --no-audit --no-fund "agent-browser@${AGENT_BROWSER_VERSION}"; \
+    agent-browser --version; \
+    agent-browser skills get core > /dev/null; \
+    install -Dm0644 /usr/local/lib/node_modules/agent-browser/LICENSE /usr/share/doc/go-harness/agent-browser-LICENSE; \
+    skill_project="$(mktemp -d)"; \
+    cd "$skill_project"; \
+    DISABLE_TELEMETRY=1 NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
+      npx --yes "skills@${SKILLS_CLI_VERSION}" add "vercel-labs/agent-browser#${AGENT_BROWSER_SKILL_REF}" --skill agent-browser --agent codex --copy --yes; \
+    test -s .agents/skills/agent-browser/SKILL.md; \
+    mv .agents/skills/agent-browser /usr/share/go-harness/skill-seed/; \
+    cd /; \
+    rm -rf "$skill_project"
+
+ENV GIN_MODE=release DSH_HOME=/root/harness/.dsh DSH_AGENTS_HOME=/root/harness/.agents \
+    AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
+COPY --from=compile /out/host /usr/local/bin/host
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/go-harness/
+COPY build/web-markdown/NOTICES /usr/share/doc/go-harness/web-markdown-NOTICES
+WORKDIR /root/harness
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/host"]

@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@joplin/turndown-plugin-gfm": "1.0.67",
+    "@mixmark-io/domino": "2.2.0",
+    "turndown": "7.2.4"
+  }
+}

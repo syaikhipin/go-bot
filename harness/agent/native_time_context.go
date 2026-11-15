@@ -1,0 +1,180 @@
+package agent
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// nativeTimeContext mirrors DeepSeek's opt-in, pre-step clock snapshot. Keep
+// time out of the system prompt so it does not go stale in a long-lived Host.
+type nativeTimeContext struct {
+	zone     string
+	location *time.Location
+	refresh  time.Duration
+}
+
+// EnableTimeContext installs the clock only for Agents whose composition
+// includes Schedule. A zero refresh injects on every step, as upstream does.
+func (a *NativeLoop) EnableTimeContext(zone string, refresh time.Duration) error {
+	if refresh < 0 {
+		return errors.New("time-context refresh must not be negative")
+	}
+	if zone == "" {
+		return errors.New("time-context zone is required")
+	}
+	location, err := time.LoadLocation(zone)
+	if err != nil {
+		return fmt.Errorf("invalid time-context zone %q: %w", zone, err)
+	}
+	a.timeContext = &nativeTimeContext{zone: zone, location: location, refresh: refresh}
+	return nil
+}
+
+func (a *NativeLoop) ensureTimeContext(ctx context.Context, turn uint64, step int) error {
+	clock := a.timeContext
+	if clock == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	now := time.Now()
+	var lastMessage, lastInjection, lastTurnInjection int64
+	var hasMessage, hasInjection, hasTurnInjection, currentStepStarted, inTurn bool
+	browserZones := make(map[string]struct{})
+	for _, event := range a.session.Events() {
+		switch event.Type {
+		case "step/start":
+			var data struct {
+				Turn uint64 `json:"turn"`
+				Step int    `json:"step"`
+			}
+			if json.Unmarshal(event.Data, &data) == nil && data.Turn == turn && data.Step == step {
+				currentStepStarted = true
+			}
+		case "turn/start", "turn/end":
+			hasTurnInjection = false
+			var data struct {
+				Turn uint64 `json:"turn"`
+			}
+			if json.Unmarshal(event.Data, &data) == nil && data.Turn == turn {
+				inTurn = event.Type == "turn/start"
+			}
+		case "user/message":
+			if !currentStepStarted {
+				hasMessage, lastMessage = true, event.Time
+			}
+			var data struct {
+				Source struct {
+					Kind           string `json:"kind"`
+					RPCID          string `json:"rpcId"`
+					ClientTimeZone string `json:"clientTimeZone"`
+				} `json:"source"`
+			}
+			if json.Unmarshal(event.Data, &data) == nil {
+				if data.Source.Kind == "time-context" {
+					hasInjection, lastInjection = true, event.Time
+					hasTurnInjection, lastTurnInjection = true, event.Time
+				}
+				if inTurn && data.Source.Kind == "user" && data.Source.RPCID != "" && data.Source.ClientTimeZone != "" {
+					browserZones[data.Source.ClientTimeZone] = struct{}{}
+				}
+			}
+		case "assistant/message", "tool/result":
+			if !currentStepStarted {
+				hasMessage, lastMessage = true, event.Time
+			}
+		}
+	}
+	if clock.refresh > 0 && hasInjection && now.UnixMilli() >= lastInjection &&
+		now.Sub(time.UnixMilli(lastInjection)) < clock.refresh {
+		return nil
+	}
+	previous := int64(0)
+	available := false
+	baseline := "model-visible message"
+	if step == 1 {
+		previous, available = lastMessage, hasMessage
+	} else {
+		previous, available = lastTurnInjection, hasTurnInjection
+		baseline = "step context"
+	}
+	elapsed := "unavailable"
+	if available {
+		elapsed = nativeTimeDuration(now.Sub(time.UnixMilli(previous)))
+	}
+	selected := *clock
+	browserText := "Browser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times."
+	if len(browserZones) == 1 {
+		for zone := range browserZones {
+			location, err := time.LoadLocation(zone)
+			if err != nil {
+				return fmt.Errorf("invalid browser time zone %q: %w", zone, err)
+			}
+			selected.zone, selected.location = zone, location
+			browserText = fmt.Sprintf("Browser time zone for this request: %s. Interpret otherwise-unqualified dates and times in this zone.", zone)
+		}
+	} else if len(browserZones) > 1 {
+		zones := make([]string, 0, len(browserZones))
+		for zone := range browserZones {
+			zones = append(zones, zone)
+		}
+		slices.Sort(zones)
+		encoded, err := json.Marshal(zones)
+		if err != nil {
+			return err
+		}
+		browserText = fmt.Sprintf("Browser time zone for this request: mixed %s. Ask the user to clarify otherwise-unqualified dates and times.", encoded)
+	}
+	text := fmt.Sprintf("Time sampled while preparing turn %d, step %d: %s\n", turn, step,
+		nativeTimeTimestamp(now, &selected)) +
+		browserText + "\n" +
+		fmt.Sprintf("Elapsed since the preceding %s: %s.", baseline, elapsed)
+	message := map[string]any{
+		"id": uuid.NewString(), "role": "user",
+		"source":  map[string]any{"kind": "time-context", "form": "snapshot", "sections": []any{map[string]any{"name": "time-context", "text": text}}},
+		"content": []any{map[string]any{"type": "text", "text": text}},
+	}
+	_, err := a.append("user/message", message, json.RawMessage(`"append"`), nil)
+	return err
+}
+
+func nativeTimeTimestamp(now time.Time, clock *nativeTimeContext) string {
+	local := now.In(clock.location)
+	_, secondsEast := local.Zone()
+	sign := "+"
+	if secondsEast < 0 {
+		sign = "-"
+		secondsEast = -secondsEast
+	}
+	return fmt.Sprintf("%s%s%02d:%02d[%s]", local.Format("2006-01-02T15:04:05"), sign,
+		secondsEast/3600, secondsEast%3600/60, clock.zone)
+}
+
+func nativeTimeDuration(elapsed time.Duration) string {
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	seconds := int64(elapsed / time.Second)
+	days, hours := seconds/86400, seconds%86400/3600
+	minutes, rest := seconds%3600/60, seconds%60
+	var parts []string
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", days))
+	}
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+	}
+	if minutes > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", minutes))
+	}
+	parts = append(parts, fmt.Sprintf("%ds", rest))
+	return strings.Join(parts, " ")
+}

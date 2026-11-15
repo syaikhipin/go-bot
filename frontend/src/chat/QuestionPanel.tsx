@@ -1,0 +1,53 @@
+import { useState } from 'react'
+import { answerQuestion } from '../api/controller'
+import type { Answer, PendingQuestion } from './transcript'
+
+export function QuestionPanel({ item, userId, sessionId }: { item: PendingQuestion; userId: string; sessionId: string }) {
+  const [answers, setAnswers] = useState<Answer[]>(() => item.questions.map(question => ({ id: question.id, selected: [] })))
+  const [sending, setSending] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+  const ready = answers.every(answer => answer.selected.length > 0 || Boolean(answer.custom?.trim()))
+
+  function update(index: number, patch: Partial<Answer>) {
+    setAnswers(previous => previous.map((answer, position) => position === index ? { ...answer, ...patch } : answer))
+  }
+
+  async function submit() {
+    if (!ready || sending || submitted) return
+    setSending(true)
+    setError('')
+    try {
+      await answerQuestion(userId, sessionId, item.callId, answers)
+      setSubmitted(true)
+    } catch {
+      setError('The answer could not be sent. Try again.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return <form className="question-panel" aria-label="Agent question" onSubmit={event => { event.preventDefault(); void submit() }}>
+    <strong>{item.state === 'continued' ? 'You can still answer' : 'The agent has a question'}</strong>
+    {item.questions.map((question, index) => <fieldset key={question.id} disabled={sending || submitted}>
+      <legend>{question.question}</legend>
+      {question.detail && <p>{question.detail}</p>}
+      {question.options?.map(option => <label className="question-option" key={option.label}>
+        <input type={question.multiSelect ? 'checkbox' : 'radio'} name={question.id}
+          checked={answers[index].selected.includes(option.label)}
+          onChange={event => {
+            const selected = answers[index].selected
+            update(index, { selected: question.multiSelect
+              ? event.target.checked ? [...selected, option.label] : selected.filter(label => label !== option.label)
+              : [option.label] })
+          }} />
+        <span>{option.label}{option.description && <small>{option.description}</small>}</span>
+      </label>)}
+      <input className="question-custom" type="text" value={answers[index].custom ?? ''}
+        aria-label={'Custom answer for ' + question.question} placeholder="Type your own answer"
+        onChange={event => update(index, { custom: event.target.value })} />
+    </fieldset>)}
+    {error && <p className="feedback" role="alert">{error}</p>}
+    <button className="text-button" type="submit" disabled={!ready || sending || submitted}>{submitted ? 'Answer sent' : 'Send answer'}</button>
+  </form>
+}

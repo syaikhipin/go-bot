@@ -1,0 +1,4 @@
+# Optional ECI cache tuning. Zero size and retention use Alibaba Cloud defaults.
+size_gib: 0
+retention_days: 0
+wait_timeout: 90m

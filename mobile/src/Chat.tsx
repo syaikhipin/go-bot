@@ -1,0 +1,366 @@
+import { useLocale } from './locale'
+import { useEffect, useRef, useState, type ComponentRef } from 'react'
+import { ActivityIndicator, Alert, Animated, Easing, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ArrowUp, ChevronDown, FileText, Folder, ImagePlus, Images, ListFilter, MessageCircle, MessageCircleQuestion, Plus, Shield, ShieldAlert, Square, X } from 'lucide-react-native'
+import { attemptMessage, groupAssistantReplies, messageText, visibleQueue, type Message } from '../../frontend/src/chat/transcript'
+import type { TranscriptCache } from '../../frontend/src/chat/transcriptCache'
+import { ApiError, Controller, problem, type ModelSelection, type SessionRow } from './api'
+import { LibrarySheet, ModelSheet, QuestionSheet } from './ChatSheets'
+import { FileIcon } from './FileIcon'
+import { HostFilesSheet } from './HostFilesSheet'
+import { ImageViewer } from './ImageViewer'
+import { addAttachments, pickPhotos, readLibrary, type LibraryEntry } from './library'
+import { MessageView, type Preview } from './Message'
+import { accent, Button, edge, glass, Hint, IconButton, ink, logo, muted, Panel, s, Sheet, SheetScroll, TintIcon, useReducedMotion, wash } from './ui'
+import { ApprovalSheet, PermissionSheet, permissionNames } from './PermissionSheets'
+import type { PermissionMode } from '../../frontend/src/chat/permissions'
+import { useTranscript } from './useTranscript'
+
+type Props = {
+  api: Controller; cache: TranscriptCache; id: string; active: boolean
+  resolving: boolean; lookupError: boolean; retryLookup: () => void
+  selectSession: (id: string) => void; onUnavailable: (id: string) => void; openModelSettings: () => void
+}
+type Overlay = 'chats' | 'files' | 'model' | 'permission' | 'tools' | 'image' | 'file' | ''
+
+export function Chat({ api, cache, id, active, resolving, lookupError, retryLookup, selectSession, onUnavailable, openModelSettings }: Props) {
+  const { t } = useLocale()
+  const [rows, setRows] = useState<SessionRow[]>([])
+  async function archiveChat(row: SessionRow, stopActivity = false) {
+    try {
+      await api.archive(row.sessionId, stopActivity)
+      cache.delete(row.sessionId)
+      if (row.sessionId === id) switchChat()
+      void refreshChats()
+    } catch (error) {
+      if (!stopActivity && error instanceof ApiError && ['session_has_schedule', 'session_busy'].includes(error.code)) {
+        Alert.alert(t('停止并归档会话？'), t('将停止正在运行的会话和关联的启用中任务。会话记录和文件会保留。'), [
+          { text: t('返回'), style: 'cancel' },
+          { text: t('停止并归档'), style: 'destructive', onPress: () => void archiveChat(row, true) },
+        ])
+      } else {
+        setListError(problem(error, '无法归档会话。'))
+      }
+    }
+  }
+
+  const [cursor, setCursor] = useState('')
+  const [listError, setListError] = useState('')
+  const [loadingRows, setLoadingRows] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [attachments, setAttachments] = useState<LibraryEntry[]>([])
+  const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null)
+  const [defaultModel, setDefaultModel] = useState('')
+  const [permission, setPermission] = useState<{ id: string; mode: PermissionMode }>()
+  const [overlay, show] = useState<Overlay>('')
+  const [sending, setSending] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const createInFlight = useRef(false)
+  const [picking, setPicking] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [pending, setPending] = useState<{ id: string; session: string; text: string; files: LibraryEntry[] }>()
+  const scopedId = useRef(id)
+  scopedId.current = id
+
+  async function refreshChats(next = '') {
+    setLoadingRows(true)
+    setListError('')
+    try {
+      const data = await api.sessions(next)
+      setRows(previous => next ? [...previous, ...data.sessions.filter(item => !previous.some(old => old.sessionId === item.sessionId))] : data.sessions)
+      setCursor(data.nextCursor ?? '')
+    } catch (e) { setListError(problem(e, '无法读取会话。')) }
+    finally { setLoadingRows(false) }
+  }
+
+  useEffect(() => {
+    if (!active || !id) return
+    let stale = false
+    setSelectedModel(null)
+    api.modelSettings().then(settings => {
+      if (!stale) setDefaultModel(settings.endpoints[settings.defaultEndpointId]?.models[0] ?? '')
+    }).catch(() => {})
+    api.sessionPermission(id).then(state => { if (!stale) setPermission({ id, mode: state.mode }) }).catch(() => {})
+    api.sessionModel(id).then(model => { if (!stale) setSelectedModel(model.selection) }).catch(() => {})
+    return () => { stale = true }
+  }, [api, active, id])
+
+  async function choose(model: ModelSelection) {
+    if (!id) return
+    await api.selectModel(id, model)
+    if (scopedId.current === id) setSelectedModel(model)
+  }
+  function switchChat(next?: string) {
+    Keyboard.dismiss()
+    setDraft('')
+    setAttachments([])
+    setNotice('')
+    setPending(undefined)
+    if (next) selectSession(next)
+    else onUnavailable(id)
+    show('')
+  }
+  async function createChat() {
+    if (createInFlight.current || sending) return
+    createInFlight.current = true
+    setCreating(true)
+    setNotice('')
+    try {
+      const { sessionId } = await api.createSession()
+      switchChat(sessionId)
+    } catch (error) {
+      setNotice(problem(error, '无法创建会话，请重试。'))
+    } finally {
+      createInFlight.current = false
+      setCreating(false)
+    }
+  }
+  function add(items: LibraryEntry[]) { setAttachments(addAttachments(attachments, items)) }
+  async function photos() {
+    setNotice('')
+    setPicking(true)
+    try { add(await pickPhotos()) }
+    catch (e) { setNotice(e instanceof Error ? e.message : '无法添加图片。') }
+    finally { setPicking(false) }
+  }
+  async function send(idle: boolean) {
+    const content = draft.trim()
+    const files = attachments
+    if (!id || sending || (!content && !files.length)) return
+    setSending(true)
+    setNotice('')
+    try {
+      const next = await api.send(id, content, files)
+      if (idle) setPending({ id: next.messageId, session: id, text: content, files })
+      setDraft('')
+      setAttachments([])
+    } catch (e) {
+      setNotice(problem(e, '发送失败，输入内容已保留。'))
+    } finally { setSending(false) }
+  }
+
+  return <>
+    <View style={styles.head}>
+      {!!id && <View style={styles.brandPosition} pointerEvents="none"><FloatingLogo active={active} /></View>}
+      <IconButton label={t('打开会话列表')} style={styles.headButton} onPress={() => { Keyboard.dismiss(); show('chats'); void refreshChats() }}>
+        <ListFilter size={21} color={ink} strokeWidth={1.75} />
+      </IconButton>
+      <View style={{ flex: 1 }} />
+      <IconButton label={t('文件系统')} onPress={() => { Keyboard.dismiss(); show('files') }}><Folder size={20} color={ink} strokeWidth={1.75} /></IconButton>
+    </View>
+    {!id ? <View style={styles.emptyChat}>
+      <Image source={logo} accessibilityLabel="Go Harness" resizeMode="contain" style={styles.emptyLogo} />
+      {resolving && !lookupError ? <ActivityIndicator color={accent} accessibilityLabel={t('正在读取会话…')} />
+        : <Button label={t('创建新会话')} primary busy={creating} onPress={createChat}><Plus size={18} color="white" /></Button>}
+      {resolving && lookupError && <Button label={t('重新加载')} onPress={retryLookup} />}
+      {!overlay && !!notice && <View style={styles.createError}><Hint error>{t(notice)}</Hint>
+        {notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={openModelSettings} />}
+      </View>}
+    </View> : <Conversation key={id} api={api} cache={cache} id={id} active={active && !overlay} onUnavailable={onUnavailable}
+      pending={pending?.session === id ? pending : undefined} sending={sending}
+      renderComposer={({ idle, generation, cancel, questionButton, livePermission }) => <View style={styles.composerShell}>
+        {questionButton}
+        {attachments.length > 0 && <View style={styles.draftRail}>
+          <Text style={s.caption}>{t('草稿')} ({attachments.length})</Text>
+          <ScrollView horizontal keyboardShouldPersistTaps="always" showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', gap: 6 }}>
+            {attachments.map(item => <View key={item.id} style={styles.chip}>
+              {item.kind === 'image' ? <Image source={{ uri: item.uri }} style={{ width: 29, height: 29, borderRadius: 7 }} /> : <FileIcon name={item.name} size={29} />}
+              <Text style={styles.chipName} numberOfLines={1}>{item.name}</Text>
+              <IconButton label={t('移除') + ' ' + item.name} onPress={() => setAttachments(previous => previous.filter(entry => entry.id !== item.id))}><X size={15} color={muted} /></IconButton>
+            </View>)}
+          </ScrollView>
+        </View>}
+        <View style={styles.composer}>
+          <TextInput accessibilityLabel={t('消息')} placeholder={t('问点什么，或交给我一项任务…')} placeholderTextColor={muted} multiline value={draft}
+            onChangeText={setDraft} editable={!sending} style={styles.input} />
+          <View style={styles.toolbar}>
+            <IconButton label={t('工具栏')} disabled={picking || sending} style={styles.toolButton} onPress={() => { Keyboard.dismiss(); show('tools') }}><Plus size={23} color={ink} /></IconButton>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('选择模型')} disabled={sending} style={styles.model} onPress={() => { Keyboard.dismiss(); show('model') }}>
+              <Text numberOfLines={1} style={styles.modelName}>{selectedModel?.modelId || defaultModel || t('选择模型')}</Text><ChevronDown size={14} color={accent} />
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('当前会话权限')} disabled={!idle || sending || !(livePermission || permission?.id === id)}
+              style={styles.model} onPress={() => {
+                if (livePermission) setPermission({ id, mode: livePermission })
+                Keyboard.dismiss(); show('permission')
+              }}>
+              <Shield size={15} color={accent} />
+              <Text numberOfLines={1} style={styles.modelName}>{t(permissionNames[livePermission ?? (permission?.id === id ? permission.mode : 'danger-full-access')])}</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            {generation && <IconButton label={t('停止生成')} onPress={cancel} style={styles.toolButton}><Square fill={accent} size={15} color={accent} /></IconButton>}
+            <IconButton label={t('发送消息')} disabled={sending || (!draft.trim() && !attachments.length)} style={styles.send} onPress={() => { Keyboard.dismiss(); void send(idle) }}>
+              {sending ? <ActivityIndicator color="white" /> : <ArrowUp size={21} color="#fff" strokeWidth={2.6} />}
+            </IconButton>
+          </View>
+        </View>
+        {!!notice && <View><Hint error>{t(notice)}</Hint>{notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={openModelSettings} />}</View>}
+      </View>}
+    />}
+    {overlay === 'permission' && permission?.id === id && <PermissionSheet mode={permission.mode} close={() => show('')}
+      choose={async mode => { const state = await api.selectPermission(id, mode); if (scopedId.current === id) setPermission({ id, mode: state.mode }) }} />}
+    {overlay === 'chats' && <Sheet title={t('会话')} drawer onClose={() => show('')}><SheetScroll>
+      <Button label={t('新会话')} primary disabled={sending} busy={creating} onPress={createChat}><Plus size={20} color="white" /></Button>
+      {rows.map(row => <View key={row.sessionId} style={[s.row, { borderRadius: 13, backgroundColor: row.sessionId === id ? wash : glass, paddingLeft: 11 }]}>
+        <Pressable accessibilityRole="button" onPress={() => switchChat(row.sessionId)} disabled={sending || creating} style={[s.row, { flex: 1, minHeight: 44 }]}>
+          <MessageCircle size={17} color={accent} /><Text style={[s.body, { flex: 1 }]} numberOfLines={2}>{row.title || t('未命名会话')}</Text>
+        </Pressable>
+        <IconButton label={t('归档会话')} disabled={sending} onPress={() => Alert.alert(t('归档此会话？'), t('会话将从列表隐藏。'), [
+          { text: t('返回'), style: 'cancel' }, { text: t('归档'), style: 'destructive', onPress: () => void archiveChat(row) },
+        ])}><X size={16} color={muted} /></IconButton>
+      </View>)}
+      {!!cursor && <Button label={t('查看更早的会话')} busy={loadingRows} onPress={() => refreshChats(cursor)} />}
+      {loadingRows && !rows.length && <Hint>{t('正在读取会话…')}</Hint>}
+      {!loadingRows && !rows.length && !listError && <Hint>{t('还没有会话。')}</Hint>}
+      <Hint error>{t(listError)}</Hint>
+      <Hint error>{t(notice)}</Hint>
+      {notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={() => { show(''); openModelSettings() }} />}
+    </SheetScroll></Sheet>}
+    {overlay === 'files' && <HostFilesSheet api={api} close={() => show('')} />}
+    {overlay === 'model' && <ModelSheet api={api} choice={selectedModel} choose={choose} close={() => show('')} settingsOpen={openModelSettings} />}
+    {overlay === 'tools' && <Sheet title={t('工具栏')} raised={122} onClose={() => show('')}>{afterClose => <SheetScroll>
+      <Panel style={{ paddingHorizontal: 12, paddingVertical: 2, gap: 0 }}>
+        {([
+          ['相册', ImagePlus, '#ebe1fa', '#7753a4', () => afterClose(photos)],
+          ['图片', Images, '#dff2e9', '#337b61', () => {
+            try { if (readLibrary('image').length) afterClose(() => show('image')); else afterClose(photos) }
+            catch { setNotice('无法读取本地图片。'); show('') }
+          }],
+          ['文件', FileText, '#e2edfb', '#3e659a', () => afterClose(() => show('file'))],
+        ] as const).map(([label, Icon, background, color, action], index) =>
+          <Pressable key={label} accessibilityRole="button" onPress={action}
+            style={[s.row, { minHeight: 52 }, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: edge }]}>
+            <TintIcon background={background}><Icon color={color} size={20} strokeWidth={1.8} /></TintIcon>
+            <Text style={s.body}>{t(label)}</Text>
+          </Pressable>)}
+      </Panel>
+    </SheetScroll>}</Sheet>}
+    {(overlay === 'image' || overlay === 'file') && <LibrarySheet kind={overlay} close={() => show('')} add={add}
+      remove={ids => setAttachments(previous => previous.filter(item => !ids.includes(item.id)))} />}
+  </>
+}
+
+function FloatingLogo({ active }: { active: boolean }) {
+  const reduced = useReducedMotion()
+  const offset = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    if (!active || reduced) { offset.setValue(0); return }
+    const settings = { duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: true }
+    const floating = Animated.loop(Animated.sequence([
+      Animated.timing(offset, { ...settings, toValue: -4 }),
+      Animated.timing(offset, { ...settings, toValue: 0 }),
+    ]))
+    floating.start()
+    return () => floating.stop()
+  }, [active, offset, reduced])
+  return <Animated.Image source={logo} accessibilityLabel="Go Harness" resizeMode="contain" style={{ width: 62, height: 58, transform: [{ translateY: offset }] }} />
+}
+
+type Pending = { id: string; session: string; text: string; files: LibraryEntry[] }
+function Conversation({ api, cache, id, pending, active, sending, onUnavailable, renderComposer }: {
+  api: Controller; cache: TranscriptCache; id: string; pending?: Pending; active: boolean; sending: boolean
+  onUnavailable: (id: string) => void
+  renderComposer: (controls: { idle: boolean; generation: boolean; cancel: () => void; questionButton?: React.ReactNode; livePermission?: PermissionMode }) => React.ReactNode
+}) {
+  const { t } = useLocale()
+  const { state, before, older, loadOlder, loading, connecting, error, unavailable, reload } = useTranscript(api, id, cache)
+  useEffect(() => { if (unavailable) onUnavailable(id) }, [id, onUnavailable, unavailable])
+  const [closedQuestion, hideQuestion] = useState('')
+  const [preview, setPreview] = useState<Preview>()
+  const [failed, setFailed] = useState('')
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null)
+  const following = useRef(true)
+  const turn = state.activeTurn
+  const question = state.questions[0]
+  const draft = state.draft ? attemptMessage(state.draft) : null
+  const messages = state.messages.slice()
+  const awaiting = pending && !messages.some(message => message.id === pending.id) && !state.queue.some(item => item.id === pending.id)
+  if (draft?.blocks.length) messages.push(draft)
+  const replies = groupAssistantReplies(messages)
+  const idle = turn === null && !state.queue.length
+  const generating = turn !== null
+  const hasReply = generating && replies.some(message => message.role === 'assistant' && message.turn === turn)
+  const waiting = awaiting || sending && idle || generating && !hasReply
+  const title = waiting ? t('正在等待回复…') : t('生成中')
+  const queue = visibleQueue(state, state.messages)
+
+  async function action(work: () => Promise<unknown>) {
+    setFailed('')
+    try { await work() } catch (e) { setFailed(problem(e)) }
+  }
+  function message(item: Message) {
+    return <MessageView api={api} id={id} key={item.id} message={item} generating={generating && item.role === 'assistant' && item.turn === turn} results={state.toolResults} openImage={setPreview} />
+  }
+
+  return <>
+    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={styles.thread} keyboardShouldPersistTaps="handled"
+      maintainVisibleContentPosition={{ minIndexForVisible: 1 }} scrollEventThrottle={120}
+      onScroll={({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+        following.current = contentSize.height - layoutMeasurement.height - contentOffset.y < 92
+      }}
+      onContentSizeChange={() => { if (following.current) scroll.current?.scrollToEnd({ animated: false }) }}>
+      {before !== null && <Button label={t('加载更早的消息')} onPress={() => { following.current = false; void loadOlder() }} busy={older} />}
+      {loading && <Hint>{t('正在读取会话…')}</Hint>}
+      {!!error && <><Hint error>{t(error)}</Hint><Button label={t('重新加载')} onPress={reload} /></>}
+      {!loading && !error && !replies.length && !waiting && <View style={styles.welcome}>
+        <Image source={logo} accessibilityLabel="Go Harness" style={{ width: 206, height: 182 }} />
+        <Text style={styles.welcomeTitle}>{t('今天想做什么？')}</Text>
+      </View>}
+      {replies.map(message)}
+      {awaiting && <View style={styles.pending}>
+        {!!pending.text && <Text style={s.body}>{pending.text}</Text>}
+        {pending.files.map(file => <Text key={file.id} numberOfLines={1} style={s.caption}>{file.name}</Text>)}
+      </View>}
+      {waiting && !hasReply && <View style={s.row}>
+        <Image source={logo} style={{ width: 36, height: 36 }} />
+        <ActivityIndicator size="small" color={accent} /><Text accessibilityLiveRegion="polite" style={s.caption}>{title}</Text>
+      </View>}
+      {connecting && <Hint>{t('正在重新连接…')}</Hint>}
+    </ScrollView>
+    {queue.length > 0 && <View style={styles.queue}>
+      {queue.map(item => <View key={item.id} style={s.row}>
+        <Text numberOfLines={1} style={[s.caption, { flex: 1 }]}>{t(item.placement === 'steering' ? '引导中' : '排队中') + ' · '}{messageText(item) || t('附件')}</Text>
+        <Pressable accessibilityRole="button" style={styles.steer} onPress={() => action(() => api.updateQueue(id, item.id, true))}><Text style={s.caption}>{t('引导')}</Text></Pressable>
+        <IconButton label={t('删除排队消息')} onPress={() => action(() => api.updateQueue(id, item.id, false))}><X size={16} color={muted} /></IconButton>
+      </View>)}
+    </View>}
+    {!!failed && <View style={{ paddingHorizontal: 20 }}><Hint error>{t(failed)}</Hint></View>}
+    {!loading && !unavailable && renderComposer({ idle, generation: generating, cancel: () => { if (turn !== null) void action(() => api.stopTurn(id, turn)) },
+      livePermission: state.permission?.mode,
+      questionButton: question && <Button label={t(question.approval ? '查看执行审批' : '回答助手的问题')}
+        onPress={() => { Keyboard.dismiss(); hideQuestion('') }}>
+        {question.approval ? <ShieldAlert size={19} color={accent} /> : <MessageCircleQuestion size={19} color={accent} />}
+      </Button> })}
+    {question && active && !preview && question.callId !== closedQuestion && (question.approval
+      ? <ApprovalSheet key={question.callId} item={question} close={() => hideQuestion(question.callId)}
+        decide={decision => api.answer(id, question.callId, [{ id: 'approval', selected: [decision] }])} />
+      : <QuestionSheet key={question.callId} pending={question} close={() => hideQuestion(question.callId)}
+        submit={answers => api.answer(id, question.callId, answers)} cancel={() => api.cancelQuestion(id, question.callId)} />)}
+    {preview && <ImageViewer preview={preview} close={() => setPreview(undefined)} />}
+  </>
+}
+
+const styles = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', minHeight: 60, paddingHorizontal: 16, gap: 6 },
+  brandPosition: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  headButton: { backgroundColor: glass, borderWidth: 1, borderColor: '#fff', boxShadow: '0 3px 9px rgba(44,54,71,0.07)' },
+  thread: { flexGrow: 1, paddingHorizontal: 18, paddingVertical: 15, gap: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  welcome: { alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 160, gap: 9 },
+  welcomeTitle: { color: ink, fontSize: 27, fontWeight: '700', letterSpacing: -0.6 },
+  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 15, paddingHorizontal: 24, paddingBottom: 24 },
+  emptyLogo: { width: 172, height: 152 },
+  createError: { alignItems: 'center', gap: 7, maxWidth: 360 },
+  composerShell: { gap: 7, paddingHorizontal: 14, alignSelf: 'center', width: '100%', maxWidth: 760 },
+  composer: { backgroundColor: glass, borderRadius: 26, padding: 8, gap: 3, borderWidth: 1, borderColor: '#fff', boxShadow: '0 4px 18px rgba(58,42,90,0.08)' },
+  input: { minHeight: 42, maxHeight: 124, fontSize: 16, lineHeight: 22, color: ink, paddingHorizontal: 10, paddingVertical: 8 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  toolButton: { backgroundColor: 'rgba(255,255,255,0.69)' },
+  model: { flexShrink: 1, minHeight: 44, alignItems: 'center', flexDirection: 'row', maxWidth: '52%', paddingHorizontal: 12, gap: 5, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.76)' },
+  modelName: { flexShrink: 1, color: accent, fontSize: 13, fontWeight: '600' },
+  send: { backgroundColor: accent },
+  draftRail: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, borderRadius: 17, borderWidth: 1, borderColor: '#fff', backgroundColor: glass },
+  chip: { flexDirection: 'row', alignItems: 'center', maxWidth: 166, borderRadius: 13, paddingLeft: 8, gap: 5, backgroundColor: '#f3f0fb' },
+  chipName: { flexShrink: 1, color: ink, fontSize: 12 },
+  pending: { backgroundColor: '#fff', borderWidth: StyleSheet.hairlineWidth, borderColor: edge, borderRadius: 16, padding: 9, gap: 4, alignSelf: 'flex-end', maxWidth: '86%' },
+  queue: { marginHorizontal: 20, paddingHorizontal: 10, borderRadius: 13, marginBottom: 6, backgroundColor: glass, borderWidth: 1, borderColor: edge },
+  steer: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
+})

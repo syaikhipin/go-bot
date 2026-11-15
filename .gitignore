@@ -1,0 +1,38 @@
+# Build output, dependency caches and test reports
+/.cache/
+/bin/
+/buildeci
+/controller
+/host
+/prepare-env
+*.test
+coverage.out
+*.coverprofile
+test-results/
+node_modules/
+/frontend/dist/
+__pycache__/
+*.py[cod]
+
+# Local deployment profiles and runtime state
+.env
+.env.*
+*.env
+*.env.*
+!/.env.example
+/.local/
+/configs/local.yaml
+/.go-harness/
+controller.lock
+state.json
+*.token
+.write-*
+
+# Private cloud deployment and replay notes
+/docs/eci-nas-validation.zh-CN.md
+
+# Editor metadata and temporary logs
+.idea/
+*.iml
+.DS_Store
+*.log

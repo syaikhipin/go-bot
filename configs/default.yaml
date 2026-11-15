@@ -1,0 +1,10 @@
+# Optional process tuning. These values also apply when --config is omitted.
+version: 1
+runtime:
+  start_timeout: 5m
+  docker:
+    endpoint_host: 127.0.0.1
+    platform: "" # Docker default.
+  eci:
+    cpu: 2
+    memory_gib: 4

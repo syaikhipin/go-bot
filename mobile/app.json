@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Go Harness",
+    "slug": "go-harness-mobile",
+    "version": "0.1.0",
+    "userInterfaceStyle": "light",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.goharness.mobile",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Connect to your Go Harness server on the local network.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.goharness.mobile",
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Import photos to your Go Harness image library.",
+          "cameraPermission": "Take a photo to update your Go Harness avatar.",
+          "microphonePermission": false
+        }
+      ],
+      ["react-native-share", {}],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Save conversation images to your photo library.",
+          "granularPermissions": []
+        }
+      ]
+    ],
+    "icon": "./assets/app-icon.png"
+  }
+}

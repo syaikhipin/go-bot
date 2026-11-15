@@ -1,0 +1,58 @@
+services:
+  controller:
+    build:
+      context: .
+      dockerfile: build/Dockerfile.controller
+    image: go-harness/controller:local
+    command: ["serve", "--env-file", "/config/deployment.env", "--config", "/config/runtime.yaml"]
+    environment:
+      REDIS_ADDR: redis:6379
+      CONTROLLER_CONTAINER: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - type: bind
+        source: ${GO_HARNESS_ENV_FILE:-./.env}
+        target: /config/deployment.env
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${GO_HARNESS_CONFIG_FILE:-./configs/default.yaml}
+        target: /config/runtime.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ingress
+      - state
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - controller-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    networks:
+      - state
+      - redis-access
+
+networks:
+  ingress:
+  state:
+    internal: true
+  # Docker needs a non-internal network to publish Redis to host loopback.
+  redis-access:
+volumes:
+  controller-data:

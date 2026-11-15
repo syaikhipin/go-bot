@@ -1,0 +1,10 @@
+officecli:
+  repository: iOfficeAI/OfficeCLI
+  version: v1.0.160
+  checksums: build/officecli.sha256
+agent-browser:
+  repository: vercel-labs/agent-browser
+  version: v0.43.0
+  commit: 1cc19526f3641c8543d55aa6700e7c55b37ac356
+  installer: npm
+  skills_cli: 1.8.1
