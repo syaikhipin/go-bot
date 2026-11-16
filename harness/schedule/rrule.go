@@ -66,12 +66,18 @@ func parseRRule(expression string, authoring bool) (recurrenceRule, error) {
 	}
 	loc, text := time.UTC, match[1]
 	if match[2] != "" {
+		var zone string
 		var err error
-		loc, _, err = parseZone(match[2])
+		loc, zone, err = parseZone(match[2])
 		if err != nil {
 			return recurrenceRule{}, err
 		}
 		text = match[3]
+		if zone == "UTC" {
+			parts[0] = "DTSTART:" + text + "Z"
+		} else {
+			parts[0] = "DTSTART;TZID=" + zone + ":" + text
+		}
 	}
 	start, err := time.Parse(rruleDateTime, text)
 	if err != nil || start.Year() < 100 {

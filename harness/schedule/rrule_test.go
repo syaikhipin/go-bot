@@ -43,3 +43,17 @@ func TestRRuleRejectsUnsafeOrUnsupportedRules(t *testing.T) {
 		}
 	}
 }
+
+func TestRRuleTimeZoneAliasKeepsRuleEquivalent(t *testing.T) {
+	now := time.Date(2026, 3, 7, 0, 0, 0, 0, time.UTC)
+	alias := "DTSTART;TZID=US/Eastern:20260307T023000\nRRULE:FREQ=DAILY;COUNT=2"
+	canonical := "DTSTART;TZID=America/New_York:20260307T023000\nRRULE:FREQ=DAILY;COUNT=2"
+	record, err := NewRRule("id", "Title", "Prompt", alias, now)
+	if err != nil || record.RRule != canonical || record.ScheduledAt != "2026-03-07T07:30:00.000Z" {
+		t.Fatalf("created rule = %+v, %v", record, err)
+	}
+	equivalent, err := EquivalentRRule(record, alias)
+	if err != nil || !equivalent {
+		t.Fatalf("alias equivalent = %t, %v", equivalent, err)
+	}
+}
