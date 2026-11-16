@@ -4,6 +4,10 @@
   <img src="assets/harness-whale.png" width="184" alt="go-harness blue whale mascot">
 </p>
 
+<p align="center">
+  <strong><a href="https://github.com/xyc999-ai/go-harness/releases/latest">Download Android APK</a></strong>
+</p>
+
 # go-harness
 
 A Go implementation of DeepSeek Harness and a self-hosted runtime for personal
@@ -128,7 +132,7 @@ Tailscale connects your phone and the computer
 running Controller over a private network called a tailnet. This gives the phone
 a reachable Controller URL even when it is away from your home Wi-Fi.
 
-1. **Download Tailscale on both devices.** Open the [official Tailscale download page](https://tailscale.com/download) on the computer running Controller and choose your operating system. On the phone, follow the iOS App Store or Android Google Play link on the same page. Once an Android release of Go Harness is available, download its APK from [GitHub Releases](../../releases).
+1. **Download Tailscale on both devices.** Open the [official Tailscale download page](https://tailscale.com/download) on the computer running Controller and choose your operating system. On the phone, follow the iOS App Store or Android Google Play link on the same page. On Android, download the Go Harness APK from the **Assets** section of the [latest GitHub Release](https://github.com/xyc999-ai/go-harness/releases/latest).
 2. **Sign in with the same Tailscale account on both devices.** Follow the VPN setup prompts and turn on Tailscale on the computer and phone. Signing in adds each device to your tailnet. On the computer, open **Devices** and check that both devices are online. Select the computer to see its MagicDNS name. You can also check both devices on the [Tailscale Machines page](https://login.tailscale.com/admin/machines).
 
    <img src="docs/showcase/tailscale-devices.png" width="800" alt="Tailscale on macOS showing two connected devices and the selected computer’s MagicDNS name. Account and device details are replaced with examples.">
