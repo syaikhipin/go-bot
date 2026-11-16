@@ -2,7 +2,7 @@
   "expo": {
     "name": "Go Harness",
     "slug": "go-harness-mobile",
-    "version": "0.1.0",
+    "version": "0.0.1",
     "userInterfaceStyle": "light",
     "platforms": [
       "ios",
@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.goharness.mobile",
+      "versionCode": 1,
       "blockedPermissions": [
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
       ]
