@@ -4,6 +4,10 @@
   <img src="assets/harness-whale.png" width="184" alt="go-harness 蓝鲸头像">
 </p>
 
+<p align="center">
+  <strong><a href="https://github.com/xyc999-ai/go-harness/releases/latest">下载 Android APK</a></strong>
+</p>
+
 # go-harness
 
 用 Go 实现的 DeepSeek Harness，也是一套可自托管的Personal Agent。个人可以用 Docker 在本地运行、
@@ -117,7 +121,7 @@
 Tailscale 会让手机和运行 Controller 的电脑加入同一个私有网络
 （tailnet）。手机离开家里的 Wi-Fi 后，仍然可以通过这个网络访问 Controller。
 
-1. **在电脑和手机上下载 Tailscale。** 在运行 Controller 的电脑上打开 [Tailscale 官方下载页](https://tailscale.com/download)，选择对应的操作系统。手机也从该页面进入 iOS App Store 或 Android Google Play 安装。Go Harness 的 Android 版发布后，可从 [GitHub Releases](../../releases) 下载 APK。
+1. **在电脑和手机上下载 Tailscale。** 在运行 Controller 的电脑上打开 [Tailscale 官方下载页](https://tailscale.com/download)，选择对应的操作系统。手机也从该页面进入 iOS App Store 或 Android Google Play 安装。Android 用户可在 [GitHub 最新正式版](https://github.com/xyc999-ai/go-harness/releases/latest)的 **Assets** 中下载 Go Harness APK。
 2. **两端登录同一个 Tailscale 账号。** 按提示允许系统添加 VPN 配置，并在电脑和手机上开启连接。登录后，设备会加入同一个 tailnet。在电脑的 **Devices** 页面确认两台设备都在线，点选电脑即可看到它的 MagicDNS 地址。也可以打开 [Tailscale 设备管理页](https://login.tailscale.com/admin/machines) 核对。
 
    <img src="docs/showcase/tailscale-devices.png" width="800" alt="macOS 上的 Tailscale 设备列表，两台设备均已连接，右侧显示所选电脑的 MagicDNS 地址。账号和设备信息已替换为示例。">
