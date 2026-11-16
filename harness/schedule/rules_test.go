@@ -61,12 +61,14 @@ func TestDailyDSTGapAndEarlierOverlap(t *testing.T) {
 	}
 }
 
-func TestScheduleZoneAliasesUseIntlCanonicalName(t *testing.T) {
+func TestScheduleZoneAliasesUseIANACanonicalName(t *testing.T) {
 	now := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
 	for _, test := range []struct{ input, canonical string }{
 		{"US/Eastern", "America/New_York"},
-		{"Asia/Kolkata", "Asia/Calcutta"},
-		{"Europe/Kyiv", "Europe/Kiev"},
+		{"Asia/Calcutta", "Asia/Kolkata"},
+		{"Asia/Chongqing", "Asia/Shanghai"},
+		{"Europe/Kiev", "Europe/Kyiv"},
+		{"Etc/Zulu", "UTC"},
 	} {
 		record, err := NewDaily("d", "Daily", "Check", LocalTimeInput{Time: "09:00:00", TimeZone: test.input}, now)
 		if err != nil || record.TimeZone != test.canonical {
