@@ -95,6 +95,12 @@ func TestExecutorCancelEscalatesTermResistantGroup(t *testing.T) {
 }
 
 func TestExecutorCancelEscalatesChildAfterParentExits(t *testing.T) {
+	// The parent's handler must be in place before the child reports readiness.
+	const command = `
+trap 'printf parent-term; exit 0' TERM
+sh -c 'trap "" TERM; printf child-ready; while :; do sleep 0.1; done' &
+while :; do sleep 0.1; done
+`
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ready := make(chan struct{})
@@ -104,8 +110,7 @@ func TestExecutorCancelEscalatesChildAfterParentExits(t *testing.T) {
 		err    error
 	}, 1)
 	go func() {
-		result, err := (Executor{verified: true}).RunStreaming(ctx,
-			"sh -c 'trap \"\" TERM; printf child-ready; while :; do sleep 0.1; done' & trap 'printf parent-term; exit 0' TERM; while :; do sleep 0.1; done",
+		result, err := (Executor{verified: true}).RunStreaming(ctx, command,
 			workdir, 4096, func(stream string, chunk []byte) {
 				if stream == "stdout" && strings.Contains(string(chunk), "child-ready") {
 					select {
