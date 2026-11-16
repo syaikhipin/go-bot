@@ -52,7 +52,7 @@ const english: Record<string, string> = {
   '网页搜索': 'Web search', '图片生成': 'Image generation', '无法更新头像。': 'Could not update the avatar.',
   '无法停止 Host，请重试。': 'Could not stop the Host. Try again.', '更换头像': 'Change avatar',
   '停止 Host？': 'Stop Host?', '停止后会回到连接页。': 'You will return to the connection screen.',
-  '返回': 'Back', '从图库选择': 'Choose from photo library', '拍照': 'Take a photo',
+  '返回': 'Back', '取消': 'Cancel', '从图库选择': 'Choose from photo library', '拍照': 'Take a photo',
   '模型': 'Models', '无法读取模型设置。': 'Could not load model settings.',
   '无法保存。请检查端点地址、密钥与模型名。': 'Could not save. Check the URL, API key, and model names.',
   '支持 OpenAI 兼容的 Responses 接口。默认端点列表中的第一个模型用于新会话。': 'Supports OpenAI-compatible Responses endpoints. New chats use the first model on the default endpoint.',
