@@ -297,6 +297,13 @@ credentials and bind access to the authenticated account.
 
 [Documentation](docs/README.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
+## Community
+
+Join the **go-harness** QQ group to ask questions, share setups, or give feedback.
+Scan the QR code in QQ or search for group **710767129**.
+
+<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="QR code for the go-harness QQ group, 710767129"></a>
+
 ## Upstream and acknowledgments
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is the upstream project that this Go implementation is based on. [Compatibility notes](docs/compatibility.md)

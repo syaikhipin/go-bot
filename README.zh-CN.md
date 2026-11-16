@@ -262,6 +262,13 @@ Compose 负责启动 Redis 并构建前端。Agent 使用的 Python、Node.js、
 
 [文档索引](docs/README.md) · [贡献指南](CONTRIBUTING.md) · [安全报告](SECURITY.md) · [MIT 许可证](LICENSE) · [第三方声明](THIRD_PARTY_NOTICES.md)
 
+## 社区交流
+
+欢迎加入 **go-harness 交流群**，交流部署和使用经验，也可以提出问题或反馈建议。
+用 QQ 扫描下方二维码，或直接搜索群号 **710767129**。
+
+<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="go-harness QQ 交流群二维码，群号 710767129"></a>
+
 ## 上游项目与致谢
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 是本 Go 实现所参考的上游项目。 [兼容性说明](docs/compatibility.md)
