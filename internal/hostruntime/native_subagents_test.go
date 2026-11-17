@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/assembly"
-	"go-harness/harness/jobs"
-	"go-harness/harness/session"
-	"go-harness/harness/workflow"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/assembly"
+	"go-bot/harness/jobs"
+	"go-bot/harness/session"
+	"go-bot/harness/workflow"
+	"go-bot/internal/testsupport/session"
 
 	"github.com/google/uuid"
 )

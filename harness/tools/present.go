@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/session"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/agent"
+	"go-bot/harness/session"
+	"go-bot/internal/agentfs"
 )
 
 type Present struct {

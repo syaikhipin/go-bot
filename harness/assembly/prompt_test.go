@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/tools"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/agent"
+	"go-bot/harness/tools"
+	"go-bot/internal/agentfs"
 )
 
 func TestComposePromptOnlyDescribesRegisteredCapabilities(t *testing.T) {

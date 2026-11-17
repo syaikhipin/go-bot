@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"go-harness/internal/webmarkdown"
-	"go-harness/web"
+	"go-bot/internal/webmarkdown"
+	"go-bot/web"
 )
 
 type fakeWebFetcher struct {

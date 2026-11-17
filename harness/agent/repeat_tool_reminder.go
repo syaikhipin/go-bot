@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"go-harness/internal/modeldata"
+	"go-bot/internal/modeldata"
 )
 
 // RepeatReminderConfig follows DeepSeek Harness's repeat-tool-reminder: exact

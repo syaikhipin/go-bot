@@ -3,7 +3,7 @@ package interaction
 import (
 	"encoding/json"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 // FoldTimedQuestions derives answerable questions solely from the v4 log.

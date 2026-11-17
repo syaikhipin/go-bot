@@ -1,6 +1,6 @@
 # Third-party notices
 
-Go Harness's own code is distributed under the [MIT License](LICENSE). The project
+Go Bot's own code is distributed under the [MIT License](LICENSE). The project
 was extracted from LifeClaw's server-side native Host. [Source provenance](docs/migration-files.json)
 records the migration. The upstream material and bundled components below retain
 their respective licenses and copyright notices.
@@ -61,5 +61,5 @@ including the ISC notice for Lucide icons.
 
 The Host includes the official Vercel agent-browser CLI and skill files from
 https://github.com/vercel-labs/agent-browser (Apache-2.0). The image includes
-the upstream license at `/usr/share/doc/go-harness/agent-browser-LICENSE`.
+the upstream license at `/usr/share/doc/go-bot/agent-browser-LICENSE`.
 The npm release and Skill source revision are recorded in `build/dependencies.lock.yaml`.

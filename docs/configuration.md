@@ -31,7 +31,7 @@ Create the directory first if passing a new path to `--init-env`.
 | Variable | Meaning | Default or requirement |
 |---|---|---|
 | `HARNESS_RUNTIME` | Runtime provider | `docker` or `eci`, default `docker` |
-| `HOST_IMAGE` | Local Host build tag | Initialization sets `go-harness/host:local` for Docker and `go-harness/host:eci` for ECI |
+| `HOST_IMAGE` | Local Host build tag | Initialization sets `go-bot/host:local` for Docker and `go-bot/host:eci` for ECI |
 | `HARNESS_STORAGE` | Host filesystem | `container` by default. Docker automatically mounts an account volume. ECI uses the instance filesystem or can be set to `nas` |
 | `NAS_MOUNT_TARGET` | Existing NAS mount target | Required for ECI with `nas` |
 | `CONTROLLER_LISTEN` | Loopback address for a native Controller | `127.0.0.1:8080` |
@@ -40,7 +40,7 @@ Create the directory first if passing a new path to `--init-env`.
 | `ECI_SECURITY_GROUP_ID` | Existing security group ID | Required for ECI |
 | `ECI_IMAGE_CACHE_ID` | Ready image cache ID | Required for ECI startup |
 
-NAS uses the account-specific `/go-harness/<userId>`
+NAS uses the account-specific `/go-bot/<userId>`
 subdirectory. The mount target is the deployment-specific input.
 
 An HTTPS gateway handles TLS and forwards to the loopback HTTP listener. Preserve the original `Host` and `X-User-ID` headers, set `X-Forwarded-Proto` to `https` for HTTPS requests, and forward SSE without buffering. Controller uses the request host and scheme to check browser origins. Tailscale Serve supplies the host and scheme automatically. Restrict access at the gateway or through your private network.

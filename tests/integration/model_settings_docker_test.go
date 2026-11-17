@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/internal/config"
-	"go-harness/internal/modelsettings"
+	"go-bot/internal/config"
+	"go-bot/internal/modelsettings"
 )
 
 func TestDockerModelSettingsSwitchBetweenTurns(t *testing.T) {

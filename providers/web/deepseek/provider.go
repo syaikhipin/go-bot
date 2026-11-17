@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	api "go-harness/thirdparty/deepseek"
-	"go-harness/web"
+	api "go-bot/thirdparty/deepseek"
+	"go-bot/web"
 )
 
 const ID = "deepseek"

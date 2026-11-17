@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/content"
+	"go-bot/harness/agent"
+	"go-bot/harness/content"
 )
 
 const maxReadImageSourceBytes = 20 << 20

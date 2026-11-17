@@ -3,7 +3,7 @@ package httpapi
 import (
 	"errors"
 
-	"go-harness/harness/schedule"
+	"go-bot/harness/schedule"
 )
 
 // A browser can provide its IANA zone with the same message request. Persist

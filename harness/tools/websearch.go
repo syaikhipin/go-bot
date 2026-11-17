@@ -10,8 +10,8 @@ import (
 	"time"
 
 	whatwg "github.com/nlnwa/whatwg-url/url"
-	"go-harness/harness/agent"
-	"go-harness/web"
+	"go-bot/harness/agent"
+	"go-bot/web"
 )
 
 type WebSearcher interface {

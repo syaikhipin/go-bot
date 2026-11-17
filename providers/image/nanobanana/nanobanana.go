@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"go-harness/harness/content"
-	"go-harness/internal/providersettings"
-	"go-harness/providers/image/internal/payload"
-	"go-harness/thirdparty/gemini"
-	"go-harness/thirdparty/providerhttp"
+	"go-bot/harness/content"
+	"go-bot/internal/providersettings"
+	"go-bot/providers/image/internal/payload"
+	"go-bot/thirdparty/gemini"
+	"go-bot/thirdparty/providerhttp"
 )
 
 const ID = "nanobanana"

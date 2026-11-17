@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/skills"
+	"go-bot/harness/skills"
 )
 
 func TestSkillStructuredResultAndPolicy(t *testing.T) {

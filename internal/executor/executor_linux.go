@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/permission"
-	"go-harness/harness/tools"
+	"go-bot/harness/agent"
+	"go-bot/harness/permission"
+	"go-bot/harness/tools"
 )
 
 const shellTerminationGrace = 2 * time.Second

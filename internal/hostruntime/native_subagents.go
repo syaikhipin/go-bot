@@ -11,14 +11,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/assembly"
-	"go-harness/harness/jobs"
-	"go-harness/harness/permission"
-	"go-harness/harness/session"
-	"go-harness/harness/subagent"
-	"go-harness/harness/tools"
-	"go-harness/harness/workflow"
+	"go-bot/harness/agent"
+	"go-bot/harness/assembly"
+	"go-bot/harness/jobs"
+	"go-bot/harness/permission"
+	"go-bot/harness/session"
+	"go-bot/harness/subagent"
+	"go-bot/harness/tools"
+	"go-bot/harness/workflow"
 )
 
 const maxNativeChildren = 8

@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"go-harness/internal/config"
-	"go-harness/internal/modelsettings"
+	"go-bot/internal/config"
+	"go-bot/internal/modelsettings"
 )
 
 const settingsPath = "/v1/settings/models"

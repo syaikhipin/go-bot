@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"go-harness/internal/instructionrender"
+	"go-bot/internal/instructionrender"
 
 	"github.com/google/uuid"
 )

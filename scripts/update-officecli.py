@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def fetch(url):
-    request = urllib.request.Request(url, headers={"User-Agent": "Go-Harness-build"})
+    request = urllib.request.Request(url, headers={"User-Agent": "Go-Bot-build"})
     with urllib.request.urlopen(request, timeout=60) as response:
         data = response.read(2_000_001)
     if len(data) > 2_000_000:

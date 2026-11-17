@@ -3,7 +3,7 @@ package modeldata
 import (
 	"encoding/json"
 
-	"go-harness/harness/content"
+	"go-bot/harness/content"
 )
 
 const (

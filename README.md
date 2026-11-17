@@ -1,10 +1,10 @@
-<h1 align="center">go-harness</h1>
+<h1 align="center">go-bot</h1>
 
 <p align="center">
-  <img src="assets/harness-whale.png" width="184" alt="go-harness blue whale mascot">
+  <img src="assets/harness-whale.png" width="184" alt="go-bot blue whale mascot">
 </p>
 
-go-harness is a Go implementation of DeepSeek Harness and a self-hosted personal
+go-bot is a Go implementation of DeepSeek Harness and a self-hosted personal
 agent. It offers an open-source alternative to [Meta Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/),
 [OpenAI dots](https://openai.com/index/introducing-dots/), and
 [Grok Bot](https://help.x.com/en/using-x/about-grok).
@@ -16,7 +16,7 @@ persistent storage, and room for their own frontends and service integrations.
 
 <p align="center">
   <strong>English</strong> · <a href="README.zh-CN.md">简体中文</a> ·
-  <strong><a href="https://github.com/xyc999-ai/go-harness/releases/latest">Download Android APK</a></strong>
+  <strong><a href="https://github.com/xyc999-ai/go-bot/releases/latest">Download Android APK</a></strong>
 </p>
 
 - **Web research and browser automation.** Search the web through a configured provider. Use Chromium to navigate pages, interact with forms, and capture screenshots.
@@ -78,29 +78,37 @@ These demos use the English web UI and a local Docker Host. The agent checks the
 economic findings in Chromium and uses OfficeCLI to create and revise a Word brief
 and a PowerPoint deck. [Stanford HAI 2026 AI Index](https://hai.stanford.edu/ai-index/2026-ai-index-report/economy)
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>Browser research</h3>
-      <a href="docs/showcase/en/web-research.gif"><img src="docs/showcase/en/web-research.gif" width="100%" alt="English browser research request and sourced answer in the Web chat"></a>
+      <a href="docs/showcase/en/web-research.gif"><img src="docs/showcase/en/web-research.gif" width="260" alt="English browser research request and sourced answer in the Web chat"></a>
       <p>Check industry data in Chromium and get an English answer with source links.</p>
     </td>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>Word brief</h3>
-      <a href="docs/showcase/en/web-word.gif"><img src="docs/showcase/en/web-word.gif" width="100%" alt="English Web conversation from Word creation to revision, followed by the finished brief in WPS Office"></a>
+      <a href="docs/showcase/en/web-word.gif"><img src="docs/showcase/en/web-word.gif" width="260" alt="English Web conversation from Word creation to revision, followed by the finished brief in WPS Office"></a>
       <p>Create an AI adoption brief and revise its layout and pilot recommendation.</p>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>PowerPoint briefing</h3>
-      <a href="docs/showcase/en/web-slides.gif"><img src="docs/showcase/en/web-slides.gif" width="100%" alt="English Web conversation from PowerPoint creation to revision, followed by the three slides in WPS Office"></a>
+      <a href="docs/showcase/en/web-slides.gif"><img src="docs/showcase/en/web-slides.gif" width="260" alt="English Web conversation from PowerPoint creation to revision, followed by the three slides in WPS Office"></a>
       <p>Build a three-slide briefing and revise the last slide into a three-step rollout.</p>
     </td>
-    <td width="50%" valign="top">
+  </tr>
+</table>
+
+<table align="center" width="67%">
+  <tr>
+    <td width="50%" valign="top" align="center">
       <h3>Image editing with two references</h3>
-      <a href="docs/showcase/en/web-image.gif"><img src="docs/showcase/en/web-image.gif" width="100%" alt="English Web conversation showing the two reference images and the generated coral whale"></a>
+      <a href="docs/showcase/en/web-image.gif"><img src="docs/showcase/en/web-image.gif" width="260" alt="English Web conversation showing the two reference images and the generated coral whale"></a>
       <p>Use Seedream to recolor the project mascot from a reference swatch.</p>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <h3>Scheduled reminder</h3>
+      <a href="docs/showcase/en/web-schedule.gif"><img src="docs/showcase/en/web-schedule.gif" width="260" alt="English web chat showing the request, scheduled task confirmation, and delivered reminder"></a>
+      <p>Create a one-time reminder and get the checklist in the same chat when it runs.</p>
     </td>
   </tr>
 </table>
@@ -137,7 +145,7 @@ Tailscale connects your phone and the computer
 running Controller over a private network called a tailnet. This gives the phone
 a reachable Controller URL even when it is away from your home Wi-Fi.
 
-1. **Download Tailscale on both devices.** Open the [official Tailscale download page](https://tailscale.com/download) on the computer running Controller and choose your operating system. On the phone, follow the iOS App Store or Android Google Play link on the same page. On Android, download the Go Harness APK from the **Assets** section of the [latest GitHub Release](https://github.com/xyc999-ai/go-harness/releases/latest).
+1. **Download Tailscale on both devices.** Open the [official Tailscale download page](https://tailscale.com/download) on the computer running Controller and choose your operating system. On the phone, follow the iOS App Store or Android Google Play link on the same page. On Android, download the Go Bot APK from the **Assets** section of the [latest GitHub Release](https://github.com/xyc999-ai/go-bot/releases/latest).
 2. **Sign in with the same Tailscale account on both devices.** Follow the VPN setup prompts and turn on Tailscale on the computer and phone. Signing in adds each device to your tailnet. On the computer, open **Devices** and check that both devices are online. Select the computer to see its MagicDNS name. You can also check both devices on the [Tailscale Machines page](https://login.tailscale.com/admin/machines).
 
    <img src="docs/showcase/tailscale-devices.png" width="800" alt="Tailscale on macOS showing two connected devices and the selected computer’s MagicDNS name. Account and device details are replaced with examples.">
@@ -151,7 +159,7 @@ a reachable Controller URL even when it is away from your home Wi-Fi.
    ```
 
    If your terminal cannot find `tailscale`, see the [Tailscale CLI setup guide](https://tailscale.com/docs/reference/tailscale-cli?tab=macos).
-4. **Connect Go Harness on the phone.** Copy the full URL printed by Serve, such as `http://my-computer.example-tailnet.ts.net:8080`. Open it in the phone's browser to check that the go-harness Web UI loads. Then enter that URL and your go-harness account name in the mobile app and tap **Connect**. New accounts can set up a model under **Me → Models**. [Tailscale Serve guide](https://tailscale.com/docs/features/tailscale-serve)
+4. **Connect Go Bot on the phone.** Copy the full URL printed by Serve, such as `http://my-computer.example-tailnet.ts.net:8080`. Open it in the phone's browser to check that the go-bot Web UI loads. Then enter that URL and your go-bot account name in the mobile app and tap **Connect**. New accounts can set up a model under **Me → Models**. [Tailscale Serve guide](https://tailscale.com/docs/features/tailscale-serve)
 
 If you already have an HTTPS endpoint that your phone can reach, enter its URL directly in the app.
 
@@ -197,7 +205,7 @@ Ready image cache are in place, the same launcher starts the deployment.
 | --- | --- |
 | RAM credentials | Create a RAM user with an AccessKey ID and Secret. Grant the ECI API permissions needed to list, create and release instances, inspect caches, and create caches if you build them here. [Create an AccessKey pair](https://www.alibabacloud.com/help/en/ram/user-guide/create-an-accesskey-pair) · [Grant RAM permissions](https://www.alibabacloud.com/help/en/ram/user-guide/grant-permissions-to-the-ram-user) |
 | Network | Choose the region, vSwitch and security group. Allow Controller to reach the ECI private IP on TCP 8080. For public registry, model and web access, configure outbound access such as NAT gateway SNAT on the ECI vSwitch. The launcher does not assign an EIP to each Host. [VPCs and vSwitches](https://www.alibabacloud.com/help/en/vpc/vpc-and-vswitch) · [Security group rules](https://www.alibabacloud.com/help/en/ecs/user-guide/security-group-rules) · [ECI internet access](https://www.alibabacloud.com/help/en/eci/user-guide/enable-internet-access) |
-| NAS (optional) | Prepare a reachable NAS mount target. Before opening an account, create a writable `/go-harness/<userId>` directory on NAS for it. [Mount NAS on ECI](https://www.alibabacloud.com/help/en/eci/user-guide/mount-a-nas-volume) |
+| NAS (optional) | Prepare a reachable NAS mount target. Before opening an account, create a writable `/go-bot/<userId>` directory on NAS for it. [Mount NAS on ECI](https://www.alibabacloud.com/help/en/eci/user-guide/mount-a-nas-volume) |
 | Image cache | Reuse a Ready cache for a Linux AMD64 Host image in the selected region, or prepare a registry that the ECI cache builder can reach. [Manage ECI image caches](https://www.alibabacloud.com/help/en/eci/user-guide/manage-an-image-cache) |
 
 ### 2. Fill in the ECI profile
@@ -217,7 +225,7 @@ the Host starts.
 If you have a Ready cache containing a compatible Host image, set
 `ECI_IMAGE_CACHE_ID` and go to step 4. To build a new cache, set
 `REGISTRY_PUSH_IMAGE` to a versioned registry reference such as
-`registry.example.com/team/go-harness-host:v0.1.0`. For a private
+`registry.example.com/team/go-bot-host:v0.1.0`. For a private
 registry, run `docker login <registry-host>` on the build machine if publishing
 requires authentication, and set both `REGISTRY_USERNAME` and
 `REGISTRY_PASSWORD` so Alibaba Cloud can pull it.
@@ -308,10 +316,10 @@ credentials and bind access to the authenticated account.
 
 ## Community
 
-Join the **go-harness** QQ group to ask questions, share setups, or give feedback.
+Join **go-bot交流** on QQ to ask questions, share setups, or give feedback.
 Scan the QR code in QQ or search for group **710767129**.
 
-<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="QR code for the go-harness QQ group, 710767129"></a>
+<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="QR code for the go-bot交流 QQ group, 710767129"></a>
 
 ## Upstream and acknowledgments
 

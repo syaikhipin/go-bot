@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 
 	"github.com/google/uuid"
 )

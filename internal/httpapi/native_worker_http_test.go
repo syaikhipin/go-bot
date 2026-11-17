@@ -19,15 +19,15 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/assembly"
-	"go-harness/harness/attachments"
-	"go-harness/harness/goal"
-	"go-harness/harness/interaction"
-	"go-harness/harness/plan"
-	"go-harness/harness/session"
-	"go-harness/internal/hostruntime"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/assembly"
+	"go-bot/harness/attachments"
+	"go-bot/harness/goal"
+	"go-bot/harness/interaction"
+	"go-bot/harness/plan"
+	"go-bot/harness/session"
+	"go-bot/internal/hostruntime"
+	"go-bot/internal/testsupport/session"
 )
 
 type nativeHTTPWorker struct {

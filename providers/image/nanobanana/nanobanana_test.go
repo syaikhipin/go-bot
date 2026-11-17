@@ -10,8 +10,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"go-harness/harness/content"
-	"go-harness/thirdparty/gemini"
+	"go-bot/harness/content"
+	"go-bot/thirdparty/gemini"
 )
 
 func TestGenerate(t *testing.T) {

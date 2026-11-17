@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/attachments"
-	"go-harness/internal/agentfs"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/attachments"
+	"go-bot/internal/agentfs"
+	"go-bot/internal/testsupport/session"
 )
 
 type recordingImageWriter struct {

@@ -11,12 +11,12 @@ import (
 	"sync"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/permission"
-	"go-harness/harness/plan"
-	"go-harness/harness/schedule"
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/permission"
+	"go-bot/harness/plan"
+	"go-bot/harness/schedule"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
 )
 
 type nativeMemoryStorage struct {

@@ -2,10 +2,10 @@ package assembly
 
 import (
 	"context"
-	"go-harness/harness/agent"
-	"go-harness/harness/jobs"
-	"go-harness/harness/skills"
-	"go-harness/harness/tools"
+	"go-bot/harness/agent"
+	"go-bot/harness/jobs"
+	"go-bot/harness/skills"
+	"go-bot/harness/tools"
 )
 
 // Resources are the native Session's container-local tools and Skill catalog.

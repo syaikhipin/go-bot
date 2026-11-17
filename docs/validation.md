@@ -58,9 +58,9 @@ For independent format verification, install the pinned upstream checkout's
 workspace dependencies, then run from that checkout:
 
 ```bash
-node --import tsx/esm /absolute/path/go-harness/scripts/verify-upstream.mjs \
+node --import tsx/esm /absolute/path/go-bot/scripts/verify-upstream.mjs \
   /absolute/path/upstream-checkout \
-  /absolute/path/go-harness/.cache/validation/docker-container.v4.jsonl \
+  /absolute/path/go-bot/.cache/validation/docker-container.v4.jsonl \
   'Saved report.txt'
 ```
 
@@ -188,8 +188,8 @@ Use a checkout of the pinned commit with its workspace dependencies installed
 to check the resulting journal. Run this from that checkout.
 
 ```bash
-node --import tsx/esm /absolute/path/go-harness/scripts/verify-upstream.mjs \
-  "$PWD" /absolute/path/go-harness/.cache/validation/docker-web-parity.v4.jsonl \
+node --import tsx/esm /absolute/path/go-bot/scripts/verify-upstream.mjs \
+  "$PWD" /absolute/path/go-bot/.cache/validation/docker-web-parity.v4.jsonl \
   'Verified web tools.' \
   '--tool-meta=fetch:{"url":"http://8.8.8.8/page","statusCode":404,"truncated":false}' \
   '--tool-error=bad-args:{"name":"ToolArgsError","code":"INVALID_ARGS"}'
@@ -264,7 +264,7 @@ real Docker Host on a temporary bind mount.
 | Recovery | A rebuilt Host served persisted history and the derived title while the Session remained inactive. The history read did not invoke the model |
 | Archive | Active work and direct Schedule targets reject archiving. An archived chat stayed out of the list after compute recreation, its old API path returned 404, and its journal and workspace remained on disk |
 | Controller | Verified same-origin API access, foreign Origin rejection, a configured Vite origin, SPA deep links, asset 404s, and chat requests forwarded to a fake ECI endpoint |
-| State directory | New environment files rely on `~/.go-harness`. The CLI smoke uses `--state-dir` and the config test checks existing profiles still open their configured directory |
+| Controller storage | Compose persists Redis in the project-scoped `controller-data` volume. The CLI smoke uses a separate Compose project and verifies Redis starts empty. |
 
 ```bash
 make test vet check
@@ -311,8 +311,8 @@ archive filtering and isolation between two account Hosts.
 
 ```bash
 CGO_ENABLED=0 go test ./...
-docker build -f build/Dockerfile.host -t go-harness/host:memory-check .
-RUN_DOCKER_INTEGRATION=1 HARNESS_TEST_HOST_IMAGE=go-harness/host:memory-check \
+docker build -f build/Dockerfile.host -t go-bot/host:memory-check .
+RUN_DOCKER_INTEGRATION=1 HARNESS_TEST_HOST_IMAGE=go-bot/host:memory-check \
   go test ./tests/integration -run '^TestDockerMemoryAndHistoryRebuild$' -count=1
 ```
 
@@ -320,7 +320,7 @@ Live ECI with NAS verification is deferred. The same replacement scenario can
 run on ECI with NAS. From a runner that can
 reach ECI's private Host endpoint and run the Redis fixture, use an ECI NAS
 profile with the updated Host's Ready image cache. Use a fresh fixture account
-with an empty NAS directory at `/go-harness/<account>`. The test starts a
+with an empty NAS directory at `/go-bot/<account>`. The test starts a
 Responses fixture on the runner, so its URL must be reachable by both ECI
 instances. It creates and releases those two instances. The fixture account's
 NAS files remain available for inspection.

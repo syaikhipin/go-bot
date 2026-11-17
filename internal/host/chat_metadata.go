@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"go-harness/harness/session"
-	"go-harness/internal/localstate"
+	"go-bot/harness/session"
+	"go-bot/internal/localstate"
 )
 
 func chatMetadataPath(store sessionformat.FileStore, id, name string) (string, error) {

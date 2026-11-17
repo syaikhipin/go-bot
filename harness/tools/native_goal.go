@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/goal"
-	"go-harness/harness/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/goal"
+	"go-bot/harness/session"
 )
 
 type NativeGetGoal struct {

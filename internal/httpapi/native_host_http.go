@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	"go-harness/harness/content"
-	"go-harness/harness/permission"
-	"go-harness/harness/schedule"
-	"go-harness/harness/session"
-	"go-harness/internal/hostruntime"
+	"go-bot/harness/content"
+	"go-bot/harness/permission"
+	"go-bot/harness/schedule"
+	"go-bot/harness/session"
+	"go-bot/internal/hostruntime"
 
 	"github.com/google/uuid"
 )

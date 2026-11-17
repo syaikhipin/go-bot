@@ -11,17 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/assembly"
-	"go-harness/harness/goal"
-	"go-harness/harness/interaction"
-	"go-harness/harness/jobs"
-	"go-harness/harness/plan"
-	"go-harness/harness/session"
-	"go-harness/harness/skills"
-	"go-harness/harness/tools"
-	"go-harness/internal/agentfs"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/assembly"
+	"go-bot/harness/goal"
+	"go-bot/harness/interaction"
+	"go-bot/harness/jobs"
+	"go-bot/harness/plan"
+	"go-bot/harness/session"
+	"go-bot/harness/skills"
+	"go-bot/harness/tools"
+	"go-bot/internal/agentfs"
+	"go-bot/internal/testsupport/session"
 )
 
 type nativeRuntimeStore struct {

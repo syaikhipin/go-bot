@@ -1,6 +1,6 @@
 package session
 
-import "go-harness/harness/content"
+import "go-bot/harness/content"
 
 // Retired single-Session code keeps aliases while production callers move to
 // the independent ServerAgents content package.

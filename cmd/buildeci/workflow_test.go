@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/thirdparty/aliyun"
+	"go-bot/thirdparty/aliyun"
 )
 
 type fakeCache struct {
@@ -89,7 +89,7 @@ func TestWaitCanResumeAndNeverReturnsUnreadyID(t *testing.T) {
 
 func TestBuildProfileCanOmitRuntimeOnlyCredentials(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env.eci")
-	profile := "HOST_IMAGE=go-harness/host:eci\nREGISTRY_PUSH_IMAGE=registry.example/host:v1\nECI_VSWITCH_ID=vsw-test\nECI_SECURITY_GROUP_ID=sg-test\nALIBABA_CLOUD_ACCESS_KEY_ID=fixture\nALIBABA_CLOUD_ACCESS_KEY_SECRET=fixture\n"
+	profile := "HOST_IMAGE=go-bot/host:eci\nREGISTRY_PUSH_IMAGE=registry.example/host:v1\nECI_VSWITCH_ID=vsw-test\nECI_SECURITY_GROUP_ID=sg-test\nALIBABA_CLOUD_ACCESS_KEY_ID=fixture\nALIBABA_CLOUD_ACCESS_KEY_SECRET=fixture\n"
 	if err := os.WriteFile(path, []byte(profile), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestBuildProfileCanOmitRuntimeOnlyCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	options, err := readOptions(path, "", true)
-	if err != nil || options.LocalImage != "go-harness/host:eci" ||
+	if err != nil || options.LocalImage != "go-bot/host:eci" ||
 		options.Request.Image != "registry.example/host:v1" || options.Request.RegistryServer != "registry.example" {
 		t.Fatalf("registry host was not derived from the push image: %v", err)
 	}

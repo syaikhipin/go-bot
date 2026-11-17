@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/memory"
+	"go-bot/harness/agent"
+	"go-bot/harness/memory"
 )
 
 type NativeMemory struct{ Store *memory.Store }

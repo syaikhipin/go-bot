@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"go-harness/internal/config"
-	"go-harness/internal/imagebuild"
-	"go-harness/thirdparty/aliyun"
+	"go-bot/internal/config"
+	"go-bot/internal/imagebuild"
+	"go-bot/thirdparty/aliyun"
 )
 
 func run(args []string) error {

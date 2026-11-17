@@ -7,11 +7,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"go-harness/internal/providersettings"
-	"go-harness/providers/web/internal/standard"
-	"go-harness/thirdparty/providerhttp"
-	api "go-harness/thirdparty/zhipu"
-	"go-harness/web"
+	"go-bot/internal/providersettings"
+	"go-bot/providers/web/internal/standard"
+	"go-bot/thirdparty/providerhttp"
+	api "go-bot/thirdparty/zhipu"
+	"go-bot/web"
 )
 
 const ID = "zhipu"

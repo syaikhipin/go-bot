@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"go-harness/harness/content"
-	"go-harness/internal/providersettings"
-	imageproviders "go-harness/providers/image"
+	"go-bot/harness/content"
+	"go-bot/internal/providersettings"
+	imageproviders "go-bot/providers/image"
 )
 
 type hostImageGeneration struct {

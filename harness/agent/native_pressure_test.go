@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
 )
 
 type nativePressureModel struct {

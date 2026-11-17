@@ -8,7 +8,7 @@ import (
 	"math"
 	"sync"
 
-	"go-harness/harness/content"
+	"go-bot/harness/content"
 )
 
 // RequestImages applies a route's image budget to a verified durable source.

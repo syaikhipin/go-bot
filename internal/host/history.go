@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"go-harness/harness/sessionsearch"
-	"go-harness/internal/hostruntime"
+	"go-bot/harness/sessionsearch"
+	"go-bot/internal/hostruntime"
 )
 
 func historySnapshot(host *hostruntime.NativeHost) func(context.Context, string, sessionsearch.Cursor) (sessionsearch.Snapshot, error) {

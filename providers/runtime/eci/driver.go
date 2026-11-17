@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"go-harness/internal/config"
-	"go-harness/runtime"
-	"go-harness/thirdparty/aliyun"
+	"go-bot/internal/config"
+	"go-bot/runtime"
+	"go-bot/thirdparty/aliyun"
 )
 
 type API interface {
@@ -46,7 +46,7 @@ func (*Driver) Validate(s runtime.Spec) error {
 	return nil
 }
 func tags(s runtime.Spec) map[string]string {
-	return map[string]string{"component": "go-harness-host", "deployment-id": s.DeploymentID, "run-id": s.RunID}
+	return map[string]string{"component": "go-bot-host", "deployment-id": s.DeploymentID, "run-id": s.RunID}
 }
 func (d *Driver) image(ctx context.Context, s runtime.Spec) (string, error) {
 	cache, err := d.Client.DescribeImageCache(ctx, s.ECI.ImageCacheID)
@@ -57,7 +57,7 @@ func (d *Driver) image(ctx context.Context, s runtime.Spec) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !config.ValidImage(image) || image == "go-harness/host:local" {
+	if !config.ValidImage(image) || image == "go-bot/host:local" {
 		return "", errors.New("ECI cache contains an invalid Host image reference")
 	}
 	return image, nil
@@ -81,7 +81,7 @@ func (d *Driver) Preflight(ctx context.Context, s runtime.Spec) error {
 }
 
 func deploymentTags(s runtime.Spec) map[string]string {
-	return map[string]string{"component": "go-harness-host", "deployment-id": s.DeploymentID}
+	return map[string]string{"component": "go-bot-host", "deployment-id": s.DeploymentID}
 }
 func terminal(state string) bool {
 	switch state {
@@ -112,7 +112,7 @@ func (d *Driver) Inspect(ctx context.Context, r runtime.ResourceRef) (runtime.In
 	if len(groups) == 0 {
 		return runtime.Instance{}, runtime.ErrNotFound
 	}
-	if len(groups) != 1 || groups[0].Tags["component"] != "go-harness-host" {
+	if len(groups) != 1 || groups[0].Tags["component"] != "go-bot-host" {
 		return runtime.Instance{}, errors.New("ECI resource identity mismatch")
 	}
 	return fromGroup(groups[0]), nil
@@ -169,7 +169,7 @@ func (d *Driver) Ensure(ctx context.Context, s runtime.Spec) (runtime.Instance, 
 		if err != nil {
 			return runtime.Instance{}, err
 		}
-		req := aliyun.Create{Name: "go-harness-" + s.RunID, ClientToken: s.RunID, Image: image, ImageCacheID: s.ECI.ImageCacheID, VSwitchID: s.ECI.VSwitchID, SecurityGroupID: s.ECI.SecurityGroupID, CPU: s.ECI.CPU, MemoryGiB: s.ECI.MemoryGiB, Environment: s.Environment, Tags: tags(s)}
+		req := aliyun.Create{Name: "go-bot-" + s.RunID, ClientToken: s.RunID, Image: image, ImageCacheID: s.ECI.ImageCacheID, VSwitchID: s.ECI.VSwitchID, SecurityGroupID: s.ECI.SecurityGroupID, CPU: s.ECI.CPU, MemoryGiB: s.ECI.MemoryGiB, Environment: s.Environment, Tags: tags(s)}
 		if s.Storage.Type == "nas" {
 			req.NASMountTarget = s.Storage.MountTarget
 			req.NASPath = s.Storage.Path

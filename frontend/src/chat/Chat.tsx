@@ -363,7 +363,7 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
     <main className="workspace" hidden={hidden} inert={drawerOpen || filesOverlay}>
       <header className="topbar">
         <button className="icon-button drawer-toggle" type="button" onClick={onOpenMenu} aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label={t('Open chats')}><Menu size={22} /></button>
-        <span>{t('Go Harness Chat')}</span>
+        <span>{t('Go Bot Chat')}</span>
       </header>
       {!id ? (
         <div className="chat-empty">

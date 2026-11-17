@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/internal/config"
+	"go-bot/internal/config"
 )
 
 func TestDockerWebChatQueueAndQuestions(t *testing.T) {

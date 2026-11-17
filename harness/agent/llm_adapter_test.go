@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/internal/modeldata"
-	"go-harness/internal/testsupport/session"
-	"go-harness/thirdparty/llm"
+	"go-bot/internal/modeldata"
+	"go-bot/internal/testsupport/session"
+	"go-bot/thirdparty/llm"
 )
 
 type capturingLLMTransport struct {

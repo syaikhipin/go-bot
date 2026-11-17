@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
 )
 
 type nativeTodoJournal struct{ events []sessionformat.Event }

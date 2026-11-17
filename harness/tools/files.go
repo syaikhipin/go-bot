@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"go-harness/harness/agent"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/agent"
+	"go-bot/internal/agentfs"
 )
 
 // FileView implementations must wrap agentfs.ErrMutationOutcomeUnknown when

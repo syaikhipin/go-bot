@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"go-harness/harness/session"
-	"go-harness/internal/modeldata"
+	"go-bot/harness/session"
+	"go-bot/internal/modeldata"
 )
 
 // executeNativeStepTools overlaps only consecutive calls whose static tool

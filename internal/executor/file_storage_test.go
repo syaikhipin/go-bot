@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
 )
 
 func TestNativeFileStorageRestoresParentChildAndGrandchild(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"go-harness/web"
+	"go-bot/web"
 )
 
 func TestSearchUsesDedicatedEndpointAndStructuredResults(t *testing.T) {

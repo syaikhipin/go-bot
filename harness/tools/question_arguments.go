@@ -6,8 +6,8 @@ import (
 	"errors"
 	"io"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/interaction"
+	"go-bot/harness/agent"
+	"go-bot/harness/interaction"
 )
 
 type askQuestionArgs struct {

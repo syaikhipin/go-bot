@@ -14,28 +14,28 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/assembly"
-	"go-harness/harness/attachments"
-	"go-harness/harness/memory"
-	"go-harness/harness/schedule"
-	"go-harness/harness/session"
-	"go-harness/harness/sessionsearch"
-	"go-harness/harness/skills"
-	"go-harness/harness/tools"
-	"go-harness/internal/config"
-	"go-harness/internal/durablefs"
-	"go-harness/internal/executor"
-	"go-harness/internal/hostruntime"
-	"go-harness/internal/httpapi"
-	"go-harness/internal/modelsettings"
-	"go-harness/internal/websearchsettings"
-	imageproviders "go-harness/providers/image"
-	"go-harness/providers/model/mainmodel"
-	webproviders "go-harness/providers/web"
-	builtin "go-harness/providers/web/builtin"
-	"go-harness/thirdparty/llm"
-	"go-harness/web"
+	"go-bot/harness/agent"
+	"go-bot/harness/assembly"
+	"go-bot/harness/attachments"
+	"go-bot/harness/memory"
+	"go-bot/harness/schedule"
+	"go-bot/harness/session"
+	"go-bot/harness/sessionsearch"
+	"go-bot/harness/skills"
+	"go-bot/harness/tools"
+	"go-bot/internal/config"
+	"go-bot/internal/durablefs"
+	"go-bot/internal/executor"
+	"go-bot/internal/hostruntime"
+	"go-bot/internal/httpapi"
+	"go-bot/internal/modelsettings"
+	"go-bot/internal/websearchsettings"
+	imageproviders "go-bot/providers/image"
+	"go-bot/providers/model/mainmodel"
+	webproviders "go-bot/providers/web"
+	builtin "go-bot/providers/web/builtin"
+	"go-bot/thirdparty/llm"
+	"go-bot/web"
 )
 
 type Ready struct {
@@ -175,7 +175,7 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		return latestHostSession(ctx, root)
 	}
 	accountMemory := memory.NewStore(filepath.Join(dshHome, "memories"))
-	history, err := sessionsearch.Open(ctx, "/var/lib/go-harness/session-search.sqlite", c.Host.AccountID, sessionsearch.Source{
+	history, err := sessionsearch.Open(ctx, "/var/lib/go-bot/session-search.sqlite", c.Host.AccountID, sessionsearch.Source{
 		List: native.List, Snapshot: historySnapshot(native), Title: native.ReadTitle,
 	})
 	if err != nil {

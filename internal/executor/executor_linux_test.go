@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 func TestExecutorCancelGivesProcessGroupTermGrace(t *testing.T) {

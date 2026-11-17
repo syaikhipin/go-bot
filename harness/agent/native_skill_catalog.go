@@ -7,7 +7,7 @@ import (
 	"slices"
 	"unicode/utf16"
 
-	"go-harness/harness/skills"
+	"go-bot/harness/skills"
 	"strings"
 
 	"github.com/google/uuid"

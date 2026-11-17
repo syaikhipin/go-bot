@@ -13,8 +13,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"go-harness/internal/durablefs"
-	"go-harness/internal/localstate"
+	"go-bot/internal/durablefs"
+	"go-bot/internal/localstate"
 )
 
 const separator = "\n§\n"

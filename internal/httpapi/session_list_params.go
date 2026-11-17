@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"errors"
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 	"strconv"
 	"time"
 

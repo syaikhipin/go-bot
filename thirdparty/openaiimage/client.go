@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"go-harness/thirdparty/providerhttp"
+	"go-bot/thirdparty/providerhttp"
 )
 
 const Endpoint = "https://api.openai.com/v1/images/generations"

@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go-harness/internal/config"
-	"go-harness/internal/imagebuild"
-	"go-harness/internal/localstate"
-	"go-harness/thirdparty/aliyun"
+	"go-bot/internal/config"
+	"go-bot/internal/imagebuild"
+	"go-bot/internal/localstate"
+	"go-bot/thirdparty/aliyun"
 )
 
 type cacheAPI interface {
@@ -89,7 +89,7 @@ func execute(ctx context.Context, o options, root, name string, api cacheAPI, pu
 	defer cancel()
 	if op.CacheID == "" {
 		req.ClientToken = op.Token
-		req.Name = "go-harness-" + op.Token[:8]
+		req.Name = "go-bot-" + op.Token[:8]
 		id, err := api.CreateImageCache(ctx, req)
 		if err != nil {
 			return result{}, err

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"go-harness/harness/session"
-	"go-harness/internal/modeldata"
+	"go-bot/harness/session"
+	"go-bot/internal/modeldata"
 )
 
 type nativeRepeatModel struct {

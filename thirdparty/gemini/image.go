@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"go-harness/thirdparty/providerhttp"
+	"go-bot/thirdparty/providerhttp"
 )
 
 const Endpoint = "https://generativelanguage.googleapis.com/v1beta/models"

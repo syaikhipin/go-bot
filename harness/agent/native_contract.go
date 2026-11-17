@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"go-harness/harness/content"
-	"go-harness/internal/modeldata"
+	"go-bot/harness/content"
+	"go-bot/internal/modeldata"
 )
 
 // Message is the model-facing projection of the durable v4 session surface.

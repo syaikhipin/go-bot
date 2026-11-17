@@ -7,10 +7,10 @@ import (
 	"slices"
 	"strings"
 
-	"go-harness/internal/providersettings"
-	"go-harness/internal/websearchsettings"
-	imageproviders "go-harness/providers/image"
-	webproviders "go-harness/providers/web"
+	"go-bot/internal/providersettings"
+	"go-bot/internal/websearchsettings"
+	imageproviders "go-bot/providers/image"
+	webproviders "go-bot/providers/web"
 )
 
 const webSearchSettingsPath = "/v1/settings/web-search"

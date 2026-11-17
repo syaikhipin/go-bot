@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	webproviders "go-harness/providers/web"
+	webproviders "go-bot/providers/web"
 	"gopkg.in/yaml.v3"
 )
 
@@ -135,7 +135,7 @@ func Default() Config {
 		Version:    1,
 		Controller: Controller{Listen: "127.0.0.1:8080"},
 		Runtime: Runtime{
-			Provider: "docker", Image: "go-harness/host:local", StartTimeout: 5 * time.Minute,
+			Provider: "docker", Image: "go-bot/host:local", StartTimeout: 5 * time.Minute,
 			Docker: Docker{EndpointHost: "127.0.0.1"},
 			ECI:    ECI{Region: "cn-hangzhou", CPU: 2, MemoryGiB: 4},
 		},

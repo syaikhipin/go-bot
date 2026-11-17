@@ -22,6 +22,11 @@ The Host image, including its tools and bundled skills, is built from
 from `build/Dockerfile.controller` and runs the published `redis:8-alpine` image.
 [Host Dockerfile](../build/Dockerfile.host) · [Controller Dockerfile](../build/Dockerfile.controller) · [Compose](../compose.yaml)
 
+Go Bot uses a separate Compose project, Redis volume, and Host storage from
+Go Harness. To switch on the same machine, stop the old deployment so its
+ports are free, then initialize fresh environment profiles for Go Bot. Keep
+the old profiles and storage separately if you need the previous deployment.
+
 ```bash
 ./bin/controller check
 ./bin/controller doctor
@@ -42,14 +47,14 @@ also removes the Redis volume and the accounts stored in it.
 
 ## Storage choices
 
-Controller-managed Docker Hosts mount `gh-<userId>-data` at `/root/harness`
+Controller-managed Docker Hosts mount `go-bot-<userId>-data` at `/root/harness`
 automatically. After building an updated image, release the old Host with
 `controller host delete --user alice` and reopen the account. The replacement
 container uses the new image and mounts the same volume. The volume is local to
 the Docker daemon. ECI can retain its data across instance replacement with NAS.
 
 The account's long-term memory files live under `/root/harness/.dsh/memories`.
-The Host keeps its SQLite FTS5 index at `/var/lib/go-harness/session-search.sqlite`
+The Host keeps its SQLite FTS5 index at `/var/lib/go-bot/session-search.sqlite`
 in both runtimes and rebuilds it from the account's v4 journals after replacing
 the container.
 
@@ -115,7 +120,7 @@ needs outbound internet access, cover its vSwitch with a NAT gateway SNAT rule.
 [Alibaba Cloud ECI networking](https://www.alibabacloud.com/help/en/eci/user-guide/enable-internet-access)
 
 For persistent NAS set `HARNESS_STORAGE=nas` and `NAS_MOUNT_TARGET` to an
-existing mount target hostname. Create `/go-harness/<userId>` on NAS and allow
+existing mount target hostname. Create `/go-bot/<userId>` on NAS and allow
 the Host to write to it before opening that account. The driver mounts it at
 `/root/harness`. Session journals live at
 `<nasPath>/.dsh/sessions/<project-key>/<session-id>/session.v4.jsonl`.
@@ -132,7 +137,7 @@ cloud checks.
 
 During the build, the verified OfficeCLI release binary generates its skill
 bundles and the official Skills CLI fetches the upstream agent-browser bundle.
-The image stores both sets under `/usr/share/go-harness/skill-seed`. The Host
+The image stores both sets under `/usr/share/go-bot/skill-seed`. The Host
 installs them into `/root/harness/.dsh/skills` on first use of each data root. Both user
 skill roots persist across instance replacement in the account's Docker volume
 or ECI NAS mount.

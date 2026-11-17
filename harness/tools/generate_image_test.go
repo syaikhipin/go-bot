@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/attachments"
-	"go-harness/harness/content"
+	"go-bot/harness/attachments"
+	"go-bot/harness/content"
 )
 
 func tinyPNG(t *testing.T) []byte {

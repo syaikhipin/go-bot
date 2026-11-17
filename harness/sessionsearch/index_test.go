@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 const (

@@ -1,4 +1,4 @@
-package goharness
+package gobot
 
 import _ "embed"
 

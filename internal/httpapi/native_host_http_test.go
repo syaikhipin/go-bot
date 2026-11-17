@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/assembly"
-	"go-harness/harness/schedule"
-	"go-harness/harness/session"
-	"go-harness/internal/hostruntime"
+	"go-bot/harness/assembly"
+	"go-bot/harness/schedule"
+	"go-bot/harness/session"
+	"go-bot/internal/hostruntime"
 
 	"github.com/google/uuid"
 )

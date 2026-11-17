@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go-harness/internal/modeldata"
+	"go-bot/internal/modeldata"
 )
 
 const (

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 
 	_ "modernc.org/sqlite"
 )

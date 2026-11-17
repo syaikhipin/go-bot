@@ -25,7 +25,7 @@ export function MessageView({ api, id, message, results, openImage, generating =
   const user = message.role === 'user'
   return <View style={[styles.message, user && { alignItems: 'flex-end' }]}>
     {!user && <View style={[s.row, { minHeight: 34 }]}>
-      <Image source={logo} style={styles.avatar} accessibilityLabel="Go Harness" />
+      <Image source={logo} style={styles.avatar} accessibilityLabel="Go Bot" />
       {generating && <><ActivityIndicator size="small" color={accent} /><Text accessibilityLiveRegion="polite" style={s.caption}>{t('生成中')}</Text></>}
     </View>}
     <View style={[styles.content, user && styles.bubble]}>

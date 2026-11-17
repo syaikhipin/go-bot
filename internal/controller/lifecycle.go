@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"go-harness/runtime"
+	"go-bot/runtime"
 )
 
 type HostStatus struct {

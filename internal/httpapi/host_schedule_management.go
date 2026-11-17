@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"go-harness/harness/schedule"
+	"go-bot/harness/schedule"
 )
 
 const hostSchedulePath = "/v1/host/schedules"

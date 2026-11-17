@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 func TestHostListsOnlyActivatedTopLevelSessionsWithPages(t *testing.T) {

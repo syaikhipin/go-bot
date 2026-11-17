@@ -101,7 +101,7 @@ export function Sidebar(props: Props) {
         onKeyDown={event => { if (event.key === 'Escape' && !menu && !event.defaultPrevented) props.onClose() }}>
         <div className="brand">
           <HarnessAvatar className="brand-mark" />
-          <span>Go Harness</span>
+          <span>Go Bot</span>
           <button ref={drawerClose} type="button" className="icon-button drawer-close" onClick={props.onClose} aria-label={t('Close chats')}><X size={21} /></button>
         </div>
         <button type="button" className="new-chat" onClick={props.onCreate} disabled={props.creating}>

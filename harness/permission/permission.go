@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	session "go-harness/harness/session"
+	session "go-bot/harness/session"
 )
 
 type Mode string

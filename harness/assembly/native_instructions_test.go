@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/session"
-	"go-harness/internal/instructionrender"
+	"go-bot/harness/agent"
+	"go-bot/harness/session"
+	"go-bot/internal/instructionrender"
 )
 
 func TestNativeWorkspaceReplacementBaselineRecordsOnlyRenderedFiles(t *testing.T) {

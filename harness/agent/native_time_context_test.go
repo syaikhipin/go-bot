@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 func timeContextEvents(t *testing.T, events []sessionformat.Event) []sessionformat.Event {

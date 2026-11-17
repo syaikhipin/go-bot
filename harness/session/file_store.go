@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go-harness/internal/durablefs"
+	"go-bot/internal/durablefs"
 )
 
 // FileStore is the v4 persistence backend for either user cloud-computer

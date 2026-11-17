@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/assembly"
-	"go-harness/harness/interaction"
+	"go-bot/harness/agent"
+	"go-bot/harness/assembly"
+	"go-bot/harness/interaction"
 )
 
 func TestNativeHostOwnsMultipleIndependentSessions(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/interaction"
-	"go-harness/harness/plan"
+	"go-bot/harness/agent"
+	"go-bot/harness/interaction"
+	"go-bot/harness/plan"
 )
 
 // NativeAskUserQuestion uses the upstream timed tool shape. The v4 log

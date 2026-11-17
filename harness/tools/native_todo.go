@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/session"
 )
 
 // NativeTodoWrite writes the released todo/write event to the owning v4

@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"go-harness/harness/session"
-	"go-harness/internal/modeldata"
+	"go-bot/harness/session"
+	"go-bot/internal/modeldata"
 )
 
 type historicalWebModel struct {

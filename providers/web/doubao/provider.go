@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"go-harness/internal/providersettings"
-	"go-harness/providers/web/internal/standard"
-	api "go-harness/thirdparty/doubao"
-	"go-harness/thirdparty/providerhttp"
-	"go-harness/web"
+	"go-bot/internal/providersettings"
+	"go-bot/providers/web/internal/standard"
+	api "go-bot/thirdparty/doubao"
+	"go-bot/thirdparty/providerhttp"
+	"go-bot/web"
 )
 
 const ID = "doubao"

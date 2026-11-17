@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/schedule"
+	"go-bot/harness/schedule"
 )
 
 type scheduleToolStore struct {

@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"unicode/utf16"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 // nativeSurfaceTokens uses the same fixed per-message heuristic as the v4

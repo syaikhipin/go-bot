@@ -12,8 +12,8 @@ import (
 
 func TestControllerServesWebRoutesAndLeavesAPIRoutesDistinct(t *testing.T) {
 	files := fstest.MapFS{
-		"index.html":     {Data: []byte("<!doctype html><title>Go Harness</title>")},
-		"assets/main.js": {Data: []byte("const page = 'Go Harness'")},
+		"index.html":     {Data: []byte("<!doctype html><title>Go Bot</title>")},
+		"assets/main.js": {Data: []byte("const page = 'Go Bot'")},
 	}
 	handler := (&Manager{}).HandlerWithWeb(WebOptions{Files: files})
 	for _, tc := range []struct {
@@ -105,8 +105,8 @@ func TestControllerBrowserOriginUsesRequestHostAndScheme(t *testing.T) {
 
 func TestControllerRoutesHostFilesAndDescribesAccountStorage(t *testing.T) {
 	for _, test := range []struct{ provider, storage, kind, source string }{
-		{"docker", "container", "docker-volume", "gh-alice-data"},
-		{"eci", "nas", "nas", "/go-harness/alice"},
+		{"docker", "container", "docker-volume", "go-bot-alice-data"},
+		{"eci", "nas", "nas", "/go-bot/alice"},
 		{"eci", "container", "instance", ""},
 	} {
 		t.Run(test.provider+"/"+test.storage, func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestWebControllerRoutesChatRequestsToFakeECIInstance(t *testing.T) {
 	if err := manager.Ensure(t.Context(), "alice"); err != nil {
 		t.Fatal(err)
 	}
-	files := fstest.MapFS{"index.html": {Data: []byte("<title>Go Harness</title>")}}
+	files := fstest.MapFS{"index.html": {Data: []byte("<title>Go Bot</title>")}}
 	handler := manager.HandlerWithWeb(WebOptions{Files: files})
 	for _, call := range []struct {
 		method, path string

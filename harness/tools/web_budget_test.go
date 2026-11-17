@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"go-harness/web"
+	"go-bot/web"
 )
 
 type countingWebFetcher struct{ calls atomic.Int32 }

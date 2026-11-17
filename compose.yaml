@@ -1,9 +1,11 @@
+name: go-bot
+
 services:
   controller:
     build:
       context: .
       dockerfile: build/Dockerfile.controller
-    image: go-harness/controller:local
+    image: go-bot/controller:local
     command: ["serve", "--env-file", "/config/deployment.env", "--config", "/config/runtime.yaml"]
     environment:
       REDIS_ADDR: redis:6379
@@ -11,13 +13,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - type: bind
-        source: ${GO_HARNESS_ENV_FILE:-./.env}
+        source: ${GO_BOT_ENV_FILE:-./.env}
         target: /config/deployment.env
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: ${GO_HARNESS_CONFIG_FILE:-./configs/default.yaml}
+        source: ${GO_BOT_CONFIG_FILE:-./configs/default.yaml}
         target: /config/runtime.yaml
         read_only: true
         bind:

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Go Harness",
-    "slug": "go-harness-mobile",
+    "name": "Go Bot",
+    "slug": "go-bot-mobile",
     "version": "0.0.1",
     "userInterfaceStyle": "light",
     "platforms": [
@@ -9,17 +9,17 @@
       "android"
     ],
     "ios": {
-      "bundleIdentifier": "com.goharness.mobile",
+      "bundleIdentifier": "com.gobot.mobile",
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Connect to your Go Harness server on the local network.",
+        "NSLocalNetworkUsageDescription": "Connect to your Go Bot server on the local network.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
       }
     },
     "android": {
-      "package": "com.goharness.mobile",
+      "package": "com.gobot.mobile",
       "versionCode": 1,
       "blockedPermissions": [
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
@@ -30,15 +30,16 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Import photos to your Go Harness image library.",
-          "cameraPermission": "Take a photo to update your Go Harness avatar.",
+          "photosPermission": "Import photos to your Go Bot image library.",
+          "cameraPermission": "Take a photo to update your Go Bot avatar.",
           "microphonePermission": false
         }
       ],

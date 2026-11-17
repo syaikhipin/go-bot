@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"go-harness/web"
+	"go-bot/web"
 	"strings"
 	"sync"
 	"testing"

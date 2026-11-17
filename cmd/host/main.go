@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go-harness/internal/config"
-	"go-harness/internal/host"
+	"go-bot/internal/config"
+	"go-bot/internal/host"
 )
 
 func main() {

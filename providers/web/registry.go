@@ -5,11 +5,11 @@ import (
 	"errors"
 	"sort"
 
-	"go-harness/internal/providersettings"
-	"go-harness/providers/web/deepseek"
-	"go-harness/providers/web/doubao"
-	"go-harness/providers/web/zhipu"
-	"go-harness/web"
+	"go-bot/internal/providersettings"
+	"go-bot/providers/web/deepseek"
+	"go-bot/providers/web/doubao"
+	"go-bot/providers/web/zhipu"
+	"go-bot/web"
 )
 
 type adapter struct {

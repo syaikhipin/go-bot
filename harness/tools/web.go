@@ -8,9 +8,9 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"go-harness/harness/agent"
-	"go-harness/internal/webmarkdown"
-	"go-harness/web"
+	"go-bot/harness/agent"
+	"go-bot/internal/webmarkdown"
+	"go-bot/web"
 )
 
 const (

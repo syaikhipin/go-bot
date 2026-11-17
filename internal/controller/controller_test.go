@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/internal/config"
-	"go-harness/internal/modelsettings"
-	"go-harness/internal/providersettings"
-	"go-harness/runtime"
+	"go-bot/internal/config"
+	"go-bot/internal/modelsettings"
+	"go-bot/internal/providersettings"
+	"go-bot/runtime"
 )
 
 type memoryStore struct {

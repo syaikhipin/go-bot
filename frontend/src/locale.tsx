@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { Languages } from 'lucide-react'
 import { translate, type Language } from './messages'
 
-const preferenceKey = 'go-harness.web-language'
+const preferenceKey = 'go-bot.web-language'
 const languages: ReadonlyArray<{ id: Language; label: string }> = [
   { id: 'en', label: 'English' },
   { id: 'zh-CN', label: '简体中文' },

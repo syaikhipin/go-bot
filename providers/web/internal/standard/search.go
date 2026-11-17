@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"go-harness/thirdparty/providerhttp"
-	"go-harness/web"
+	"go-bot/thirdparty/providerhttp"
+	"go-bot/web"
 )
 
 func Count(request web.SearchRequest) int {

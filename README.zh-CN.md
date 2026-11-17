@@ -1,10 +1,10 @@
-<h1 align="center">go-harness</h1>
+<h1 align="center">go-bot</h1>
 
 <p align="center">
-  <img src="assets/harness-whale.png" width="184" alt="go-harness 蓝鲸头像">
+  <img src="assets/harness-whale.png" width="184" alt="go-bot 蓝鲸头像">
 </p>
 
-go-harness 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Personal Agent，
+go-bot 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Personal Agent，
 可作为 [Meta Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/)、
 [OpenAI dots](https://openai.com/zh-Hans-CN/index/introducing-dots/) 和
 [Grok Bot](https://help.x.com/en/using-x/about-grok) 的开源替代方案。个人可以用 Docker 在本地运行、开发和测试。
@@ -14,7 +14,7 @@ go-harness 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Pe
 
 <p align="center">
   <a href="README.md">English</a> · <strong>简体中文</strong> ·
-  <strong><a href="https://github.com/xyc999-ai/go-harness/releases/latest">下载 Android APK</a></strong>
+  <strong><a href="https://github.com/xyc999-ai/go-bot/releases/latest">下载 Android APK</a></strong>
 </p>
 
 - **网络搜索和浏览器操作。** 配置搜索供应商后即可检索网页。Agent 能操作 Chromium，打开页面、填写表单和截图。
@@ -30,31 +30,39 @@ go-harness 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Pe
 
 ### 移动端演示
 
-以下中文任务从 iOS 客户端发起，连接本地 Controller 和 Docker Host。Word 和 PPT 的动图末尾展示了在 WPS Office 中打开的成品。
+以下从移动端展示的中文会话均使用本地 Controller 和 Docker Host。Word 和 PPT 的动图末尾展示了在 WPS Office 中打开的成品。
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>浏览器调研</h4>
-      <a href="docs/showcase/mobile-research-demo.png"><img src="docs/showcase/mobile-research-demo.png" width="340" alt="移动端查询斯坦福 AI Index，在会话中交付图表、Markdown 摘要和 CSV"></a>
+      <a href="docs/showcase/mobile-research-demo.png"><img src="docs/showcase/mobile-research-demo.png" width="260" alt="移动端查询斯坦福 AI Index，在会话中交付图表、Markdown 摘要和 CSV"></a>
       <p>核对斯坦福 AI Index，在会话中收到原文图表、摘要和数据表。<br><a href="docs/showcase/mobile-research-key.png">查看原尺寸关键帧</a></p>
     </td>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>Word 行业报告</h4>
-      <a href="docs/showcase/mobile-word-demo.png"><img src="docs/showcase/mobile-word-demo.png" width="340" alt="手机完成 Word 报告的制作与多轮修改，随后在 WPS Office 中打开成品"></a>
+      <a href="docs/showcase/mobile-word-demo.png"><img src="docs/showcase/mobile-word-demo.png" width="260" alt="手机完成 Word 报告的制作与多轮修改，随后在 WPS Office 中打开成品"></a>
       <p>制作行业报告，再补充调查口径和适合团队落地的试点方案。<br><a href="docs/showcase/mobile-word-key.png">查看原尺寸关键帧</a></p>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>PPT 汇报</h4>
-      <a href="docs/showcase/mobile-slides-demo.png"><img src="docs/showcase/mobile-slides-demo.png" width="340" alt="手机制作并修改三页 PPT，随后在 WPS Office 中展示三页成品"></a>
+      <a href="docs/showcase/mobile-slides-demo.png"><img src="docs/showcase/mobile-slides-demo.png" width="260" alt="手机制作并修改三页 PPT，随后在 WPS Office 中展示三页成品"></a>
       <p>调整采用率说明，把最后一页改成三步试点计划。<br><a href="docs/showcase/mobile-slides-key.png">查看原尺寸关键帧</a></p>
     </td>
+  </tr>
+</table>
+
+<table align="center" width="67%">
+  <tr>
     <td width="50%" valign="top" align="center">
       <h4>两张参考图编辑图片</h4>
-      <a href="docs/showcase/mobile-image-demo.png"><img src="docs/showcase/mobile-image-demo.png" width="340" alt="移动端上传蓝鲸和色板，预览 Seedream 改色结果并保存到图库"></a>
+      <a href="docs/showcase/mobile-image-demo.png"><img src="docs/showcase/mobile-image-demo.png" width="260" alt="移动端上传蓝鲸和色板，预览 Seedream 改色结果并保存到图库"></a>
       <p>用 Seedream 给鲸鱼换色，全屏预览后保存到手机图库。<br><a href="docs/showcase/mobile-image-key.png">查看原尺寸关键帧</a></p>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <h4>定时任务</h4>
+      <a href="docs/showcase/mobile-schedule-demo.png"><img src="docs/showcase/mobile-schedule-demo.png" width="260" alt="手机会话中的中文定时任务请求、创建确认和到点送达的提醒"></a>
+      <p>在手机会话中查看定时任务的创建确认，以及随后送达的检查清单。</p>
     </td>
   </tr>
 </table>
@@ -65,42 +73,40 @@ go-harness 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Pe
 [斯坦福 HAI《2026 AI Index》经济章节](https://hai.stanford.edu/ai-index/2026-ai-index-report/economy)，
 再用 OfficeCLI 把查到的资料整理成 Word 简报和 PPT，并根据后续消息修改两份文件。
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>浏览器调研</h3>
-      <img src="docs/showcase/ai-research-demo.gif" width="100%" alt="中文调研请求、Agent 交付的资料附件与斯坦福 HAI 原文图表">
+      <img src="docs/showcase/ai-research-demo.gif" width="260" alt="中文调研请求、Agent 交付的资料附件与斯坦福 HAI 原文图表">
       <p>Agent 用 Chromium 核对行业数据，交付原文图表和调研摘要。</p>
       <a href="docs/showcase/ai-research-chat.webp">看会话截图</a> · <a href="docs/showcase/ai-index-source.webp">看原站图表</a>
     </td>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>Word 简报</h3>
-      <img src="docs/showcase/ai-word-demo.gif" width="100%" alt="从制作到修改 Word 简报的完整会话，以及在 WPS Office 中打开的成品">
+      <img src="docs/showcase/ai-word-demo.gif" width="260" alt="从制作到修改 Word 简报的完整会话，以及在 WPS Office 中打开的成品">
       <p>Agent 先制作单页简报，再补充采用率的调查口径和小团队试点建议，最后在 WPS Office 中查看成品。</p>
       <a href="docs/showcase/ai-word-demo.gif">查看大图</a>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>PPT 汇报</h3>
-      <img src="docs/showcase/ai-slides-demo.gif" width="100%" alt="从制作到修改 PPT 的完整会话，以及在 WPS Office 中打开的三页成品">
+      <img src="docs/showcase/ai-slides-demo.gif" width="260" alt="从制作到修改 PPT 的完整会话，以及在 WPS Office 中打开的三页成品">
       <p>Agent 补充采用率的调查口径，将最后一页改成三步试点计划，最后在 WPS Office 中展示三页成品。</p>
       <a href="docs/showcase/ai-slides-demo.gif">查看大图</a>
-    </td>
-    <td width="50%" valign="top">
-      <h3>两张参考图编辑图片</h3>
-      <img src="docs/showcase/ai-image-demo.gif" width="100%" alt="上传蓝鲸和色板、调用 Seedream 生图并在会话中交付结果">
-      <p>Seedream 参考蓝鲸 Logo 和珊瑚杏色色板，重新配色并在会话中交付一张 2048 × 2048 的图片。</p>
-      <a href="docs/showcase/ai-image-result.webp">看生成结果</a>
     </td>
   </tr>
 </table>
 
-<table align="center" width="50%">
+<table align="center" width="67%">
   <tr>
-    <td valign="top" align="center">
+    <td width="50%" valign="top" align="center">
+      <h3>两张参考图编辑图片</h3>
+      <img src="docs/showcase/ai-image-demo.gif" width="260" alt="上传蓝鲸和色板、调用 Seedream 生图并在会话中交付结果">
+      <p>Seedream 参考蓝鲸 Logo 和珊瑚杏色色板，重新配色并在会话中交付一张 2048 × 2048 的图片。</p>
+      <a href="docs/showcase/ai-image-result.webp">看生成结果</a>
+    </td>
+    <td width="50%" valign="top" align="center">
       <h3>定时任务</h3>
-      <a href="docs/showcase/web-schedule-zh.gif"><img src="docs/showcase/web-schedule-zh.gif" width="100%" alt="中文网页会话中的定时任务请求、创建确认和到点送达的提醒"></a>
+      <a href="docs/showcase/web-schedule-zh.gif"><img src="docs/showcase/web-schedule-zh.gif" width="260" alt="中文网页会话中的定时任务请求、创建确认和到点送达的提醒"></a>
       <p>创建一次性提醒。任务到点后，检查清单会送达原会话。</p>
     </td>
   </tr>
@@ -135,7 +141,7 @@ go-harness 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Pe
 Tailscale 会让手机和运行 Controller 的电脑加入同一个私有网络
 （tailnet）。手机离开家里的 Wi-Fi 后，仍然可以通过这个网络访问 Controller。
 
-1. **在电脑和手机上下载 Tailscale。** 在运行 Controller 的电脑上打开 [Tailscale 官方下载页](https://tailscale.com/download)，选择对应的操作系统。手机也从该页面进入 iOS App Store 或 Android Google Play 安装。Android 用户可在 [GitHub 最新正式版](https://github.com/xyc999-ai/go-harness/releases/latest)的 **Assets** 中下载 Go Harness APK。
+1. **在电脑和手机上下载 Tailscale。** 在运行 Controller 的电脑上打开 [Tailscale 官方下载页](https://tailscale.com/download)，选择对应的操作系统。手机也从该页面进入 iOS App Store 或 Android Google Play 安装。Android 用户可在 [GitHub 最新正式版](https://github.com/xyc999-ai/go-bot/releases/latest)的 **Assets** 中下载 Go Bot APK。
 2. **两端登录同一个 Tailscale 账号。** 按提示允许系统添加 VPN 配置，并在电脑和手机上开启连接。登录后，设备会加入同一个 tailnet。在电脑的 **Devices** 页面确认两台设备都在线，点选电脑即可看到它的 MagicDNS 地址。也可以打开 [Tailscale 设备管理页](https://login.tailscale.com/admin/machines) 核对。
 
    <img src="docs/showcase/tailscale-devices.png" width="800" alt="macOS 上的 Tailscale 设备列表，两台设备均已连接，右侧显示所选电脑的 MagicDNS 地址。账号和设备信息已替换为示例。">
@@ -149,7 +155,7 @@ Tailscale 会让手机和运行 Controller 的电脑加入同一个私有网络
    ```
 
    如果终端找不到 `tailscale`，参阅 [Tailscale 命令行配置指南](https://tailscale.com/docs/reference/tailscale-cli?tab=macos)。
-4. **在手机上连接 Go Harness。** 复制 Serve 输出的完整地址，例如 `http://my-computer.example-tailnet.ts.net:8080`。先用手机浏览器打开，确认能看到 go-harness 网页，然后在 App 填入同一个地址和 go-harness 账号名，点「连接」。新账号可以在「我的 → 模型」里配置模型。 [Tailscale Serve 指南](https://tailscale.com/docs/features/tailscale-serve)
+4. **在手机上连接 Go Bot。** 复制 Serve 输出的完整地址，例如 `http://my-computer.example-tailnet.ts.net:8080`。先用手机浏览器打开，确认能看到 go-bot 网页，然后在 App 填入同一个地址和 go-bot 账号名，点「连接」。新账号可以在「我的 → 模型」里配置模型。 [Tailscale Serve 指南](https://tailscale.com/docs/features/tailscale-serve)
 
 如果已有手机可以访问的 HTTPS 入口，也可以直接在 App 中填写该地址。
 
@@ -189,7 +195,7 @@ Host 将 OfficeCLI 和 agent-browser 的 Skill 安装到 `/root/harness/.dsh/ski
 | --- | --- |
 | RAM 凭证 | 创建 RAM 用户及 AccessKey ID、Secret，授予查询、创建和释放 ECI 实例、查询镜像缓存所需的权限。如需制作缓存，再授予创建缓存权限。 [创建 AccessKey](https://www.alibabacloud.com/help/en/ram/user-guide/create-an-accesskey-pair) · [RAM 用户授权](https://www.alibabacloud.com/help/en/ram/user-guide/grant-permissions-to-the-ram-user) |
 | 网络 | 选择地域、交换机和安全组，允许 Controller 通过私网访问 ECI 的 TCP 8080。镜像仓库、模型服务或网页需要公网访问时，可为 ECI 所在交换机配置公网 NAT 网关 SNAT。启动流程不会为每个 Host 分配 EIP。 [VPC 与交换机](https://www.alibabacloud.com/help/en/vpc/vpc-and-vswitch) · [安全组规则](https://www.alibabacloud.com/help/en/ecs/user-guide/security-group-rules) · [ECI 公网访问](https://www.alibabacloud.com/help/en/eci/user-guide/enable-internet-access) |
-| NAS（可选） | 准备 ECI 可访问的 NAS 挂载点。在打开账号前，为该账号创建可写的 `/go-harness/<userId>` 目录。 [ECI 挂载 NAS](https://www.alibabacloud.com/help/en/eci/user-guide/mount-a-nas-volume) |
+| NAS（可选） | 准备 ECI 可访问的 NAS 挂载点。在打开账号前，为该账号创建可写的 `/go-bot/<userId>` 目录。 [ECI 挂载 NAS](https://www.alibabacloud.com/help/en/eci/user-guide/mount-a-nas-volume) |
 | 镜像缓存 | 复用所选地域中已有的 Linux AMD64 Host Ready 缓存，或者准备 ECI 缓存制作服务可访问的镜像仓库。 [管理 ECI 镜像缓存](https://www.alibabacloud.com/help/en/eci/user-guide/manage-an-image-cache) |
 
 ### 2. 填写 ECI 配置
@@ -206,7 +212,7 @@ Host 将 OfficeCLI 和 agent-browser 的 Skill 安装到 `/root/harness/.dsh/ski
 
 已有兼容 Host 镜像的 Ready 缓存时，将 ID 填入 `ECI_IMAGE_CACHE_ID`，直接进入第 4 步。
 制作新缓存时，将 `REGISTRY_PUSH_IMAGE` 设置为带版本标签的完整镜像地址，例如
-`registry.example.com/team/go-harness-host:v0.1.0`。如果推送需要认证，
+`registry.example.com/team/go-bot-host:v0.1.0`。如果推送需要认证，
 在构建机执行 `docker login <registry-host>`。如果阿里云从私有仓库拉取镜像，
 还需成对填写 `REGISTRY_USERNAME` 和 `REGISTRY_PASSWORD`。
 
@@ -282,10 +288,10 @@ Compose 负责启动 Redis 并构建前端。Agent 使用的 Python、Node.js、
 
 ## 社区交流
 
-欢迎加入 **go-harness 交流群**，交流部署和使用经验，也可以提出问题或反馈建议。
+欢迎加入 QQ 群 **go-bot交流**，交流部署和使用经验，也可以提出问题或反馈建议。
 用 QQ 扫描下方二维码，或直接搜索群号 **710767129**。
 
-<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="go-harness QQ 交流群二维码，群号 710767129"></a>
+<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="go-bot交流 QQ 群二维码，群号 710767129"></a>
 
 ## 上游项目与致谢
 

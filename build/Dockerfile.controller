@@ -33,5 +33,5 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM docker:29-cli AS controller
 COPY --from=controller-linux /linux/controller /usr/local/bin/controller
 COPY --from=controller-linux /linux/prepare-env /usr/local/bin/prepare-env
-COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/go-harness/
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/go-bot/
 ENTRYPOINT ["/usr/local/bin/controller"]

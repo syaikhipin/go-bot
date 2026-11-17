@@ -16,7 +16,7 @@ import (
 	"sync"
 	"testing"
 
-	"go-harness/internal/testsupport/session"
+	"go-bot/internal/testsupport/session"
 )
 
 type memoryObjectAPI struct {

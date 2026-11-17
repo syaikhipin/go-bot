@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"go-harness/frontend"
-	"go-harness/internal/config"
-	"go-harness/internal/controller"
+	"go-bot/frontend"
+	"go-bot/internal/config"
+	"go-bot/internal/controller"
 )
 
 func hostCommand(c config.Config, action, user string) error {

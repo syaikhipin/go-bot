@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/permission"
+	"go-bot/harness/agent"
+	"go-bot/harness/permission"
 )
 
 type PermissionTool struct {

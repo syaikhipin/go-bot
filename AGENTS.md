@@ -1,4 +1,4 @@
-# Go Harness agent instructions
+# Go Bot agent instructions
 
 Before creating a branch, preparing a commit, or opening a pull request, read
 the [contribution guide](CONTRIBUTING.md#branches-and-commits). Apply these defaults

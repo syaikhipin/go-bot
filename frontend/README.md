@@ -1,4 +1,4 @@
-# go-harness browser test client
+# go-bot browser test client
 
 Follow the [local Quickstart](../README.md#quickstart) from the repository root and open
 [http://127.0.0.1:8080/](http://127.0.0.1:8080/). The Controller serves the

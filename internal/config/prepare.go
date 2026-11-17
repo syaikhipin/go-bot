@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"go-harness/internal/localstate"
+	"go-bot/internal/localstate"
 )
 
 // PrepareControllerProfile is the launcher's deployment profile writer.

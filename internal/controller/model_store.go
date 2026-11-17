@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
-	"go-harness/internal/modelsettings"
+	"go-bot/internal/modelsettings"
 )
 
 const (

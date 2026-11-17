@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/content"
+	"go-bot/harness/content"
 )
 
 func TestGenerateArkRequestAndResponse(t *testing.T) {

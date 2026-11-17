@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"go-harness/harness/schedule"
-	"go-harness/harness/session"
+	"go-bot/harness/schedule"
+	"go-bot/harness/session"
 )
 
 var (

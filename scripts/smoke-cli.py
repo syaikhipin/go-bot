@@ -72,7 +72,7 @@ def main():
             '  redis:\n'
             '    ports: !override ["127.0.0.1::6379"]\n'
         )
-        env = dict(os.environ, GO_HARNESS_ENV_FILE=str(profile))
+        env = dict(os.environ, GO_BOT_ENV_FILE=str(profile))
         alice, bob = (f"{PROJECT}-{name}" for name in ("alice", "bob"))
         names = {}
         sessions = {}
@@ -92,7 +92,7 @@ def main():
             compose("up", "-d", "--build", "--wait")
             BASE = "http://" + compose("port", "controller", "8080")
             wait_for(lambda: call("GET", "/readyz", expected=200) is None)
-            assert "Go Harness" in call("GET", "/")
+            assert "Go Bot" in call("GET", "/")
             assert redis("DBSIZE") == "0"
             call("POST", "/v1/host/start", "unknown", expected=404)
 
@@ -107,7 +107,7 @@ def main():
                 call("POST", "/v1/host/start", account, expected=204)
                 state = call("GET", "/v1/host", account)
                 assert state["status"] == "ready"
-                names[account] = f"go-harness-{state['hostId']}"
+                names[account] = f"go-bot-{state['hostId']}"
                 port = run("docker", "port", names[account], "8080/tcp").rsplit(":", 1)[-1]
                 saved = record(account)
                 assert saved["hostEndpoint"] == f"http://host.docker.internal:{port}"
@@ -213,11 +213,11 @@ def main():
                         continue
                     host_id = saved.get("hostId")
                     if host_id:
-                        names[account] = f"go-harness-{host_id}"
+                        names[account] = f"go-bot-{host_id}"
             for name in names.values():
                 subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)
             for account in (alice, bob):
-                subprocess.run(["docker", "volume", "rm", f"gh-{account}-data"], capture_output=True, check=False)
+                subprocess.run(["docker", "volume", "rm", f"go-bot-{account}-data"], capture_output=True, check=False)
             compose("down", "--volumes", "--remove-orphans")
 
 

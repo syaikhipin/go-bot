@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"go-harness/internal/modeldata"
+	"go-bot/internal/modeldata"
 )
 
 // Provider implementations run in the same Go process as the Harness. Keep

@@ -74,26 +74,26 @@ FROM computer AS host
 ARG AGENT_BROWSER_VERSION=0.43.0
 ARG AGENT_BROWSER_SKILL_REF=1cc19526f3641c8543d55aa6700e7c55b37ac356
 ARG SKILLS_CLI_VERSION=1.8.1
-COPY --from=officecli /out/skills/ /usr/share/go-harness/skill-seed/
+COPY --from=officecli /out/skills/ /usr/share/go-bot/skill-seed/
 RUN set -eu; \
     npm --cafile=/etc/ssl/certs/ca-certificates.crt install --global --prefix /usr/local --no-audit --no-fund "agent-browser@${AGENT_BROWSER_VERSION}"; \
     agent-browser --version; \
     agent-browser skills get core > /dev/null; \
-    install -Dm0644 /usr/local/lib/node_modules/agent-browser/LICENSE /usr/share/doc/go-harness/agent-browser-LICENSE; \
+    install -Dm0644 /usr/local/lib/node_modules/agent-browser/LICENSE /usr/share/doc/go-bot/agent-browser-LICENSE; \
     skill_project="$(mktemp -d)"; \
     cd "$skill_project"; \
     DISABLE_TELEMETRY=1 NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
       npx --yes "skills@${SKILLS_CLI_VERSION}" add "vercel-labs/agent-browser#${AGENT_BROWSER_SKILL_REF}" --skill agent-browser --agent codex --copy --yes; \
     test -s .agents/skills/agent-browser/SKILL.md; \
-    mv .agents/skills/agent-browser /usr/share/go-harness/skill-seed/; \
+    mv .agents/skills/agent-browser /usr/share/go-bot/skill-seed/; \
     cd /; \
     rm -rf "$skill_project"
 
 ENV GIN_MODE=release DSH_HOME=/root/harness/.dsh DSH_AGENTS_HOME=/root/harness/.agents \
     AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 COPY --from=compile /out/host /usr/local/bin/host
-COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/go-harness/
-COPY build/web-markdown/NOTICES /usr/share/doc/go-harness/web-markdown-NOTICES
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/go-bot/
+COPY build/web-markdown/NOTICES /usr/share/doc/go-bot/web-markdown-NOTICES
 WORKDIR /root/harness
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/host"]

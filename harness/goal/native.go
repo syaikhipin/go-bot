@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 // NativeView joins the durable v4 goal projection with process-local

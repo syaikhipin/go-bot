@@ -1,5 +1,5 @@
 {
-  "name": "go-harness-mobile",
+  "name": "go-bot-mobile",
   "version": "0.0.1",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",

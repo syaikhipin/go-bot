@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 // DefaultCoreSystemPrompt is stable across sessions and turns. The Assembly adds

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/skills"
-	"go-harness/harness/tools"
-	"go-harness/internal/agentfs"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/skills"
+	"go-bot/harness/tools"
+	"go-bot/internal/agentfs"
+	"go-bot/internal/testsupport/session"
 )
 
 // containerTestBuilder exercises the container Assembly contract without

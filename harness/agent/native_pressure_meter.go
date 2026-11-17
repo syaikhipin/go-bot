@@ -3,7 +3,7 @@ package agent
 import (
 	"encoding/json"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 // nativePressureMeter follows only committed v4 events. In particular, the

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"syscall"
 
-	"go-harness/harness/agent"
-	"go-harness/internal/instructionrender"
+	"go-bot/harness/agent"
+	"go-bot/internal/instructionrender"
 )
 
 // Match the standard DeepSeek preset's rendered budget and source-read cap.

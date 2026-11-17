@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/permission"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/permission"
+	"go-bot/internal/agentfs"
 )
 
 func TestLandlockRestrictsShellAndNativeWrites(t *testing.T) {

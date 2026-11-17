@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"go-harness/internal/config"
+	"go-bot/internal/config"
 )
 
 func main() {

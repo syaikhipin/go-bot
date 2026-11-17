@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"go-harness/harness/schedule"
+	"go-bot/harness/schedule"
 )
 
 func serveHostSchedules(w http.ResponseWriter, r *http.Request, options NativeWorkerHTTPOptions) {

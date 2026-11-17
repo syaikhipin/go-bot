@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/sessionsearch"
+	"go-bot/harness/agent"
+	"go-bot/harness/sessionsearch"
 )
 
 type NativeSessionSearch struct {
