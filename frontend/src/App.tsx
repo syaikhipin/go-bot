@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { LanguagePicker, useLocale } from './locale'
 import { ArrowLeft, Globe, Image, Menu, SlidersHorizontal } from 'lucide-react'
 import { APIError, archiveSession, createSession, listSessions, openAccount, stopHost, type ProviderPage, type SessionRow } from './api/controller'
 import { AccountEntry } from './AccountEntry'
@@ -36,6 +37,7 @@ export function App() {
 }
 
 function AccountChat({ userId, onExit }: { userId: string; onExit: () => void }) {
+  const { t } = useLocale()
   const [transcriptCache] = useState(() => new TranscriptCache())
   const [settingsPage, setSettingsPage] = useState(currentSettings)
   const settingsOpen = settingsPage !== undefined
@@ -255,7 +257,7 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
       await archiveSession(userId, row.sessionId)
     } catch (error) {
       if (error instanceof APIError && ['session_has_schedule', 'session_busy'].includes(error.message)) {
-        if (!window.confirm('Stop this chat and delete its active schedules? The chat history and files will be kept.')) return false
+        if (!window.confirm(t('Stop this chat and delete its active schedules? The chat history and files will be kept.'))) return false
         try {
           await archiveSession(userId, row.sessionId, true)
         } catch (stopError) {
@@ -292,20 +294,23 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
       {settingsPage && <main className="model-settings" inert={drawerOpen || filesOverlay}>
         <div className="settings-topbar">
           <button type="button" className="icon-button drawer-toggle" onClick={() => setDrawerOpen(true)}
-            aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label="Open chats"><Menu size={22} /></button>
+            aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label={t('Open chats')}><Menu size={22} /></button>
         </div>
         <div className="model-settings-panel">
           <header className="settings-header">
-            <button type="button" className="settings-back" onClick={closeSettings}><ArrowLeft size={17} /> Back to chats</button>
-            <h1>Settings</h1>
+            <div className="settings-header-actions">
+              <button type="button" className="settings-back" onClick={closeSettings}><ArrowLeft size={17} /> {t('Back to chats')}</button>
+              <LanguagePicker />
+            </div>
+            <h1>{t('Settings')}</h1>
           </header>
-          <nav className="settings-nav" aria-label="Settings">
+          <nav className="settings-nav" aria-label={t('Settings')}>
             <button type="button" aria-current={settingsPage === 'models' ? 'page' : undefined}
-              onClick={() => selectSettings('models')}><SlidersHorizontal size={16} /> Models</button>
+              onClick={() => selectSettings('models')}><SlidersHorizontal size={16} /> {t('Models')}</button>
             <button type="button" aria-current={settingsPage === 'web-search' ? 'page' : undefined}
-              onClick={() => selectSettings('web-search')}><Globe size={16} /> Web search</button>
+              onClick={() => selectSettings('web-search')}><Globe size={16} /> {t('Web search')}</button>
             <button type="button" aria-current={settingsPage === 'image-generation' ? 'page' : undefined}
-              onClick={() => selectSettings('image-generation')}><Image size={16} /> Image generation</button>
+              onClick={() => selectSettings('image-generation')}><Image size={16} /> {t('Image generation')}</button>
           </nav>
           <div className="settings-content">
             {settingsPage === 'models' ? <Models userId={userId} /> : <ToolProviders key={settingsPage} userId={userId} page={settingsPage} />}

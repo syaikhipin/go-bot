@@ -1,21 +1,23 @@
-**English** · [简体中文](README.zh-CN.md)
+<h1 align="center">go-harness</h1>
 
 <p align="center">
   <img src="assets/harness-whale.png" width="184" alt="go-harness blue whale mascot">
 </p>
 
+go-harness is a Go implementation of DeepSeek Harness and a self-hosted personal
+agent. It offers an open-source alternative to [Meta Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/),
+[OpenAI dots](https://openai.com/index/introducing-dots/), and
+[Grok Bot](https://help.x.com/en/using-x/about-grok).
+Run locally with Docker for personal use, development, and testing.
+
+Teams can use Alibaba Cloud Elastic Container Instance (ECI) to build their
+own personal agent products, with a dedicated Host for each account, optional
+persistent storage, and room for their own frontends and service integrations.
+
 <p align="center">
+  <strong>English</strong> · <a href="README.zh-CN.md">简体中文</a> ·
   <strong><a href="https://github.com/xyc999-ai/go-harness/releases/latest">Download Android APK</a></strong>
 </p>
-
-# go-harness
-
-A Go implementation of DeepSeek Harness and a self-hosted runtime for personal
-agents. Run locally with Docker for personal use, development, and testing.
-Teams can use Alibaba Cloud Elastic Container Instance (ECI) to build their
-own personal agent products like Muse, Grok Bot, and OpenAI dots, with a
-dedicated Host for each account, optional persistent storage, and room for their
-own frontends and service integrations. [Meta Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) · [Grok Bot](https://help.x.com/en/using-x/about-grok) · [OpenAI dots](https://openai.com/index/introducing-dots/)
 
 - **Web research and browser automation.** Search the web through a configured provider. Use Chromium to navigate pages, interact with forms, and capture screenshots.
 - **Image generation and editing.** Generate images from text or use uploaded images as references. Results appear directly in chat.
@@ -32,72 +34,73 @@ build your own mobile, desktop, or messaging interface. [HTTP API](docs/api.md) 
 
 ### Mobile demos
 
-The iOS client runs these Chinese requests against a local Controller and Docker
-Host. The Word and PowerPoint clips end with the delivered documents open in WPS
-Office.
+The iPhone client uses English prompts and connects to a local Controller and
+Docker Host. The Word and PowerPoint clips show the delivered files in WPS Office.
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>Browser research</h4>
-      <a href="docs/showcase/mobile-research-demo.png"><img src="docs/showcase/mobile-research-demo.png" width="340" alt="Mobile chat checks the Stanford AI Index and delivers a chart, Markdown summary, and CSV"></a>
-      <p>Check Stanford HAI’s AI Index and receive a chart, summary, and CSV in chat.<br><a href="docs/showcase/mobile-research-key.png">View full-size key frame</a></p>
+      <a href="docs/showcase/en/mobile-research.gif"><img src="docs/showcase/en/mobile-research.gif" width="260" alt="English iPhone chat verifies an AI adoption figure and links to the Stanford AI Index"></a>
+      <p>Verify an AI adoption figure in Chromium and get the original source in chat.</p>
     </td>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>Word report</h4>
-      <a href="docs/showcase/mobile-word-demo.png"><img src="docs/showcase/mobile-word-demo.png" width="340" alt="Mobile chat creates and revises the AI industry report, followed by the final Word document in WPS Office"></a>
-      <p>Create an industry report, then revise it with the survey context and a team pilot plan.<br><a href="docs/showcase/mobile-word-key.png">View full-size key frame</a></p>
+      <a href="docs/showcase/en/mobile-word.gif"><img src="docs/showcase/en/mobile-word.gif" width="260" alt="English iPhone chat creates an AI pilot brief and shows the Word file in WPS Office"></a>
+      <p>Ask for a Word brief with two candidate workflows and a four-week pilot.</p>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <h4>PowerPoint briefing</h4>
+      <a href="docs/showcase/en/mobile-slides.gif"><img src="docs/showcase/en/mobile-slides.gif" width="260" alt="English iPhone chat creates a three-slide deck and shows the slides in WPS Office"></a>
+      <p>Create a three-slide briefing on an AI pilot for a support team.</p>
     </td>
   </tr>
+</table>
+
+<table align="center" width="67%">
   <tr>
     <td width="50%" valign="top" align="center">
-      <h4>PowerPoint briefing</h4>
-      <a href="docs/showcase/mobile-slides-demo.png"><img src="docs/showcase/mobile-slides-demo.png" width="340" alt="Mobile chat creates and revises a three-slide deck, followed by all three slides in WPS Office"></a>
-      <p>Refine the adoption figure and turn the final slide into a three-step pilot.<br><a href="docs/showcase/mobile-slides-key.png">View full-size key frame</a></p>
+      <h4>Image editing with two references</h4>
+      <a href="docs/showcase/en/mobile-image.gif"><img src="docs/showcase/en/mobile-image.gif" width="260" alt="English iPhone chat sends a blue whale and coral swatch and shows the generated image"></a>
+      <p>Attach a whale and a color swatch, then see the coral version in the conversation.</p>
     </td>
     <td width="50%" valign="top" align="center">
-      <h4>Image editing with two references</h4>
-      <a href="docs/showcase/mobile-image-demo.png"><img src="docs/showcase/mobile-image-demo.png" width="340" alt="The mobile app sends a blue whale and coral swatch, previews a Seedream result, and saves it to Photos"></a>
-      <p>Recolor the whale with Seedream, open the result full screen, and save it to Photos.<br><a href="docs/showcase/mobile-image-key.png">View full-size key frame</a></p>
+      <h4>Scheduled reminder</h4>
+      <a href="docs/showcase/en/mobile-schedule.gif"><img src="docs/showcase/en/mobile-schedule.gif" width="260" alt="English iPhone chat showing the request, scheduled task confirmation, and delivered reminder"></a>
+      <p>Create a one-time reminder and receive the checklist in the same chat when it runs.</p>
     </td>
   </tr>
 </table>
 
 ### Web demos
 
-These demos use the included web UI and a local Docker Host. All requests are
-in Chinese. The agent checks the [Stanford HAI 2026 AI Index
-economy chapter](https://hai.stanford.edu/ai-index/2026-ai-index-report/economy)
-in Chromium, then uses OfficeCLI to turn those findings into a Word brief and a
-PowerPoint deck. Follow-up messages ask it to revise both deliverables.
+These demos use the English web UI and a local Docker Host. The agent checks the
+economic findings in Chromium and uses OfficeCLI to create and revise a Word brief
+and a PowerPoint deck. [Stanford HAI 2026 AI Index](https://hai.stanford.edu/ai-index/2026-ai-index-report/economy)
 
 <table width="100%">
   <tr>
     <td width="50%" valign="top">
       <h3>Browser research</h3>
-      <img src="docs/showcase/ai-research-demo.gif" width="100%" alt="A Chinese research request, source attachments, and Stanford HAI’s original charts">
-      <p>The agent checks industry data in Chromium and returns the original charts and a summary.</p>
-      <a href="docs/showcase/ai-research-chat.webp">Chat capture</a> · <a href="docs/showcase/ai-index-source.webp">Source charts</a>
+      <a href="docs/showcase/en/web-research.gif"><img src="docs/showcase/en/web-research.gif" width="100%" alt="English browser research request and sourced answer in the Web chat"></a>
+      <p>Check industry data in Chromium and get an English answer with source links.</p>
     </td>
     <td width="50%" valign="top">
       <h3>Word brief</h3>
-      <img src="docs/showcase/ai-word-demo.gif" width="100%" alt="The full conversation from Word creation to revision, followed by the finished brief in WPS Office">
-      <p>The agent creates a one-page brief, then adds survey context and a pilot recommendation. The final document is shown in WPS Office.</p>
-      <a href="docs/showcase/ai-word-demo.gif">Open full-size demo</a>
+      <a href="docs/showcase/en/web-word.gif"><img src="docs/showcase/en/web-word.gif" width="100%" alt="English Web conversation from Word creation to revision, followed by the finished brief in WPS Office"></a>
+      <p>Create an AI adoption brief and revise its layout and pilot recommendation.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <h3>PowerPoint briefing</h3>
-      <img src="docs/showcase/ai-slides-demo.gif" width="100%" alt="The full conversation from PowerPoint creation to revision, followed by the three slides in WPS Office">
-      <p>The agent clarifies the adoption figure and revises the final slide into a three-step pilot plan. The finished slides are shown in WPS Office.</p>
-      <a href="docs/showcase/ai-slides-demo.gif">Open full-size demo</a>
+      <a href="docs/showcase/en/web-slides.gif"><img src="docs/showcase/en/web-slides.gif" width="100%" alt="English Web conversation from PowerPoint creation to revision, followed by the three slides in WPS Office"></a>
+      <p>Build a three-slide briefing and revise the last slide into a three-step rollout.</p>
     </td>
     <td width="50%" valign="top">
       <h3>Image editing with two references</h3>
-      <img src="docs/showcase/ai-image-demo.gif" width="100%" alt="The uploaded whale and color swatch, the Seedream generation step, and the delivered coral whale">
-      <p>Seedream uses the blue whale and a coral swatch to create one recolored 2048 × 2048 image in chat.</p>
-      <a href="docs/showcase/ai-image-result.webp">Open the generated image</a>
+      <a href="docs/showcase/en/web-image.gif"><img src="docs/showcase/en/web-image.gif" width="100%" alt="English Web conversation showing the two reference images and the generated coral whale"></a>
+      <p>Use Seedream to recolor the project mascot from a reference swatch.</p>
     </td>
   </tr>
 </table>
@@ -125,6 +128,8 @@ Open the browser after startup. Controller already serves the web app.
 2. In **Model settings**, add an OpenAI-compatible Responses endpoint, API key,
    and at least one model ID. Then select **New chat** and send a message.
 3. For web search, save a key for DeepSeek, Zhipu, or Doubao under **Settings → Web search**. For image generation, configure Seedream, OpenAI Images, or Google Nano Banana under **Settings → Image generation**. Choose **Use provider** to activate a saved service. [Provider setup](docs/providers.md)
+
+Choose **English** or **简体中文** on the account page or in **Settings**. The browser remembers your choice.
 
 ### Phone via Tailscale
 

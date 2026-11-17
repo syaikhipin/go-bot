@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocale } from '../locale'
 import { Check, ChevronDown, Cpu } from 'lucide-react'
 import { getModelSettings, getSessionModel, saveSessionModel, settingsApplyFailed, type ModelSelection, type ModelSettings, type SessionModel } from '../api/controller'
 
@@ -9,6 +10,7 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
   onSettings: () => void
   onSaving: (value: boolean) => void
 }) {
+  const { t } = useLocale()
   const [catalog, setCatalog] = useState<ModelSettings>()
   const [route, setRoute] = useState<SessionModel>()
   const [open, setOpen] = useState(false)
@@ -67,8 +69,8 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
     ? { endpointId: defaultId, modelId: catalog.endpoints[defaultId].models[0] } : undefined
   const activeName = active && catalog?.endpoints[active.endpointId]?.name
   const choices = Object.entries(catalog?.endpoints ?? {})
-  const label = route?.status === 'unavailable' ? 'Model unavailable' : activeName && active
-    ? activeName + ' / ' + active.modelId : id ? 'Choose model' : 'Configure model'
+  const label = route?.status === 'unavailable' ? t('Model unavailable') : activeName && active
+    ? activeName + ' / ' + active.modelId : id ? t('Choose model') : t('Configure model')
   return <div className="model-picker" ref={picker} onBlur={event => {
     if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false)
   }} onKeyDown={event => {
@@ -91,7 +93,7 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
         ? <><small>{activeName}</small><strong>{active.modelId}</strong></> : label}</span>{id && choices.length > 0 && <ChevronDown size={14} />}
     </button>
     {open && catalog && <div className="model-picker-menu">
-      <label>Endpoint<select value={endpointId} onChange={event => setEndpointID(event.target.value)}>
+      <label>{t('Endpoint')}<select value={endpointId} onChange={event => setEndpointID(event.target.value)}>
         {choices.map(([id, endpoint]) => <option key={id} value={id}>{endpoint.name}</option>)}
       </select></label>
       <div className="model-picker-options">
@@ -102,6 +104,6 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
         </button>)}
       </div>
     </div>}
-    {error && <small role="alert">{error}</small>}
+    {error && <small role="alert">{t(error)}</small>}
   </div>
 }

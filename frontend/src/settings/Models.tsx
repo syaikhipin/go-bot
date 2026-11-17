@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useLocale } from '../locale'
 import { Plus } from 'lucide-react'
 import { APIError, deleteEndpoint, getModelSettings, saveDefaultEndpoint, saveEndpoint, settingsApplyFailed, type ModelEndpoint, type ModelSettings } from '../api/controller'
 
 export function Models({ userId }: { userId: string }) {
+  const { t } = useLocale()
   const [settings, setSettings] = useState<ModelSettings>()
   const [editing, setEditing] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -45,36 +47,36 @@ export function Models({ userId }: { userId: string }) {
 
   return (
     <>
-      <h2 className="settings-section-title">Models</h2>
-      <p className="model-muted">Only OpenAI-compatible Responses API endpoints are supported.</p>
-      {error && <p role="alert" className="account-error">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
-      {!settings && !error && <p role="status">Loading model settings…</p>}
+      <h2 className="settings-section-title">{t('Models')}</h2>
+      <p className="model-muted">{t('Only OpenAI-compatible Responses API endpoints are supported.')}</p>
+      {error && <p role="alert" className="account-error">{t(error)}</p>}
+      {notice && <p role="status">{t(notice)}</p>}
+      {!settings && !error && <p role="status">{t('Loading model settings…')}</p>}
       {settings && <>
-        {!Object.keys(settings.endpoints).length && <p className="model-muted">Add an endpoint to create your first chat.</p>}
+        {!Object.keys(settings.endpoints).length && <p className="model-muted">{t('Add an endpoint to create your first chat.')}</p>}
         {Object.entries(settings.endpoints).map(([id, endpoint]) =>
           <section className="model-card" key={id}>
             {editing === id ? <EndpointForm endpoint={endpoint} busy={busy} onCancel={() => setEditing(undefined)}
               onSave={value => { void update(() => saveEndpoint(userId, id, value), 'Endpoint saved.') }} /> : <>
-              <h2>{endpoint.name} {settings.defaultEndpointId === id && <span className="model-default">Default endpoint</span>}</h2>
-              <p className="model-muted">{endpoint.baseUrl} · {endpoint.hasApiKey ? 'API key saved' : 'API key missing'}</p>
-              <ul className="model-list">{endpoint.models.map((model, index) => <li key={model}>{model}{index === 0 && <span> · Default model</span>}</li>)}</ul>
+              <h2>{endpoint.name} {settings.defaultEndpointId === id && <span className="model-default">{t('Default endpoint')}</span>}</h2>
+              <p className="model-muted">{endpoint.baseUrl} · {endpoint.hasApiKey ? t('API key saved') : t('API key missing')}</p>
+              <ul className="model-list">{endpoint.models.map((model, index) => <li key={model}>{model}{index === 0 && <span> · {t('Default model')}</span>}</li>)}</ul>
               <div className="model-settings-actions">
-                <button type="button" disabled={busy} className="model-secondary" onClick={() => setEditing(id)}>Edit</button>
+                <button type="button" disabled={busy} className="model-secondary" onClick={() => setEditing(id)}>{t('Edit')}</button>
                 {settings.defaultEndpointId !== id && <button type="button" disabled={busy} className="model-secondary"
-                  onClick={() => { void update(() => saveDefaultEndpoint(userId, id), 'Default endpoint updated.') }}>Set as default</button>}
+                  onClick={() => { void update(() => saveDefaultEndpoint(userId, id), 'Default endpoint updated.') }}>{t('Set as default')}</button>}
                 <button type="button" disabled={busy} className="model-secondary" onClick={() => {
-                  if (window.confirm('Remove this endpoint? Chats that use it will need a new model.')) {
+                  if (window.confirm(t('Remove this endpoint? Chats that use it will need a new model.'))) {
                     void update(() => deleteEndpoint(userId, id), 'Endpoint removed.')
                   }
-                }}>Remove</button>
+                }}>{t('Remove')}</button>
               </div>
             </>}
           </section>
         )}
         {editing === '' ? <section className="model-card"><EndpointForm busy={busy} onCancel={() => setEditing(undefined)}
           onSave={value => { void update(() => saveEndpoint(userId, undefined, value), 'Endpoint added.') }} /></section> :
-          <button className="model-secondary settings-add" type="button" disabled={busy} onClick={() => setEditing('')}><Plus size={17} /> Add endpoint</button>}
+          <button className="model-secondary settings-add" type="button" disabled={busy} onClick={() => setEditing('')}><Plus size={17} /> {t('Add endpoint')}</button>}
       </>}
     </>
   )
@@ -88,6 +90,7 @@ function EndpointForm({ endpoint, busy, onSave, onCancel }: {
   onSave: (input: EndpointInput) => void
   onCancel: () => void
 }) {
+  const { t } = useLocale()
   const [name, setName] = useState(endpoint?.name ?? '')
   const [baseUrl, setBaseURL] = useState(endpoint?.baseUrl ?? '')
   const [key, setKey] = useState('')
@@ -100,17 +103,17 @@ function EndpointForm({ endpoint, busy, onSave, onCancel }: {
   }
 
   return <form className="model-form" onSubmit={submit}>
-    <h2>{endpoint ? 'Edit endpoint' : 'Add endpoint'}</h2>
+    <h2>{endpoint ? t('Edit endpoint') : t('Add endpoint')}</h2>
     <fieldset disabled={busy}>
-      <label>Name<input value={name} required maxLength={128} onChange={event => setName(event.target.value)} /></label>
-      <label>Base URL<input type="url" value={baseUrl} required placeholder="https://api.example.com/v1" onChange={event => setBaseURL(event.target.value)} /></label>
-      <label>API key<input type="password" value={key} required={!endpoint?.hasApiKey} autoComplete="new-password"
-        placeholder={endpoint?.hasApiKey ? 'Leave blank to keep saved key' : undefined} onChange={event => setKey(event.target.value)} /></label>
-      <label>Model IDs<textarea rows={4} value={models} required onChange={event => setModels(event.target.value)}
-        aria-describedby="model-order" /><small id="model-order">One model per line. The first model is the endpoint default.</small></label>
+      <label>{t('Name')}<input value={name} required maxLength={128} onChange={event => setName(event.target.value)} /></label>
+      <label>{t('Base URL')}<input type="url" value={baseUrl} required placeholder="https://api.example.com/v1" onChange={event => setBaseURL(event.target.value)} /></label>
+      <label>{t('API key')}<input type="password" value={key} required={!endpoint?.hasApiKey} autoComplete="new-password"
+        placeholder={endpoint?.hasApiKey ? t('Leave blank to keep saved key') : undefined} onChange={event => setKey(event.target.value)} /></label>
+      <label>{t('Model IDs')}<textarea rows={4} value={models} required onChange={event => setModels(event.target.value)}
+        aria-describedby="model-order" /><small id="model-order">{t('One model per line. The first model is the endpoint default.')}</small></label>
       <div className="model-settings-actions">
-        <button type="submit" className="account-submit">{busy ? 'Saving…' : 'Save endpoint'}</button>
-        <button type="button" className="model-secondary" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="account-submit">{busy ? t('Saving…') : t('Save endpoint')}</button>
+        <button type="button" className="model-secondary" onClick={onCancel}>{t('Cancel')}</button>
       </div>
     </fieldset>
   </form>

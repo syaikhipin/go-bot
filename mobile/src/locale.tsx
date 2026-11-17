@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { File, Paths } from 'expo-file-system'
+import { getLocales } from 'expo-localization'
 
 const english: Record<string, string> = {
   '当前会话权限': 'Chat permission', '全权限': 'Full access', '工作区可写': 'Workspace write', '只读': 'Read only',
@@ -120,8 +121,12 @@ export const languages: readonly { id: Language; name: string }[] = [{ id: 'zh-C
 const preference = new File(Paths.document, 'ui-language.txt')
 const Locale = createContext({ language: 'zh-CN' as Language, changeLanguage: async (_language: Language) => {}, t: (key: string) => key })
 
+function deviceLanguage(): Language {
+  return getLocales()[0]?.languageCode === 'zh' ? 'zh-CN' : 'en'
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('zh-CN')
+  const [language, setLanguage] = useState(deviceLanguage)
   const [ready, setReady] = useState(false)
   useEffect(() => {
     preference.text().then(value => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from '../locale'
 import { ChevronDown, ChevronRight, Clipboard, File, Folder, RefreshCw, X } from 'lucide-react'
 import { APIError, listHostFiles, type HostFile } from '../api/controller'
 
@@ -16,11 +17,11 @@ function parentPath(path: string) {
   return path.slice(0, Math.max(0, path.lastIndexOf('/')))
 }
 
-function fileSize(bytes: number) {
+function fileSize(bytes: number, language: string) {
   if (bytes < 1024) return bytes + ' B'
   const unit = bytes < 1024 ** 2 ? 'KB' : bytes < 1024 ** 3 ? 'MB' : 'GB'
   const divisor = unit === 'KB' ? 1024 : unit === 'MB' ? 1024 ** 2 : 1024 ** 3
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / divisor) + ' ' + unit
+  return new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(bytes / divisor) + ' ' + unit
 }
 
 function readError(error: unknown) {
@@ -32,6 +33,7 @@ function readError(error: unknown) {
 type Props = { userId: string; open: boolean; overlay: boolean; onClose: () => void }
 
 export function HostFiles({ userId, open, overlay, onClose }: Props) {
+  const { language, t } = useLocale()
   const [listings, setListings] = useState(() => new Map<string, Listing>())
   const [expanded, setExpanded] = useState(() => new Set<string>())
   const [selected, setSelected] = useState<HostFile>()
@@ -166,44 +168,44 @@ export function HostFiles({ userId, open, overlay, onClose }: Props) {
                 <Folder size={16} aria-hidden="true" />
               </> : <File size={16} className="host-file-leaf" aria-hidden="true" />}
               <span>{file.name}</span>
-              {!file.isDir && <small>{fileSize(file.size)}</small>}
+              {!file.isDir && <small>{fileSize(file.size, language)}</small>}
             </button>
             {file.isDir && isOpen && <div className="host-file-branch">{renderDirectory(file.path)}</div>}
           </li>
         })}
       </ul>}
-      {listing.loading && <p className="host-files-state" role="status">Loading…</p>}
-      {listing.error && <p className="host-files-state" role="alert">{listing.error}
-        <button type="button" className="text-button" onClick={() => { void load(path) }}>Retry</button>
+      {listing.loading && <p className="host-files-state" role="status">{t('Loading…')}</p>}
+      {listing.error && <p className="host-files-state" role="alert">{t(listing.error)}
+        <button type="button" className="text-button" onClick={() => { void load(path) }}>{t('Retry')}</button>
       </p>}
       {!listing.loading && !listing.error && files.length === 0 && listing.nextOffset === undefined &&
-        <p className="host-files-state">Empty directory</p>}
+        <p className="host-files-state">{t('Empty directory')}</p>}
       {!listing.loading && listing.nextOffset !== undefined && <button type="button" className="text-button"
-        onClick={() => { void load(path, listing.nextOffset) }}>Load more</button>}
+        onClick={() => { void load(path, listing.nextOffset) }}>{t('Load more')}</button>}
     </>
   }
 
   return <>
     {open && overlay && <button type="button" className="host-files-scrim" onClick={onClose}
-      tabIndex={-1} aria-label="Close file system" />}
+      tabIndex={-1} aria-label={t('Close file system')} />}
     <aside id="host-files" className="host-files" hidden={!open} role={overlay ? 'dialog' : undefined}
       aria-modal={overlay || undefined} aria-labelledby="host-files-title"
       onKeyDown={event => { if (event.key === 'Escape') onClose() }}>
       <header className="host-files-header">
-        <h2 id="host-files-title">File system</h2>
-        <button type="button" className="icon-button" title="Refresh file tree" aria-label="Refresh file tree"
+        <h2 id="host-files-title">{t('File system')}</h2>
+        <button type="button" className="icon-button" title={t('Refresh file tree')} aria-label={t('Refresh file tree')}
           disabled={refreshing} onClick={() => { void refreshTree() }}><RefreshCw size={17} /></button>
-        <button ref={closeButton} type="button" className="icon-button" title="Close file system"
-          aria-label="Close file system" onClick={onClose}><X size={20} /></button>
+        <button ref={closeButton} type="button" className="icon-button" title={t('Close file system')}
+          aria-label={t('Close file system')} onClick={onClose}><X size={20} /></button>
       </header>
       {root && <div className="host-files-location">
         <div className="host-files-path">
           <code title={path}>{path}</code>
-          <button type="button" className="icon-button" title="Copy path" aria-label="Copy path"
+          <button type="button" className="icon-button" title={t('Copy path')} aria-label={t('Copy path')}
             onClick={() => { void copyPath() }}><Clipboard size={16} /></button>
         </div>
-        {storageLabel && <div className="host-files-state">{storageLabel}{root.source && <> · <code>{root.source}</code></>}</div>}
-        {copyStatus && <div className="host-files-state" role="status">{copyStatus}</div>}
+        {storageLabel && <div className="host-files-state">{t(storageLabel)}{root.source && <> · <code>{root.source}</code></>}</div>}
+        {copyStatus && <div className="host-files-state" role="status">{t(copyStatus)}</div>}
       </div>}
       <div className="host-files-tree">
         {root && <button type="button" className="host-file-row host-file-root" aria-current={selected === undefined ? 'true' : undefined}

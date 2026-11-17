@@ -1,9 +1,10 @@
 import { languages, useLocale } from './locale'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { Camera, Check, ChevronRight, Images, Image as Drawing, Languages, Layers2, LogOut, Power, Search, Server } from 'lucide-react-native'
+import { Camera, ChevronRight, Images, Image as Drawing, Languages, Layers2, LogOut, Power, Search, Server } from 'lucide-react-native'
 import { Controller, problem, type ModelSettings, type ProviderPage, type ProviderSettings } from './api'
 import { getAvatar, pickAvatar } from './library'
+import { LanguageSheet } from './LanguageSheet'
 import { accent, Button, Field, Hint, IconButton, edge, glass, ink, muted, Panel, s, Sheet, SheetScroll, wash } from './ui'
 
 const providerLabels = { 'web-search': '网页搜索', 'image-generation': '图片生成' }
@@ -12,7 +13,7 @@ type Section = 'models' | ProviderPage
 export function Me({ api, section, open, close, exitAccount }: {
   api: Controller; section: Section | null; open: (section: Section) => void; close: () => void; exitAccount: () => void
 }) {
-  const { t, language, changeLanguage } = useLocale()
+  const { t, language } = useLocale()
   const { account } = api.profile
   const [avatar, setAvatar] = useState<string | undefined>(() => getAvatar(account))
   const [avatarMenu, setAvatarMenu] = useState(false)
@@ -84,16 +85,7 @@ export function Me({ api, section, open, close, exitAccount }: {
       </Pressable>
       <Hint error>{t(error)}</Hint>
     </ScrollView>
-    {languageOpen && <Sheet title={t('语言')} onClose={() => setLanguageOpen(false)} raised={62}><SheetScroll>
-      {languages.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: item.id === language }}
-        style={[s.row, { minHeight: 49, paddingHorizontal: 14, borderRadius: 14, backgroundColor: item.id === language ? wash : glass }]}
-        onPress={async () => {
-          setError('')
-          try { await changeLanguage(item.id) }
-          catch { setError('保存语言失败，请重试。') }
-        }}><Text style={[s.body, { flex: 1 }]}>{item.name}</Text>{item.id === language && <Check size={18} color={accent} />}</Pressable>)}
-      <Hint error>{t(error)}</Hint>
-    </SheetScroll></Sheet>}
+    {languageOpen && <LanguageSheet onClose={() => setLanguageOpen(false)} />}
     {serverOpen && <Sheet title={t('服务器地址')} onClose={() => setServerOpen(false)} raised={62}><SheetScroll>
       <Panel><Text selectable style={s.body}>{api.profile.server}</Text></Panel>
     </SheetScroll></Sheet>}
