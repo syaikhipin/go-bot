@@ -15,12 +15,8 @@ function initialLanguage(): Language {
   } catch {
     // A browser may disable storage for this origin.
   }
-  for (const preference of navigator.languages) {
-    const primary = preference.toLowerCase().split('-')[0]
-    if (primary === 'zh') return 'zh-CN'
-    if (primary === 'en') return 'en'
-  }
-  return 'en'
+  const preferred = navigator.languages[0] ?? navigator.language
+  return /^zh(?:-|$)/i.test(preferred) ? 'zh-CN' : 'en'
 }
 
 type Locale = {

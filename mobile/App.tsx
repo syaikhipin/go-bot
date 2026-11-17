@@ -1,12 +1,13 @@
-import { LocaleProvider, useLocale } from './src/locale'
+import { languages, LocaleProvider, useLocale } from './src/locale'
 import { useEffect, useRef, useState } from 'react'
-import { Animated, Easing, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { File, Paths } from 'expo-file-system'
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CalendarDays, Link2, MessageCircle, UserRound } from 'lucide-react-native'
+import { CalendarDays, Languages, Link2, MessageCircle, UserRound } from 'lucide-react-native'
 import { Controller, normalizeProfile, type Profile } from './src/api'
 import { Chat } from './src/Chat'
+import { LanguageSheet } from './src/LanguageSheet'
 import { Me } from './src/Me'
 import { Tasks } from './src/Tasks'
 import { TranscriptCache } from '../frontend/src/chat/transcriptCache'
@@ -57,13 +58,14 @@ export default function App() {
 }
 
 function Main() {
-  const { t } = useLocale()
+  const { language, t } = useLocale()
   const inset = useSafeAreaInsets()
   const [fields, setFields] = useState<Profile>({ server: '', account: '' })
   const [api, setApi] = useState<Controller>()
   const [busy, setBusy] = useState(false)
   const [restoring, setRestoring] = useState(true)
   const [error, setError] = useState('')
+  const [languageOpen, setLanguageOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -78,7 +80,10 @@ function Main() {
         const controller = new Controller(profile)
         try {
           await controller.connect()
-          if (active) setApi(controller)
+          if (active) {
+            setLanguageOpen(false)
+            setApi(controller)
+          }
         } catch (error) {
           if (active) setError(connectionError(error))
         }
@@ -98,6 +103,7 @@ function Main() {
       await controller.connect(create)
       saveProfile(profile, true)
       setFields(profile)
+      setLanguageOpen(false)
       setApi(controller)
     } catch (e) {
       setError(connectionError(e))
@@ -110,7 +116,14 @@ function Main() {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.connect, { paddingBottom: Math.max(inset.bottom, 20) }]}>
         <View style={styles.brand}><Image source={logo} style={styles.connectLogo} /><Text style={styles.wordmark}>Go Harness</Text></View>
         <Panel style={{ gap: 17 }}>
-          <Text accessibilityRole="header" style={styles.connectHeading}>{t('连接服务器')}</Text>
+          <View style={styles.connectHeader}>
+            <Text accessibilityRole="header" style={styles.connectHeading}>{t('连接服务器')}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('语言')} accessibilityState={{ expanded: languageOpen }}
+              style={({ pressed }) => [styles.languageButton, pressed && s.pressed]} onPress={() => { Keyboard.dismiss(); setLanguageOpen(true) }}>
+              <Languages size={16} color={muted} />
+              <Text style={s.caption}>{languages.find(item => item.id === language)?.name}</Text>
+            </Pressable>
+          </View>
           <Field label={t('服务器地址')} keyboardType="url" autoCorrect={false} autoComplete="url" editable={!restoring && !busy} value={fields.server}
             placeholder="https://harness.example.com" onChangeText={server => setFields(old => ({ ...old, server }))} />
           <Field label={t('账号')} autoComplete="username" autoCorrect={false} editable={!restoring && !busy} value={fields.account}
@@ -123,6 +136,7 @@ function Main() {
           <Hint error>{t(error)}</Hint>
         </Panel>
       </ScrollView>
+      {languageOpen && <LanguageSheet onClose={() => setLanguageOpen(false)} />}
     </KeyboardAvoidingView>}
   </View>
 }
@@ -201,7 +215,9 @@ const styles = StyleSheet.create({
   app: { flex: 1 },
   hidden: { display: 'none' },
   connect: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 23, width: '100%', maxWidth: 480, alignSelf: 'center', gap: 21 },
+  connectHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 8 },
   connectHeading: { color: ink, fontSize: 23, lineHeight: 30, fontWeight: '600', letterSpacing: -0.3 },
+  languageButton: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 4 },
   brand: { alignItems: 'center', gap: 6 },
   connectLogo: { width: 104, height: 104 },
   wordmark: { color: ink, fontSize: 24, fontWeight: '600', letterSpacing: -0.5 },
