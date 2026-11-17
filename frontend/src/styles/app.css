@@ -374,6 +374,16 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
   box-shadow: 0 22px 64px #495a921f;
 }
 .account-card .brand { padding: 0; }
+.account-card-heading, .settings-header-actions {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
+}
+.language-picker, .account-card .language-picker {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; color: var(--muted);
+}
+.language-picker select {
+  border: 1px solid #d8e1f0; border-radius: 8px; min-height: 32px; padding: 0 6px;
+  background: #ffffffa8; color: inherit; font: inherit; font-size: 13px;
+}
 .account-card h1 { margin: 24px 0 20px; font-size: 23px; letter-spacing: -.035em; }
 .account-card fieldset { display: grid; gap: 15px; margin: 0; padding: 0; border: 0; }
 .account-card label { display: grid; gap: 6px; font-size: 14px; font-weight: 560; }

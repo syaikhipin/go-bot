@@ -18,5 +18,5 @@ test('keeps accepted drafts when a file exceeds the attachment count', () => {
   const image = new File(['x'], 'preview.webp', { type: 'image/webp' })
   const next = addMessageFiles(existing, [extra, image])
   assert.deepEqual(next.files, [...existing, image])
-  assert.match(next.error, /8 other files/)
+  assert.deepEqual(next.issues.map(issue => issue.message), ['A message can attach up to 20 images and 8 other files.'])
 })

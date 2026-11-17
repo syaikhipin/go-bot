@@ -19,6 +19,11 @@ Open the account menu at the bottom of the sidebar for **Settings**,
 copy its absolute path, or refresh the selected directory. The panel keeps
 its position when you switch chats.
 
+Choose **English** or **简体中文** on the account page or in **Settings**.
+The preference is saved per browser. When no preference is saved, the app uses
+the first supported browser language, with English as the fallback. Messages
+and Agent responses keep their original language.
+
 You can send more messages while a reply is generating. They appear above the
 composer. **Steer** adds that message to the current reply's next Agent step.
 **Delete** removes just that queued message. Questions from the Agent appear

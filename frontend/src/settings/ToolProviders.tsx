@@ -1,4 +1,5 @@
 import { Check, ChevronDown, ExternalLink } from 'lucide-react'
+import { useLocale } from '../locale'
 import { useEffect, useState } from 'react'
 import { APIError, getProviderSettings, removeProviderKey, saveProviderSettings, settingsApplyFailed, type Provider, type ProviderPage, type ProviderSettings } from '../api/controller'
 
@@ -16,15 +17,16 @@ const keyHelp: Record<string, { label: string; url: string }> = {
 type Action = 'save' | 'activate' | 'remove'
 
 export function ToolProviders({ userId, page }: { userId: string; page: ProviderPage }) {
+  const { t } = useLocale()
   const isImage = page === 'image-generation'
-  const title = isImage ? 'Image generation' : 'Web search'
+  const title = t(isImage ? 'Image generation' : 'Web search')
   const [settings, setSettings] = useState<ProviderSettings>()
   const [editing, setEditing] = useState<string>()
   const [model, setModel] = useState('')
   const [apiKey, setAPIKey] = useState('')
   const [action, setAction] = useState<Action>()
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<{ message: string; name: string }>()
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [retry, setRetry] = useState<{ id: string; action: 'activate' | 'remove' }>()
 
@@ -47,7 +49,7 @@ export function ToolProviders({ userId, page }: { userId: string; page: Provider
   async function update(provider: Provider, nextAction: Action) {
     setAction(nextAction)
     setError('')
-    setNotice('')
+    setNotice(undefined)
     try {
       const next = nextAction === 'remove'
         ? await removeProviderKey(userId, page, provider.id)
@@ -57,8 +59,8 @@ export function ToolProviders({ userId, page }: { userId: string; page: Provider
       setSettings(next)
       if (editing === provider.id) edit(provider, next)
       setRetry(undefined)
-      setNotice(nextAction === 'activate' ? `${provider.name} is now in use.`
-        : nextAction === 'remove' ? `${provider.name} API key removed.` : `${provider.name} settings saved.`)
+      setNotice({ name: provider.name, message: nextAction === 'activate' ? '{name} is now in use.'
+        : nextAction === 'remove' ? '{name} API key removed.' : '{name} settings saved.' })
     } catch (failure) {
       if (settingsApplyFailed(failure)) {
         const saved = await getProviderSettings(userId, page).catch(() => undefined)
@@ -87,19 +89,19 @@ export function ToolProviders({ userId, page }: { userId: string; page: Provider
     <div className="provider-settings-intro">
       <h2 className="settings-section-title">{title}</h2>
       <p className="model-muted">{isImage
-        ? 'Choose the service your agent uses to generate images.'
-        : 'Choose the service your agent uses to search the web.'}</p>
+        ? t('Choose the service your agent uses to generate images.')
+        : t('Choose the service your agent uses to search the web.')}</p>
     </div>
-    {error && <p className="account-error" role="alert">{error}</p>}
-    {notice && <p className="provider-notice" role="status">{notice}</p>}
+    {error && <p className="account-error" role="alert">{t(error)}</p>}
+    {notice && <p className="provider-notice" role="status">{t(notice.message, { name: notice.name })}</p>}
     {!settings && (error
-      ? <button type="button" className="model-secondary" onClick={() => { setError(''); setLoadAttempt(attempt => attempt + 1) }}>Retry</button>
-      : <p role="status">Loading provider settings…</p>)}
+      ? <button type="button" className="model-secondary" onClick={() => { setError(''); setLoadAttempt(attempt => attempt + 1) }}>{t('Retry')}</button>
+      : <p role="status">{t('Loading provider settings…')}</p>)}
     {settings && <>
       <p className="provider-current">
-        {retry ? <>Waiting for the Host to apply the saved change.</> : activeReady ? <>In use <strong>{active.name}</strong></> : <>No provider is in use. Save a key and choose a provider.</>}
+        {retry ? <>{t('Waiting for the Host to apply the saved change.')}</> : activeReady ? <>{t('In use')} <strong>{active.name}</strong></> : <>{t('No provider is in use. Save a key and choose a provider.')}</>}
       </p>
-      <ul className="provider-list" aria-label={`${title} providers`}>
+      <ul className="provider-list" aria-label={t('{title} providers', { title })}>
         {settings.providers.map(provider => {
           const entry = settings.entries[provider.id]
           const hasKey = !!entry?.hasApiKey
@@ -113,24 +115,24 @@ export function ToolProviders({ userId, page }: { userId: string; page: Provider
             <div className="provider-row-main">
               <div className="provider-row-identity">
                 <h3>{provider.name}</h3>
-                <p>{isImage && hasKey ? entry?.model ?? provider.defaultModel : hasKey ? 'API key saved' : 'No API key'}</p>
+                <p>{isImage && hasKey ? entry?.model ?? provider.defaultModel : hasKey ? t('API key saved') : t('No API key')}</p>
               </div>
               <div className="provider-row-actions">
-                {selected && hasKey && !pending && <span className="provider-active"><Check size={15} aria-hidden="true" /> In use</span>}
+                {selected && hasKey && !pending && <span className="provider-active"><Check size={15} aria-hidden="true" /> {t('In use')}</span>}
                 {(pending || (hasKey && !selected)) && <button type="button" className="model-secondary provider-use"
-                  aria-label={`${pending ? 'Retry applying' : 'Use'} ${provider.name}`}
+                  aria-label={t(pending ? 'Retry applying {name}' : 'Use {name}', { name: provider.name })}
                   disabled={!!action || (expanded && dirty)} onClick={() => { void update(provider, pending?.action ?? 'activate') }}>
-                  {pending ? 'Retry apply' : 'Use provider'}
+                  {pending ? t('Retry apply') : t('Use provider')}
                 </button>}
-                <button type="button" className="provider-edit" aria-label={`${hasKey ? 'Edit' : 'Set up'} ${provider.name}`}
+                <button type="button" className="provider-edit" aria-label={t(hasKey ? 'Edit {name}' : 'Set up {name}', { name: provider.name })}
                   aria-expanded={expanded} aria-controls={expanded ? formId : undefined} disabled={!!action}
                   onClick={() => {
-                    setNotice('')
+                    setNotice(undefined)
                     if (!retry) setError('')
                     if (expanded) { setEditing(undefined); setAPIKey('') }
                     else edit(provider, settings)
                   }}>
-                  {hasKey ? 'Edit' : 'Set up'} <ChevronDown size={15} aria-hidden="true" />
+                  {hasKey ? t('Edit') : t('Set up')} <ChevronDown size={15} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -139,27 +141,27 @@ export function ToolProviders({ userId, page }: { userId: string; page: Provider
               void update(provider, 'save')
             }}>
               <fieldset disabled={!!action}>
-                {isImage && <label>{provider.id === 'seedream' ? 'Model name or endpoint ID' : 'Model name'}
+                {isImage && <label>{provider.id === 'seedream' ? t('Model name or endpoint ID') : t('Model name')}
                   <input value={model} required maxLength={256} onChange={event => setModel(event.target.value)} />
                 </label>}
-                <label>API key
+                <label>{t('API key')}
                   <input type="password" value={apiKey} required={!hasKey} maxLength={4096} autoComplete="new-password"
-                    placeholder={hasKey ? 'Leave blank to keep the saved key' : undefined}
+                    placeholder={hasKey ? t('Leave blank to keep the saved key') : undefined}
                     onChange={event => setAPIKey(event.target.value)} />
                 </label>
-                {help && <a className="provider-doc-link" href={help.url} target="_blank" rel="noreferrer">{help.label}<ExternalLink size={13} aria-hidden="true" /></a>}
+                {help && <a className="provider-doc-link" href={help.url} target="_blank" rel="noreferrer">{t(help.label)}<ExternalLink size={13} aria-hidden="true" /></a>}
                 <div className="model-settings-actions">
                   <button type="submit" className="account-submit" disabled={!dirty || (!hasKey && !apiKey.trim())}>
-                    {action === 'save' ? 'Saving…' : 'Save settings'}
+                    {action === 'save' ? t('Saving…') : t('Save settings')}
                   </button>
-                  {hasKey && <button type="button" className="model-secondary" onClick={() => { void update(provider, 'remove') }}>Remove key</button>}
+                  {hasKey && <button type="button" className="model-secondary" onClick={() => { void update(provider, 'remove') }}>{t('Remove key')}</button>}
                 </div>
               </fieldset>
             </form>}
           </li>
         })}
       </ul>
-      <a className="provider-doc-link" href={providerDocs} target="_blank" rel="noreferrer">Build a provider adapter <ExternalLink size={13} aria-hidden="true" /></a>
+      <a className="provider-doc-link" href={providerDocs} target="_blank" rel="noreferrer">{t('Build a provider adapter')} <ExternalLink size={13} aria-hidden="true" /></a>
     </>}
   </div>
 }

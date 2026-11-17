@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLocale } from '../locale'
 import { ArrowUp, FileText, LoaderCircle, Menu, Plus, Square, X } from 'lucide-react'
 import { HarnessAvatar } from '../HarnessAvatar'
 import { APIError, readTranscript, readStream, sendMessage, stopTurn, updateQueue } from '../api/controller'
@@ -44,12 +45,13 @@ type ChatProps = {
 }
 
 export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, settingsVersion, onSettings, onOpenMenu, onAccepted, onUnavailable, onTitleRefresh }: ChatProps) {
+  const { t } = useLocale()
   const cached = id ? cache.get(id) : undefined
   const [transcript, setTranscript] = useState(() => cached?.transcript ?? emptyTranscript())
   const [pending, setPending] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [files, setFiles] = useState<File[]>([])
-  const [fileError, setFileError] = useState('')
+  const [fileIssues, setFileIssues] = useState<ReturnType<typeof addMessageFiles>['issues']>([])
   const filePicker = useRef<HTMLInputElement>(null)
   const [failure, setFailure] = useState('')
   const [historyError, setHistoryError] = useState('')
@@ -262,7 +264,7 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
     if (!incoming.length || submittingNow.current) return
     const next = addMessageFiles(files, incoming)
     setFiles(next.files)
-    setFileError(next.error)
+    setFileIssues(next.issues)
   }
 
   async function submit() {
@@ -283,7 +285,7 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
       kick.current()
       setInput(value => value.trim() === text ? '' : value)
       setFiles([])
-      setFileError('')
+      setFileIssues([])
     } catch (error) {
       if (mounted.current) setFailure(sendError(error))
     } finally {
@@ -312,21 +314,21 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
         event.currentTarget.value = ''
         composer.current?.focus()
       }} />
-      {files.length > 0 && <ul className="draft-files" aria-label="Attachments to send">
+      {files.length > 0 && <ul className="draft-files" aria-label={t('Attachments to send')}>
         {files.map((file, index) => <li key={file.name + ':' + file.lastModified + ':' + index}>
           <DraftFilePreview file={file} />
           <span className="draft-file-label"><strong title={file.name}>{file.name}</strong>
             <small>{file.size >= 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(file.size / 1024)) + ' KB'}</small>
           </span>
-          <button type="button" disabled={submitting} aria-label={'Remove ' + file.name} onClick={() => {
+          <button type="button" disabled={submitting} aria-label={t('Remove {name}', { name: file.name })} onClick={() => {
             setFiles(current => current.filter((_, i) => i !== index))
-            setFileError('')
+            setFileIssues([])
           }}><X size={15} /></button>
         </li>)}
       </ul>}
-      {fileError && <p role="alert" className="feedback attachment-error">{fileError}</p>}
-      <label className="sr-only" htmlFor="message">Message</label>
-      <textarea id="message" ref={composer} value={input} rows={2} placeholder="Ask anything…"
+      {fileIssues.length > 0 && <p role="alert" className="feedback attachment-error">{fileIssues.map(issue => t(issue.message, issue.values)).join(' ')}</p>}
+      <label className="sr-only" htmlFor="message">{t('Message')}</label>
+      <textarea id="message" ref={composer} value={input} rows={2} placeholder={t('Ask anything…')}
         onChange={event => setInput(event.target.value)}
         onKeyDown={event => {
           if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
@@ -337,18 +339,18 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
       />
       <div className="composer-actions">
         <div className="composer-tools">
-          <button type="button" className="attachment-button" aria-label="Add attachments" title="Add attachments"
+          <button type="button" className="attachment-button" aria-label={t('Add attachments')} title={t('Add attachments')}
             disabled={submitting} onClick={() => filePicker.current?.click()}><Plus size={21} /></button>
           <ModelPicker userId={userId} id={id} settingsVersion={settingsVersion} onSettings={onSettings} onSaving={setModelSaving} />
           {id && <PermissionPicker key={id} userId={userId} sessionId={id} streamState={transcript.permission}
             disabled={activeTurn !== null || submitting} onSaving={setPermissionSaving} />}
         </div>
         <div className="composer-submit">
-          {activeTurn !== null && <button className="stop-generation" type="button" title="Stop generating"
-            aria-label="Stop generating" disabled={stopping} onClick={() => { void stopGenerating() }}>
+          {activeTurn !== null && <button className="stop-generation" type="button" title={t('Stop generating')}
+            aria-label={t('Stop generating')} disabled={stopping} onClick={() => { void stopGenerating() }}>
             {stopping ? <LoaderCircle className="spinner" size={16} /> : <Square size={15} />}
           </button>}
-          <button className="send-button" type="submit" aria-label="Send message"
+          <button className="send-button" type="submit" aria-label={t('Send message')}
             disabled={(!input.trim() && !files.length) || submitting || modelSaving || permissionSaving || loading || Boolean(historyError)}>
             {submitting ? <LoaderCircle className="spinner" size={20} /> : <ArrowUp size={21} />}
           </button>
@@ -360,8 +362,8 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
   return (
     <main className="workspace" hidden={hidden} inert={drawerOpen || filesOverlay}>
       <header className="topbar">
-        <button className="icon-button drawer-toggle" type="button" onClick={onOpenMenu} aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label="Open chats"><Menu size={22} /></button>
-        <span>Go Harness Chat</span>
+        <button className="icon-button drawer-toggle" type="button" onClick={onOpenMenu} aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label={t('Open chats')}><Menu size={22} /></button>
+        <span>{t('Go Harness Chat')}</span>
       </header>
       {!id ? (
         <div className="chat-empty">
@@ -371,10 +373,10 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
         <div className="welcome">
           <div className="welcome-copy">
             <HarnessAvatar className="welcome-avatar" />
-            <h1>{greeting()}</h1>
-            <p>How can I help you today?</p>
+            <h1>{t(greeting())}</h1>
+            <p>{t('How can I help you today?')}</p>
           </div>
-          <div className="welcome-input">{form}{failure && <p className="feedback" role="alert">{failure}</p>}</div>
+          <div className="welcome-input">{form}{failure && <p className="feedback" role="alert">{t(failure)}</p>}</div>
         </div>
       ) : (
         <div className="conversation">
@@ -383,37 +385,37 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
             following.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 88
             setAtBottom(following.current)
           }}>
-            <div className="transcript" aria-label="Conversation">
-              {loading && <p className="chat-status" role="status">Loading chat…</p>}
-              {historyError && <div className="chat-status" role="alert">{historyError} <button type="button" className="text-button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Retry</button></div>}
+            <div className="transcript" aria-label={t('Conversation')}>
+              {loading && <p className="chat-status" role="status">{t('Loading chat…')}</p>}
+              {historyError && <div className="chat-status" role="alert">{t(historyError)} <button type="button" className="text-button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>{t('Retry')}</button></div>}
               {before !== null && <div className="history-actions">
                 <button type="button" className="text-button" onClick={() => { void loadOlder() }} disabled={loadingOlder}>
-                  {loadingOlder ? 'Loading…' : 'Load earlier messages'}
+                  {loadingOlder ? t('Loading…') : t('Load earlier messages')}
                 </button>
-                {olderError && <p className="feedback" role="alert">{olderError}</p>}
+                {olderError && <p className="feedback" role="alert">{t(olderError)}</p>}
               </div>}
               {replies.map(message => <MessageBubble key={message.id} message={message} tools={transcript.toolResults} userId={userId} sessionId={id} />)}
               {!loading && !historyError && (waiting || generating) && <div className={waiting ? 'generation-row' : 'generation-row generation-follow'} role="status">
                 {waiting && <HarnessAvatar className="reply-mark" />}
-                <span className="generation-copy"><span className="generation-dots" aria-hidden="true"><i /><i /><i /></span>{waiting ? 'Preparing a reply…' : 'Generating…'}</span>
+                <span className="generation-copy"><span className="generation-dots" aria-hidden="true"><i /><i /><i /></span>{waiting ? t('Preparing a reply…') : t('Generating…')}</span>
               </div>}
             </div>
           </div>
           <div className="chat-input">
-            {connecting && <p className="chat-status reconnecting" role="status">Reconnecting…</p>}
-            {failure && <p className="feedback" role="alert">{failure}</p>}
+            {connecting && <p className="chat-status reconnecting" role="status">{t('Reconnecting…')}</p>}
+            {failure && <p className="feedback" role="alert">{t(failure)}</p>}
             {!atBottom && <button type="button" className="text-button" onClick={() => {
               const panel = scroll.current
               if (panel) panel.scrollTop = panel.scrollHeight
-            }}>Back to latest</button>}
-            {queue.length > 0 && <ul className="message-queue" aria-label="Queued messages">
+            }}>{t('Back to latest')}</button>}
+            {queue.length > 0 && <ul className="message-queue" aria-label={t('Queued messages')}>
               {queue.map(item => <li key={item.id}>
-                <span className="queue-summary">{messageText(item) || 'Attachment'}</span>
-                {item.placement === 'steering' ? <small>Waiting to steer</small> : <>
+                <span className="queue-summary">{messageText(item) || t('Attachment')}</span>
+                {item.placement === 'steering' ? <small>{t('Waiting to steer')}</small> : <>
                   <button type="button" className="text-button" disabled={actionId === item.id}
-                    onClick={() => { void queueAction(item.id, 'steer') }}>Steer</button>
+                    onClick={() => { void queueAction(item.id, 'steer') }}>{t('Steer')}</button>
                   <button type="button" className="text-button" disabled={actionId === item.id}
-                    onClick={() => { void queueAction(item.id, 'delete') }}>Delete</button>
+                    onClick={() => { void queueAction(item.id, 'delete') }}>{t('Delete')}</button>
                 </>}
               </li>)}
             </ul>}
