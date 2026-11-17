@@ -1,19 +1,21 @@
-[English](README.md) · **简体中文**
+<h1 align="center">go-harness</h1>
 
 <p align="center">
   <img src="assets/harness-whale.png" width="184" alt="go-harness 蓝鲸头像">
 </p>
 
+go-harness 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Personal Agent，
+可作为 [Meta Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/)、
+[OpenAI dots](https://openai.com/zh-Hans-CN/index/introducing-dots/) 和
+[Grok Bot](https://help.x.com/en/using-x/about-grok) 的开源替代方案。个人可以用 Docker 在本地运行、开发和测试。
+
+企业团队可以用阿里云弹性容器实例（ECI）为每个账号按需启动独立 Host，按需持久化数据，
+并接入自己的前端和业务服务，构建自己的 Personal Agent 产品。
+
 <p align="center">
+  <a href="README.md">English</a> · <strong>简体中文</strong> ·
   <strong><a href="https://github.com/xyc999-ai/go-harness/releases/latest">下载 Android APK</a></strong>
 </p>
-
-# go-harness
-
-用 Go 实现的 DeepSeek Harness，也是一套可自托管的Personal Agent。个人可以用 Docker 在本地运行、
-开发和测试。企业团队可以用阿里云弹性容器实例（ECI）为每个账号按需启动独立 Host，按需持久化数据，
-并接入自己的前端和业务服务，构建类似 Muse、Grok Bot 和 OpenAI dots 的个人 Agent 产品。
-[Meta Muse](https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/) · [Grok Bot](https://help.x.com/en/using-x/about-grok) · [OpenAI dots](https://openai.com/zh-Hans-CN/index/introducing-dots/)
 
 - **网络搜索和浏览器操作。** 配置搜索供应商后即可检索网页。Agent 能操作 Chromium，打开页面、填写表单和截图。
 - **生成和编辑图片。** 可以用文字生图，也可以上传多张参考图，生成结果会直接显示在会话中。
@@ -94,6 +96,16 @@
   </tr>
 </table>
 
+<table align="center" width="50%">
+  <tr>
+    <td valign="top" align="center">
+      <h3>定时任务</h3>
+      <a href="docs/showcase/web-schedule-zh.gif"><img src="docs/showcase/web-schedule-zh.gif" width="100%" alt="中文网页会话中的定时任务请求、创建确认和到点送达的提醒"></a>
+      <p>创建一次性提醒。任务到点后，检查清单会送达原会话。</p>
+    </td>
+  </tr>
+</table>
+
 ## 快速开始
 
 安装 Docker Engine 或 Docker Desktop，并确认可以运行 `docker compose`。在仓库根目录执行：
@@ -115,6 +127,8 @@
 2. 在 **Model settings** 添加 OpenAI 兼容的 Responses 端点、API Key 和至少一个模型 ID，
    然后点击 **New chat** 发消息。
 3. 在 **Settings → Web search** 可配置 DeepSeek、智谱或豆包搜索。在 **Settings → Image generation** 可配置 Seedream、OpenAI Images 或 Google Nano Banana。保存凭证后点击 **Use provider** 选用。 [供应商配置](docs/providers.md)
+
+可在账号页或「设置」选择简体中文或 English。浏览器会记住语言偏好。
 
 ### 手机通过 Tailscale 连接
 
