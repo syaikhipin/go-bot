@@ -30,31 +30,39 @@ go-bot 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Person
 
 ### 移动端演示
 
-以下中文任务从 iOS 客户端发起，连接本地 Controller 和 Docker Host。Word 和 PPT 的动图末尾展示了在 WPS Office 中打开的成品。
+以下从移动端展示的中文会话均使用本地 Controller 和 Docker Host。Word 和 PPT 的动图末尾展示了在 WPS Office 中打开的成品。
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>浏览器调研</h4>
-      <a href="docs/showcase/mobile-research-demo.png"><img src="docs/showcase/mobile-research-demo.png" width="340" alt="移动端查询斯坦福 AI Index，在会话中交付图表、Markdown 摘要和 CSV"></a>
+      <a href="docs/showcase/mobile-research-demo.png"><img src="docs/showcase/mobile-research-demo.png" width="260" alt="移动端查询斯坦福 AI Index，在会话中交付图表、Markdown 摘要和 CSV"></a>
       <p>核对斯坦福 AI Index，在会话中收到原文图表、摘要和数据表。<br><a href="docs/showcase/mobile-research-key.png">查看原尺寸关键帧</a></p>
     </td>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>Word 行业报告</h4>
-      <a href="docs/showcase/mobile-word-demo.png"><img src="docs/showcase/mobile-word-demo.png" width="340" alt="手机完成 Word 报告的制作与多轮修改，随后在 WPS Office 中打开成品"></a>
+      <a href="docs/showcase/mobile-word-demo.png"><img src="docs/showcase/mobile-word-demo.png" width="260" alt="手机完成 Word 报告的制作与多轮修改，随后在 WPS Office 中打开成品"></a>
       <p>制作行业报告，再补充调查口径和适合团队落地的试点方案。<br><a href="docs/showcase/mobile-word-key.png">查看原尺寸关键帧</a></p>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" align="center">
+    <td width="33%" valign="top" align="center">
       <h4>PPT 汇报</h4>
-      <a href="docs/showcase/mobile-slides-demo.png"><img src="docs/showcase/mobile-slides-demo.png" width="340" alt="手机制作并修改三页 PPT，随后在 WPS Office 中展示三页成品"></a>
+      <a href="docs/showcase/mobile-slides-demo.png"><img src="docs/showcase/mobile-slides-demo.png" width="260" alt="手机制作并修改三页 PPT，随后在 WPS Office 中展示三页成品"></a>
       <p>调整采用率说明，把最后一页改成三步试点计划。<br><a href="docs/showcase/mobile-slides-key.png">查看原尺寸关键帧</a></p>
     </td>
+  </tr>
+</table>
+
+<table align="center" width="67%">
+  <tr>
     <td width="50%" valign="top" align="center">
       <h4>两张参考图编辑图片</h4>
-      <a href="docs/showcase/mobile-image-demo.png"><img src="docs/showcase/mobile-image-demo.png" width="340" alt="移动端上传蓝鲸和色板，预览 Seedream 改色结果并保存到图库"></a>
+      <a href="docs/showcase/mobile-image-demo.png"><img src="docs/showcase/mobile-image-demo.png" width="260" alt="移动端上传蓝鲸和色板，预览 Seedream 改色结果并保存到图库"></a>
       <p>用 Seedream 给鲸鱼换色，全屏预览后保存到手机图库。<br><a href="docs/showcase/mobile-image-key.png">查看原尺寸关键帧</a></p>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <h4>定时任务</h4>
+      <a href="docs/showcase/mobile-schedule-demo.png"><img src="docs/showcase/mobile-schedule-demo.png" width="260" alt="手机会话中的中文定时任务请求、创建确认和到点送达的提醒"></a>
+      <p>在手机会话中查看定时任务的创建确认，以及随后送达的检查清单。</p>
     </td>
   </tr>
 </table>
@@ -65,42 +73,40 @@ go-bot 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Person
 [斯坦福 HAI《2026 AI Index》经济章节](https://hai.stanford.edu/ai-index/2026-ai-index-report/economy)，
 再用 OfficeCLI 把查到的资料整理成 Word 简报和 PPT，并根据后续消息修改两份文件。
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>浏览器调研</h3>
-      <img src="docs/showcase/ai-research-demo.gif" width="100%" alt="中文调研请求、Agent 交付的资料附件与斯坦福 HAI 原文图表">
+      <img src="docs/showcase/ai-research-demo.gif" width="260" alt="中文调研请求、Agent 交付的资料附件与斯坦福 HAI 原文图表">
       <p>Agent 用 Chromium 核对行业数据，交付原文图表和调研摘要。</p>
       <a href="docs/showcase/ai-research-chat.webp">看会话截图</a> · <a href="docs/showcase/ai-index-source.webp">看原站图表</a>
     </td>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>Word 简报</h3>
-      <img src="docs/showcase/ai-word-demo.gif" width="100%" alt="从制作到修改 Word 简报的完整会话，以及在 WPS Office 中打开的成品">
+      <img src="docs/showcase/ai-word-demo.gif" width="260" alt="从制作到修改 Word 简报的完整会话，以及在 WPS Office 中打开的成品">
       <p>Agent 先制作单页简报，再补充采用率的调查口径和小团队试点建议，最后在 WPS Office 中查看成品。</p>
       <a href="docs/showcase/ai-word-demo.gif">查看大图</a>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>PPT 汇报</h3>
-      <img src="docs/showcase/ai-slides-demo.gif" width="100%" alt="从制作到修改 PPT 的完整会话，以及在 WPS Office 中打开的三页成品">
+      <img src="docs/showcase/ai-slides-demo.gif" width="260" alt="从制作到修改 PPT 的完整会话，以及在 WPS Office 中打开的三页成品">
       <p>Agent 补充采用率的调查口径，将最后一页改成三步试点计划，最后在 WPS Office 中展示三页成品。</p>
       <a href="docs/showcase/ai-slides-demo.gif">查看大图</a>
-    </td>
-    <td width="50%" valign="top">
-      <h3>两张参考图编辑图片</h3>
-      <img src="docs/showcase/ai-image-demo.gif" width="100%" alt="上传蓝鲸和色板、调用 Seedream 生图并在会话中交付结果">
-      <p>Seedream 参考蓝鲸 Logo 和珊瑚杏色色板，重新配色并在会话中交付一张 2048 × 2048 的图片。</p>
-      <a href="docs/showcase/ai-image-result.webp">看生成结果</a>
     </td>
   </tr>
 </table>
 
-<table align="center" width="50%">
+<table align="center" width="67%">
   <tr>
-    <td valign="top" align="center">
+    <td width="50%" valign="top" align="center">
+      <h3>两张参考图编辑图片</h3>
+      <img src="docs/showcase/ai-image-demo.gif" width="260" alt="上传蓝鲸和色板、调用 Seedream 生图并在会话中交付结果">
+      <p>Seedream 参考蓝鲸 Logo 和珊瑚杏色色板，重新配色并在会话中交付一张 2048 × 2048 的图片。</p>
+      <a href="docs/showcase/ai-image-result.webp">看生成结果</a>
+    </td>
+    <td width="50%" valign="top" align="center">
       <h3>定时任务</h3>
-      <a href="docs/showcase/web-schedule-zh.gif"><img src="docs/showcase/web-schedule-zh.gif" width="100%" alt="中文网页会话中的定时任务请求、创建确认和到点送达的提醒"></a>
+      <a href="docs/showcase/web-schedule-zh.gif"><img src="docs/showcase/web-schedule-zh.gif" width="260" alt="中文网页会话中的定时任务请求、创建确认和到点送达的提醒"></a>
       <p>创建一次性提醒。任务到点后，检查清单会送达原会话。</p>
     </td>
   </tr>
@@ -282,10 +288,10 @@ Compose 负责启动 Redis 并构建前端。Agent 使用的 Python、Node.js、
 
 ## 社区交流
 
-欢迎加入 **项目 QQ 交流群**，交流部署和使用经验，也可以提出问题或反馈建议。
+欢迎加入 QQ 群 **go-bot交流**，交流部署和使用经验，也可以提出问题或反馈建议。
 用 QQ 扫描下方二维码，或直接搜索群号 **710767129**。
 
-<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="项目 QQ 交流群二维码，群号 710767129"></a>
+<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="go-bot交流 QQ 群二维码，群号 710767129"></a>
 
 ## 上游项目与致谢
 

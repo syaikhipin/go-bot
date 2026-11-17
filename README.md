@@ -78,29 +78,37 @@ These demos use the English web UI and a local Docker Host. The agent checks the
 economic findings in Chromium and uses OfficeCLI to create and revise a Word brief
 and a PowerPoint deck. [Stanford HAI 2026 AI Index](https://hai.stanford.edu/ai-index/2026-ai-index-report/economy)
 
-<table width="100%">
+<table align="center" width="100%">
   <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>Browser research</h3>
-      <a href="docs/showcase/en/web-research.gif"><img src="docs/showcase/en/web-research.gif" width="100%" alt="English browser research request and sourced answer in the Web chat"></a>
+      <a href="docs/showcase/en/web-research.gif"><img src="docs/showcase/en/web-research.gif" width="260" alt="English browser research request and sourced answer in the Web chat"></a>
       <p>Check industry data in Chromium and get an English answer with source links.</p>
     </td>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>Word brief</h3>
-      <a href="docs/showcase/en/web-word.gif"><img src="docs/showcase/en/web-word.gif" width="100%" alt="English Web conversation from Word creation to revision, followed by the finished brief in WPS Office"></a>
+      <a href="docs/showcase/en/web-word.gif"><img src="docs/showcase/en/web-word.gif" width="260" alt="English Web conversation from Word creation to revision, followed by the finished brief in WPS Office"></a>
       <p>Create an AI adoption brief and revise its layout and pilot recommendation.</p>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top" align="center">
       <h3>PowerPoint briefing</h3>
-      <a href="docs/showcase/en/web-slides.gif"><img src="docs/showcase/en/web-slides.gif" width="100%" alt="English Web conversation from PowerPoint creation to revision, followed by the three slides in WPS Office"></a>
+      <a href="docs/showcase/en/web-slides.gif"><img src="docs/showcase/en/web-slides.gif" width="260" alt="English Web conversation from PowerPoint creation to revision, followed by the three slides in WPS Office"></a>
       <p>Build a three-slide briefing and revise the last slide into a three-step rollout.</p>
     </td>
-    <td width="50%" valign="top">
+  </tr>
+</table>
+
+<table align="center" width="67%">
+  <tr>
+    <td width="50%" valign="top" align="center">
       <h3>Image editing with two references</h3>
-      <a href="docs/showcase/en/web-image.gif"><img src="docs/showcase/en/web-image.gif" width="100%" alt="English Web conversation showing the two reference images and the generated coral whale"></a>
+      <a href="docs/showcase/en/web-image.gif"><img src="docs/showcase/en/web-image.gif" width="260" alt="English Web conversation showing the two reference images and the generated coral whale"></a>
       <p>Use Seedream to recolor the project mascot from a reference swatch.</p>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <h3>Scheduled reminder</h3>
+      <a href="docs/showcase/en/web-schedule.gif"><img src="docs/showcase/en/web-schedule.gif" width="260" alt="English web chat showing the request, scheduled task confirmation, and delivered reminder"></a>
+      <p>Create a one-time reminder and get the checklist in the same chat when it runs.</p>
     </td>
   </tr>
 </table>
@@ -308,10 +316,10 @@ credentials and bind access to the authenticated account.
 
 ## Community
 
-Join the project’s QQ group to ask questions, share setups, or give feedback.
+Join **go-bot交流** on QQ to ask questions, share setups, or give feedback.
 Scan the QR code in QQ or search for group **710767129**.
 
-<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="QR code for the project QQ group, 710767129"></a>
+<a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="QR code for the go-bot交流 QQ group, 710767129"></a>
 
 ## Upstream and acknowledgments
 
