@@ -151,11 +151,11 @@ Tailscale 会让手机和运行 Controller 的电脑加入同一个私有网络
 3. **在运行 Controller 的电脑上启动 Tailscale Serve。** 等 Controller 启动后再运行下面的命令。Serve 把 tailnet 内的 HTTP 请求转发给本机的 `127.0.0.1:8080`。设备之间的流量由 Tailscale 加密，这个流程无需启用 HTTPS 证书。
 
    ```sh
-   tailscale serve --bg --http=8080 http://127.0.0.1:8080
+   tailscale serve --bg --http=8081 http://127.0.0.1:8080
    ```
 
    如果终端找不到 `tailscale`，参阅 [Tailscale 命令行配置指南](https://tailscale.com/docs/reference/tailscale-cli?tab=macos)。
-4. **在手机上连接 Go Bot。** 复制 Serve 输出的完整地址，例如 `http://my-computer.example-tailnet.ts.net:8080`。先用手机浏览器打开，确认能看到 go-bot 网页，然后在 App 填入同一个地址和 go-bot 账号名，点「连接」。新账号可以在「我的 → 模型」里配置模型。 [Tailscale Serve 指南](https://tailscale.com/docs/features/tailscale-serve)
+4. **在手机上连接 Go Bot。** 复制 Serve 输出的完整地址，例如 `http://my-computer.example-tailnet.ts.net:8081`。先用手机浏览器打开，确认能看到 go-bot 网页，然后在 App 填入同一个地址和 go-bot 账号名，点「连接」。新账号可以在「我的 → 模型」里配置模型。 [Tailscale Serve 指南](https://tailscale.com/docs/features/tailscale-serve)
 
 如果已有手机可以访问的 HTTPS 入口，也可以直接在 App 中填写该地址。
 
@@ -237,15 +237,7 @@ Host 将 OfficeCLI 和 agent-browser 的 Skill 安装到 `/root/harness/.dsh/ski
 ```
 
 脚本校验配置，然后用 Compose 启动 Controller 和 Redis。打开账号时，Controller 才会使用
-指定缓存按需启动 ECI Host。若 Controller 位于远程机器，在自己的电脑上转发其回环端口：
-
-```sh
-ssh -N -L 8080:127.0.0.1:8080 user@controller-host
-```
-
-访问 [http://127.0.0.1:8080](http://127.0.0.1:8080)，按[快速开始](#快速开始)配置账号和模型。
-账号名用于识别用户，当前入口没有密码认证。请保留 Controller 的回环入口。如果自定义客户端需要跨网络访问，
-可由你自己的认证网关转发到该入口。 [客户端接入说明](docs/api.md)
+指定缓存按需启动 ECI Host。
 
 ## 配置与检查
 

@@ -92,7 +92,7 @@ ECI container storage uses the instance's writable layer for its lifetime.
 
 ## Requests and lifecycle
 
-The loopback controller proxies public Session and capability paths with the
+The controller proxies public Session and capability paths with the
 internal Host token. It streams responses immediately and avoids replaying
 an uncertain message POST. Session events have durable sequence
 cursors; transient model fragments remain distinct. The internal Host shutdown

@@ -27,7 +27,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
     depends_on:
       redis:
         condition: service_healthy
@@ -38,7 +38,7 @@ services:
     image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     volumes:
       - controller-data:/data
     healthcheck:
@@ -54,7 +54,7 @@ networks:
   ingress:
   state:
     internal: true
-  # Docker needs a non-internal network to publish Redis to host loopback.
+  # Docker needs a non-internal network to publish the Redis port on the host.
   redis-access:
 volumes:
   controller-data:
