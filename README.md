@@ -155,11 +155,11 @@ a reachable Controller URL even when it is away from your home Wi-Fi.
 3. **Start Tailscale Serve on the computer running Controller.** Run this after starting Controller. Serve forwards HTTP requests from your tailnet to Controller on `127.0.0.1:8080`. Tailscale encrypts traffic between the devices, so this setup works without HTTPS certificates.
 
    ```sh
-   tailscale serve --bg --http=8080 http://127.0.0.1:8080
+   tailscale serve --bg --http=8081 http://127.0.0.1:8080
    ```
 
    If your terminal cannot find `tailscale`, see the [Tailscale CLI setup guide](https://tailscale.com/docs/reference/tailscale-cli?tab=macos).
-4. **Connect Go Bot on the phone.** Copy the full URL printed by Serve, such as `http://my-computer.example-tailnet.ts.net:8080`. Open it in the phone's browser to check that the go-bot Web UI loads. Then enter that URL and your go-bot account name in the mobile app and tap **Connect**. New accounts can set up a model under **Me → Models**. [Tailscale Serve guide](https://tailscale.com/docs/features/tailscale-serve)
+4. **Connect Go Bot on the phone.** Copy the full URL printed by Serve, such as `http://my-computer.example-tailnet.ts.net:8081`. Open it in the phone's browser to check that the go-bot Web UI loads. Then enter that URL and your go-bot account name in the mobile app and tap **Connect**. New accounts can set up a model under **Me → Models**. [Tailscale Serve guide](https://tailscale.com/docs/features/tailscale-serve)
 
 If you already have an HTTPS endpoint that your phone can reach, enter its URL directly in the app.
 
@@ -253,18 +253,7 @@ On the Controller machine, use the completed private profile:
 
 The launcher validates the deployment profile and starts Controller and Redis
 with Compose. ECI Host instances start on demand from the configured cache
-when you open an account. For a remote Controller, forward its loopback port
-from your workstation:
-
-```sh
-ssh -N -L 8080:127.0.0.1:8080 user@controller-host
-```
-
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080) and follow the account and
-model setup in [Quickstart](#quickstart). Account names identify users without
-passwords, so keep the Controller entry point private. For custom clients that
-connect over a network, use your own authenticated gateway to the loopback API.
-[Client access](docs/api.md)
+when you open an account.
 
 ## Configuration and verification
 

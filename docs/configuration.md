@@ -10,8 +10,8 @@ accept `--env-file PATH` and require the selected file to exist. The launcher
 applies explicitly set shared deployment variables, validates the runtime
 configuration, and saves valid overrides atomically.
 Compose mounts the profile into Controller. Controller connects to Redis over
-the internal Compose network at `redis:6379`. For local inspection, Compose
-also publishes Redis at `127.0.0.1:6379` on the Docker host.
+the internal Compose network at `redis:6379`. Compose publishes Controller on
+port 8080 and Redis on port 6379 on the Docker host's network interfaces.
 The launcher runs the configuration tools with local Go when available, or
 builds a Controller image to run them in Docker. `controller check` validates
 the profile offline. `controller doctor` also performs a read-only runtime
@@ -43,7 +43,7 @@ Create the directory first if passing a new path to `--init-env`.
 NAS uses the account-specific `/go-bot/<userId>`
 subdirectory. The mount target is the deployment-specific input.
 
-An HTTPS gateway handles TLS and forwards to the loopback HTTP listener. Preserve the original `Host` and `X-User-ID` headers, set `X-Forwarded-Proto` to `https` for HTTPS requests, and forward SSE without buffering. Controller uses the request host and scheme to check browser origins. Tailscale Serve supplies the host and scheme automatically. Restrict access at the gateway or through your private network.
+An HTTPS gateway handles TLS and forwards to the Controller's HTTP listener. Preserve the original `Host` and `X-User-ID` headers, set `X-Forwarded-Proto` to `https` for HTTPS requests, and forward SSE without buffering. Controller uses the request host and scheme to check browser origins. Tailscale Serve supplies the host and scheme automatically. Restrict access at the gateway or through your private network.
 
 Schedule uses the upstream defaults of 30 days and 200 records per task for
 delivery history, and 60 seconds between deliveries. The optional tuning YAML

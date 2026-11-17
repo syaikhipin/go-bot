@@ -26,7 +26,7 @@ npm run android
 
 ## 手机连接
 
-通过 Tailscale 连接时，从 [Tailscale 官方下载页](https://tailscale.com/download) 给电脑和手机安装客户端。两端登录同一个 Tailscale 账号，确认设备在线后，在电脑上启动 Serve，再将输出的完整 `http://…ts.net:8080` 地址填入 App。 [图文步骤](../README.zh-CN.md#手机通过-tailscale-连接)
+通过 Tailscale 连接时，从 [Tailscale 官方下载页](https://tailscale.com/download) 给电脑和手机安装客户端。两端登录同一个 Tailscale 账号，确认设备在线后，在电脑上启动 Serve，再将输出的完整 `http://…ts.net:8081` 地址填入 App。 [图文步骤](../README.zh-CN.md#手机通过-tailscale-连接)
 
 如果已有受访问控制的 HTTPS 入口，在 App 中填入该入口地址即可。 [代理配置](../docs/configuration.md#runtime-storage-and-entry)
 
