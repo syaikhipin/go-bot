@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/attachments"
-	"go-harness/harness/schedule"
-	"go-harness/internal/config"
-	"go-harness/internal/modelsettings"
-	dockerapi "go-harness/thirdparty/docker"
+	"go-bot/harness/attachments"
+	"go-bot/harness/schedule"
+	"go-bot/internal/config"
+	"go-bot/internal/modelsettings"
+	dockerapi "go-bot/thirdparty/docker"
 )
 
 func TestDockerRestoresScheduleAndHostAttachments(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"go-harness/harness/session"
-	"go-harness/internal/hostruntime"
+	"go-bot/harness/session"
+	"go-bot/internal/hostruntime"
 )
 
 type publicEventPage struct {

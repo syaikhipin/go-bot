@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/harness/schedule"
-	"go-harness/harness/session"
+	"go-bot/harness/schedule"
+	"go-bot/harness/session"
 )
 
 // ValidateScheduleDestination checks a stored top-level Session without

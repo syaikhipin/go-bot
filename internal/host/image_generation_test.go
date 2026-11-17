@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/internal/providersettings"
-	"go-harness/providers/image/nanobanana"
-	"go-harness/providers/image/openai"
+	"go-bot/internal/providersettings"
+	"go-bot/providers/image/nanobanana"
+	"go-bot/providers/image/openai"
 )
 
 func TestImageSettingsReplaceAndClearActiveGenerator(t *testing.T) {

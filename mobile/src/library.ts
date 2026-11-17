@@ -225,7 +225,7 @@ export function getAvatar(account: string) {
 export async function pickAvatar(account: string, camera: boolean) {
   if (camera) {
     const permission = await Photos.requestCameraPermissionsAsync()
-    if (!permission.granted) throw new Error('请在系统设置中允许 Go Harness 访问相机。')
+    if (!permission.granted) throw new Error('请在系统设置中允许 Go Bot 访问相机。')
   }
   const options: Photos.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 }
   const result = camera ? await Photos.launchCameraAsync(options) : await Photos.launchImageLibraryAsync(options)

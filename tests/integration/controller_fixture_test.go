@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go-harness/internal/config"
-	"go-harness/internal/controller"
-	"go-harness/internal/modelsettings"
-	dock "go-harness/providers/runtime/docker"
-	"go-harness/runtime"
-	dockerapi "go-harness/thirdparty/docker"
+	"go-bot/internal/config"
+	"go-bot/internal/controller"
+	"go-bot/internal/modelsettings"
+	dock "go-bot/providers/runtime/docker"
+	"go-bot/runtime"
+	dockerapi "go-bot/thirdparty/docker"
 )
 
 type fixtureManager struct {
@@ -76,7 +76,7 @@ func newFixtureManagerForAccount(t *testing.T, c config.Config, account string) 
 		t.Cleanup(func() {
 			cleanup, done := context.WithTimeout(context.Background(), 15*time.Second)
 			defer done()
-			if _, err := client.Run(cleanup, nil, "volume", "rm", "gh-"+account+"-data"); err != nil && !strings.Contains(err.Error(), "no such volume") {
+			if _, err := client.Run(cleanup, nil, "volume", "rm", "go-bot-"+account+"-data"); err != nil && !strings.Contains(err.Error(), "no such volume") {
 				t.Errorf("remove fixture volume: %v", err)
 			}
 		})

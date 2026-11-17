@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"go-harness/harness/session"
-	"go-harness/internal/modeldata"
+	"go-bot/harness/session"
+	"go-bot/internal/modeldata"
 )
 
 type nativeMaxTokensModel struct {

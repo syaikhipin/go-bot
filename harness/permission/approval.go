@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/interaction"
-	session "go-harness/harness/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/interaction"
+	session "go-bot/harness/session"
 
 	"github.com/google/uuid"
 )

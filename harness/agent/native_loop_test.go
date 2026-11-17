@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/attachments"
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
-	"go-harness/thirdparty/llm"
+	"go-bot/harness/attachments"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
+	"go-bot/thirdparty/llm"
 )
 
 type nativeTestJournal struct {

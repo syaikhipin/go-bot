@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"testing"
 
-	"go-harness/internal/config"
-	webproviders "go-harness/providers/web"
-	builtin "go-harness/providers/web/builtin"
-	"go-harness/web"
+	"go-bot/internal/config"
+	webproviders "go-bot/providers/web"
+	builtin "go-bot/providers/web/builtin"
+	"go-bot/web"
 )
 
 // This test doubles as a Host entrypoint in the Docker integration fixture.

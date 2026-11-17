@@ -107,7 +107,7 @@ export class Controller {
     try {
       const models = await this.modelSettings()
       if (typeof models?.defaultEndpointId !== 'string' || typeof models?.endpoints !== 'object' || !models.endpoints) {
-        throw new Error('这个地址未返回 Go Harness 账号数据。')
+        throw new Error('这个地址未返回 Go Bot 账号数据。')
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) throw new Error('找不到这个账号。请检查账号名，或用下方入口创建。')

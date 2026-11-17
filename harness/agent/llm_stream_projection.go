@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go-harness/internal/modeldata"
-	"go-harness/thirdparty/llm"
+	"go-bot/internal/modeldata"
+	"go-bot/thirdparty/llm"
 )
 
 // llmStreamProjection translates OpenAI-compatible SSE events into the block

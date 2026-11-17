@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go-harness/harness/session"
-	"go-harness/internal/config"
-	dockerapi "go-harness/thirdparty/docker"
+	"go-bot/harness/session"
+	"go-bot/internal/config"
+	dockerapi "go-bot/thirdparty/docker"
 )
 
 func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
@@ -74,7 +74,7 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 	defer cancel()
 	c := dockerFixtureConfig()
 	baseImage := c.Runtime.Image
-	c.Runtime.Image = "go-harness/host-upgrade-test:" + uuid.NewString()
+	c.Runtime.Image = "go-bot/host-upgrade-test:" + uuid.NewString()
 	docker := dockerapi.Client{}
 	if _, err := docker.Run(ctx, nil, "image", "tag", baseImage, c.Runtime.Image); err != nil {
 		t.Fatal(err)

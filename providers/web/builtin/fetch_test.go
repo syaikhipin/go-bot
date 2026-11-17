@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/internal/publicnet"
-	"go-harness/web"
+	"go-bot/internal/publicnet"
+	"go-bot/web"
 )
 
 type fetchDialFunc func(context.Context, string, string) (net.Conn, error)

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
 )
 
 type nativeInstructionModel struct{ observed [][]Message }

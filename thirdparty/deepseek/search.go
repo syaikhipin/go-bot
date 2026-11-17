@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go-harness/web"
+	"go-bot/web"
 )
 
 type Client struct {

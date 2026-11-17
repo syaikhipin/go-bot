@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	agentcontent "go-harness/harness/content"
-	"go-harness/harness/session"
-	"go-harness/internal/modeldata"
+	agentcontent "go-bot/harness/content"
+	"go-bot/harness/session"
+	"go-bot/internal/modeldata"
 )
 
 // NativeLoop is the production v4 execution path for a Host Session. It uses

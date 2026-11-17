@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"go-harness/internal/config"
-	"go-harness/internal/providersettings"
+	"go-bot/internal/config"
+	"go-bot/internal/providersettings"
 )
 
 func TestImageProviderSettingsPersistAndSync(t *testing.T) {

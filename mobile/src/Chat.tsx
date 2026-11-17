@@ -149,7 +149,7 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       <IconButton label={t('文件系统')} onPress={() => { Keyboard.dismiss(); show('files') }}><Folder size={20} color={ink} strokeWidth={1.75} /></IconButton>
     </View>
     {!id ? <View style={styles.emptyChat}>
-      <Image source={logo} accessibilityLabel="Go Harness" resizeMode="contain" style={styles.emptyLogo} />
+      <Image source={logo} accessibilityLabel="Go Bot" resizeMode="contain" style={styles.emptyLogo} />
       {resolving && !lookupError ? <ActivityIndicator color={accent} accessibilityLabel={t('正在读取会话…')} />
         : <Button label={t('创建新会话')} primary busy={creating} onPress={createChat}><Plus size={18} color="white" /></Button>}
       {resolving && lookupError && <Button label={t('重新加载')} onPress={retryLookup} />}
@@ -252,7 +252,7 @@ function FloatingLogo({ active }: { active: boolean }) {
     floating.start()
     return () => floating.stop()
   }, [active, offset, reduced])
-  return <Animated.Image source={logo} accessibilityLabel="Go Harness" resizeMode="contain" style={{ width: 62, height: 58, transform: [{ translateY: offset }] }} />
+  return <Animated.Image source={logo} accessibilityLabel="Go Bot" resizeMode="contain" style={{ width: 62, height: 58, transform: [{ translateY: offset }] }} />
 }
 
 type Pending = { id: string; session: string; text: string; files: LibraryEntry[] }
@@ -302,7 +302,7 @@ function Conversation({ api, cache, id, pending, active, sending, onUnavailable,
       {loading && <Hint>{t('正在读取会话…')}</Hint>}
       {!!error && <><Hint error>{t(error)}</Hint><Button label={t('重新加载')} onPress={reload} /></>}
       {!loading && !error && !replies.length && !waiting && <View style={styles.welcome}>
-        <Image source={logo} accessibilityLabel="Go Harness" style={{ width: 206, height: 182 }} />
+        <Image source={logo} accessibilityLabel="Go Bot" style={{ width: 206, height: 182 }} />
         <Text style={styles.welcomeTitle}>{t('今天想做什么？')}</Text>
       </View>}
       {replies.map(message)}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/internal/testsupport/session"
 )
 
 type skillCatalogModel struct{ calls [][]agent.Message }

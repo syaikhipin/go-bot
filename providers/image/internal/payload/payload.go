@@ -11,7 +11,7 @@ import (
 	_ "image/png"
 	"net/http"
 
-	"go-harness/thirdparty/providerhttp"
+	"go-bot/thirdparty/providerhttp"
 )
 
 const maxBytes = 24 << 20

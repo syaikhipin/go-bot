@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go-harness/internal/config"
-	dock "go-harness/providers/runtime/docker"
-	cloud "go-harness/providers/runtime/eci"
-	"go-harness/runtime"
-	"go-harness/thirdparty/aliyun"
+	"go-bot/internal/config"
+	dock "go-bot/providers/runtime/docker"
+	cloud "go-bot/providers/runtime/eci"
+	"go-bot/runtime"
+	"go-bot/thirdparty/aliyun"
 )
 
 const (
@@ -103,7 +103,7 @@ func (m *Manager) spec(id string, record Account) runtime.Spec {
 	}
 	if c.Storage.Type == "nas" {
 		spec.Storage.MountTarget = c.Storage.NASMountTarget
-		spec.Storage.Path = "/go-harness/" + id
+		spec.Storage.Path = "/go-bot/" + id
 	}
 	return spec
 }

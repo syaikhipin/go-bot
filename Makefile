@@ -12,7 +12,7 @@ build-web:
 	go build -tags webui -trimpath -o bin/controller ./cmd/controller
 	go build -trimpath -o bin/prepare-env ./internal/cmd/prepare-env
 image:
-	docker build -f build/Dockerfile.host -t go-harness/host:local .
+	docker build -f build/Dockerfile.host -t go-bot/host:local .
 test:
 	go test ./...
 race:

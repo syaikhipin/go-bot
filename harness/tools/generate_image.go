@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/content"
+	"go-bot/harness/agent"
+	"go-bot/harness/content"
 )
 
 // ImageGenerator keeps provider credentials and accounting outside the tool.

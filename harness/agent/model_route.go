@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"go-harness/internal/modeldata"
+	"go-bot/internal/modeldata"
 )
 
 type modelRouteKey struct{}

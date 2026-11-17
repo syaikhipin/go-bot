@@ -10,11 +10,11 @@ import (
 	"sort"
 	"strings"
 
-	"go-harness/runtime"
-	api "go-harness/thirdparty/docker"
+	"go-bot/runtime"
+	api "go-bot/thirdparty/docker"
 )
 
-const prefix = "io.go-harness."
+const prefix = "io.go-bot."
 
 var safe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
 
@@ -78,7 +78,7 @@ func (d *Driver) Inspect(ctx context.Context, ref runtime.ResourceRef) (runtime.
 	o := objects[0]
 	labels := o.Config.Labels
 	if labels[prefix+"component"] != "host" {
-		return runtime.Instance{}, errors.New("Docker resource is not a go-harness Host")
+		return runtime.Instance{}, errors.New("Docker resource is not a go-bot Host")
 	}
 	state := "stopped"
 	endpoint := ""
@@ -101,11 +101,11 @@ func (d *Driver) Inspect(ctx context.Context, ref runtime.ResourceRef) (runtime.
 }
 
 func containerName(s runtime.Spec) string {
-	return "go-harness-" + s.RunID
+	return "go-bot-" + s.RunID
 }
 
 func DataVolumeName(deploymentID string) string {
-	return "gh-" + deploymentID + "-data"
+	return "go-bot-" + deploymentID + "-data"
 }
 
 func (d *Driver) Find(ctx context.Context, s runtime.Spec) (runtime.Instance, error) {

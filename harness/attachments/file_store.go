@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"unicode/utf8"
 
-	"go-harness/internal/durablefs"
+	"go-bot/internal/durablefs"
 )
 
 const maxUploadedFileBytes = 32 << 20

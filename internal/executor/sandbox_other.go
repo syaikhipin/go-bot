@@ -5,8 +5,8 @@ package executor
 import (
 	"context"
 
-	"go-harness/harness/permission"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/permission"
+	"go-bot/internal/agentfs"
 )
 
 func probeSandbox(context.Context) error {

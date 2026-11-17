@@ -10,7 +10,7 @@ import (
 	"path"
 	"strings"
 
-	"go-harness/harness/content"
+	"go-bot/harness/content"
 )
 
 const objectRoot = "attachments/v1/objects/"

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/memory"
-	"go-harness/internal/testsupport/session"
+	"go-bot/harness/agent"
+	"go-bot/harness/memory"
+	"go-bot/internal/testsupport/session"
 )
 
 const rememberedPreference = "日报用中文"

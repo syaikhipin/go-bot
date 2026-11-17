@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/agent"
+	"go-bot/internal/agentfs"
 )
 
 type failingMutationView struct {

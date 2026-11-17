@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"go-harness/internal/instructionrender"
+	"go-bot/internal/instructionrender"
 )
 
 const nativeInstructionDeltaMaxBytes = 64 << 10

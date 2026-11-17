@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/content"
-	"go-harness/internal/modeldata"
-	"go-harness/thirdparty/llm"
+	"go-bot/harness/agent"
+	"go-bot/harness/content"
+	"go-bot/internal/modeldata"
+	"go-bot/thirdparty/llm"
 )
 
 // Config holds the model routing and protocol for a standalone model or a

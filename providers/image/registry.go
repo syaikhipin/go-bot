@@ -7,11 +7,11 @@ import (
 	"slices"
 	"strings"
 
-	"go-harness/harness/content"
-	"go-harness/internal/providersettings"
-	"go-harness/providers/image/nanobanana"
-	"go-harness/providers/image/openai"
-	"go-harness/providers/image/seedream"
+	"go-bot/harness/content"
+	"go-bot/internal/providersettings"
+	"go-bot/providers/image/nanobanana"
+	"go-bot/providers/image/openai"
+	"go-bot/providers/image/seedream"
 )
 
 const Default = seedream.ID

@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/sessionsearch"
-	"go-harness/internal/config"
+	"go-bot/harness/sessionsearch"
+	"go-bot/internal/config"
 )
 
 func TestDockerMemoryAndHistoryRebuild(t *testing.T) {
@@ -265,7 +265,7 @@ func testMemoryAndHistoryRebuild(t *testing.T, profile, account, fixtureURL stri
 		if got := manager.Exec(t, ctx, "cat", "/root/harness/.dsh/memories/USER.md"); strings.TrimSpace(string(got)) != "日报用中文" {
 			t.Fatalf("saved memory = %q", got)
 		}
-		manager.Exec(t, ctx, "test", "-s", "/var/lib/go-harness/session-search.sqlite")
+		manager.Exec(t, ctx, "test", "-s", "/var/lib/go-bot/session-search.sqlite")
 	}
 	instance, err := manager.Observe(ctx, manager.account)
 	if err != nil || instance.HostID == "" {

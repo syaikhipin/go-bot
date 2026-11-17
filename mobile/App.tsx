@@ -114,7 +114,7 @@ function Main() {
     <Ambient />
     {api ? <Workspace api={api} exitAccount={() => { saveProfile(api.profile, false); setApi(undefined) }} /> : <KeyboardAvoidingView style={styles.app} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.connect, { paddingBottom: Math.max(inset.bottom, 20) }]}>
-        <View style={styles.brand}><Image source={logo} style={styles.connectLogo} /><Text style={styles.wordmark}>Go Harness</Text></View>
+        <View style={styles.brand}><Image source={logo} style={styles.connectLogo} /><Text style={styles.wordmark}>Go Bot</Text></View>
         <Panel style={{ gap: 17 }}>
           <View style={styles.connectHeader}>
             <Text accessibilityRole="header" style={styles.connectHeading}>{t('连接服务器')}</Text>

@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/internal/durablefs"
+	"go-bot/internal/durablefs"
 )
 
 const maxScheduleDocumentBytes = 64 << 20

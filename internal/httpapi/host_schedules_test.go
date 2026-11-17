@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/schedule"
+	"go-bot/harness/schedule"
 )
 
 func TestNativeHostScheduleList(t *testing.T) {

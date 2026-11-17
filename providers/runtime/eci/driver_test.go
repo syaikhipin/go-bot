@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/runtime"
-	"go-harness/thirdparty/aliyun"
+	"go-bot/runtime"
+	"go-bot/thirdparty/aliyun"
 )
 
 type fakeAPI struct {
@@ -78,7 +78,7 @@ func TestECIReplacementRetainsNASDataRoot(t *testing.T) {
 	driver := &Driver{Client: api}
 	spec := testSpec()
 	spec.Storage = runtime.Storage{
-		Type: "nas", MountTarget: "example.cn-hangzhou.nas.aliyuncs.com", Path: "/go-harness/deployment",
+		Type: "nas", MountTarget: "example.cn-hangzhou.nas.aliyuncs.com", Path: "/go-bot/deployment",
 	}
 	first, err := driver.Ensure(ctx, spec)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestECIUncertainCreateIsReconciledWithoutSecondInstance(t *testing.T) {
 		t.Fatal("idempotency token changed")
 	}
 	api.groups = append(api.groups, aliyun.Group{ID: "eci-other", State: "Running", Tags: map[string]string{
-		"component": "go-harness-host", "deployment-id": "other-account", "run-id": s.RunID,
+		"component": "go-bot-host", "deployment-id": "other-account", "run-id": s.RunID,
 	}})
 	found, err := d.Find(t.Context(), s)
 	if err != nil || found.Ref.ID != out.Ref.ID || api.listTags["run-id"] != s.RunID || api.listTags["deployment-id"] != s.DeploymentID {

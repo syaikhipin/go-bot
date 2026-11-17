@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"go-harness/harness/interaction"
+	"go-bot/harness/interaction"
 )
 
 func TestAskUserQuestionAcceptsPresentationExtensions(t *testing.T) {

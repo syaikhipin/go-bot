@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/skills"
+	"go-bot/harness/agent"
+	"go-bot/harness/skills"
 )
 
 type Skill struct {

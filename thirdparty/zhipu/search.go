@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"go-harness/thirdparty/providerhttp"
+	"go-bot/thirdparty/providerhttp"
 )
 
 const Endpoint = "https://open.bigmodel.cn/api/paas/v4/web_search"

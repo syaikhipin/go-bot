@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go-harness/internal/durablefs"
+	"go-bot/internal/durablefs"
 )
 
 // LocalObjectAPI persists immutable image bytes in the current Host's

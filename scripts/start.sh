@@ -54,7 +54,7 @@ if $init_only; then
     temporary="$(mktemp "$path.tmp.XXXXXX")"
     trap 'unlink "$temporary"' EXIT
     if [[ "$2" == eci ]]; then
-      sed -e 's/^HARNESS_RUNTIME=docker$/HARNESS_RUNTIME=eci/' -e 's/^HOST_IMAGE=.*/HOST_IMAGE=go-harness\/host:eci/' .env.example > "$temporary"
+      sed -e 's/^HARNESS_RUNTIME=docker$/HARNESS_RUNTIME=eci/' -e 's/^HOST_IMAGE=.*/HOST_IMAGE=go-bot\/host:eci/' .env.example > "$temporary"
     else
       cat .env.example > "$temporary"
     fi
@@ -75,7 +75,7 @@ profile_dir="$(cd "$(dirname "$profile")" && pwd)"
 profile_name="$(basename "$profile")"
 profile="$profile_dir/$profile_name"
 config_file="$(cd "$(dirname "$config_file")" && pwd)/$(basename "$config_file")"
-export GO_HARNESS_ENV_FILE="$profile" GO_HARNESS_CONFIG_FILE="$config_file"
+export GO_BOT_ENV_FILE="$profile" GO_BOT_CONFIG_FILE="$config_file"
 compose=(docker compose --env-file /dev/null)
 prepare_args=(--env-file "$profile" --config "$config_file")
 
@@ -91,8 +91,8 @@ else
     if [[ "$key" =~ ^[A-Z][A-Z0-9_]*$ ]]; then forwarded+=(-e "$key"); fi
   done < .env.example
   docker run --rm --user "$(id -u):$(id -g)" "${profile_mounts[@]}" "${forwarded[@]}" \
-    --entrypoint /usr/local/bin/prepare-env go-harness/controller:local "${config_args[@]}"
-  runtime_info="$(docker run --rm "${profile_mounts[@]}" go-harness/controller:local check --print-runtime "${config_args[@]}")"
+    --entrypoint /usr/local/bin/prepare-env go-bot/controller:local "${config_args[@]}"
+  runtime_info="$(docker run --rm "${profile_mounts[@]}" go-bot/controller:local check --print-runtime "${config_args[@]}")"
 fi
 
 selected_runtime="${runtime_info%%$'\n'*}"
@@ -104,7 +104,7 @@ fi
 if command -v curl >/dev/null 2>&1; then
   for ((attempt = 0; attempt < 30; attempt++)); do
     if curl --fail --silent --max-time 2 'http://127.0.0.1:8080/readyz' >/dev/null; then
-      echo 'Go Harness is ready at http://localhost:8080'
+      echo 'Go Bot is ready at http://localhost:8080'
       exit 0
     fi
     sleep 1

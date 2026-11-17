@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"go-harness/harness/assembly"
-	"go-harness/harness/jobs"
-	"go-harness/harness/skills"
-	"go-harness/harness/tools"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/assembly"
+	"go-bot/harness/jobs"
+	"go-bot/harness/skills"
+	"go-bot/harness/tools"
+	"go-bot/internal/agentfs"
 )
 
 // Builder is installed only in the container worker binary. The Host shares one

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"go-harness/internal/config"
-	"go-harness/internal/imagebuild"
-	"go-harness/thirdparty/aliyun"
+	"go-bot/internal/config"
+	"go-bot/internal/imagebuild"
+	"go-bot/thirdparty/aliyun"
 	"gopkg.in/yaml.v3"
 )
 

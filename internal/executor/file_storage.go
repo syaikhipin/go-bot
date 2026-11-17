@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"go-harness/harness/assembly"
-	"go-harness/harness/session"
+	"go-bot/harness/assembly"
+	"go-bot/harness/session"
 )
 
 // NativeFileStorage binds one Agent Session to the standalone cloud

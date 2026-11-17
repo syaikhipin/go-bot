@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"go-harness/harness/attachments"
+	"go-bot/harness/attachments"
 )
 
 const maxCreatorInputBytes int64 = 200 << 20

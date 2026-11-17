@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"go-harness/internal/testsupport/session"
+	"go-bot/internal/testsupport/session"
 )
 
 func testPreparedImages(count int, bytes string) []preparedImage {

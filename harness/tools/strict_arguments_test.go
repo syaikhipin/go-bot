@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/jobs"
+	"go-bot/harness/agent"
+	"go-bot/harness/jobs"
 )
 
 func TestUpstreamToolParameterRootsRemainOpen(t *testing.T) {

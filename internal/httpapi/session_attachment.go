@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/harness/attachments"
-	"go-harness/harness/content"
-	"go-harness/harness/session"
-	"go-harness/internal/hostruntime"
+	"go-bot/harness/attachments"
+	"go-bot/harness/content"
+	"go-bot/harness/session"
+	"go-bot/internal/hostruntime"
 )
 
 var attachmentDigest = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)

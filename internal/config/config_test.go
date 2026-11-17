@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	goharness "go-harness"
+	gobot "go-bot"
 )
 
 func clean(t *testing.T) {
@@ -209,7 +209,7 @@ func TestEnvironmentTemplateAndPrecedence(t *testing.T) {
 	}
 	profile := strings.NewReplacer(
 		"HARNESS_RUNTIME=docker", "HARNESS_RUNTIME=eci",
-		"HOST_IMAGE=go-harness/host:local", "HOST_IMAGE=registry.example/host:test",
+		"HOST_IMAGE=go-bot/host:local", "HOST_IMAGE=registry.example/host:test",
 		"ECI_VSWITCH_ID=", "ECI_VSWITCH_ID=vsw-fixture",
 		"ECI_SECURITY_GROUP_ID=", "ECI_SECURITY_GROUP_ID=sg-fixture",
 		"ECI_IMAGE_CACHE_ID=", "ECI_IMAGE_CACHE_ID=imc-fixture",
@@ -302,7 +302,7 @@ func TestStartupRequiresProfileWithoutAccountCredentials(t *testing.T) {
 	if _, err := os.Stat(".env"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("startup created a profile")
 	}
-	writeFile(t, ".env", goharness.EnvironmentTemplate)
+	writeFile(t, ".env", gobot.EnvironmentTemplate)
 	if err := PrepareControllerProfile("", ""); err != nil {
 		t.Fatalf("start without account credentials: %v", err)
 	}
@@ -311,20 +311,20 @@ func TestStartupRequiresProfileWithoutAccountCredentials(t *testing.T) {
 	t.Setenv("MODEL_NAME", "fixture-model")
 	t.Setenv("WEB_SEARCH_API_KEY", "fixture#search=$key")
 	t.Setenv("WEB_SEARCH_PROVIDER", "deepseek")
-	t.Setenv("HOST_IMAGE", "go-harness/host:fixture")
+	t.Setenv("HOST_IMAGE", "go-bot/host:fixture")
 	if err := PrepareControllerProfile("", ""); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := os.ReadFile(".env")
 	if err != nil || strings.Contains(string(saved), "MODEL_") || strings.Contains(string(saved), "WEB_SEARCH_") ||
-		!strings.Contains(string(saved), "HOST_IMAGE=go-harness/host:fixture") {
+		!strings.Contains(string(saved), "HOST_IMAGE=go-bot/host:fixture") {
 		t.Fatal("profile did not preserve only deployment overrides")
 	}
 }
 
 func TestStartupRejectsPublicTemplateAsPrivateProfile(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := os.WriteFile(".env.example", []byte(goharness.EnvironmentTemplate), 0644); err != nil {
+	if err := os.WriteFile(".env.example", []byte(gobot.EnvironmentTemplate), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(".env.example", ".env"); err != nil {

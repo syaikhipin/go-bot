@@ -12,12 +12,12 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"go-harness/harness/agent"
-	"go-harness/internal/durablefs"
-	"go-harness/internal/localstate"
-	"go-harness/internal/modelsettings"
-	"go-harness/providers/model/mainmodel"
-	"go-harness/thirdparty/llm"
+	"go-bot/harness/agent"
+	"go-bot/internal/durablefs"
+	"go-bot/internal/localstate"
+	"go-bot/internal/modelsettings"
+	"go-bot/providers/model/mainmodel"
+	"go-bot/thirdparty/llm"
 )
 
 type hostModels struct {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 type nativeJournal struct{ events []sessionformat.Event }

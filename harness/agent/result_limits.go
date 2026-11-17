@@ -3,7 +3,7 @@ package agent
 import (
 	"fmt"
 
-	"go-harness/internal/modeldata"
+	"go-bot/internal/modeldata"
 )
 
 const (

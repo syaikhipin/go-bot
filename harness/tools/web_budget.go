@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"go-harness/web"
+	"go-bot/web"
 )
 
 // These budgets belong to one live Go Assembly. Container web calls are

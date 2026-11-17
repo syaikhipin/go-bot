@@ -15,8 +15,8 @@ import (
 	"net/http"
 	"time"
 
-	"go-harness/harness/content"
-	"go-harness/internal/providersettings"
+	"go-bot/harness/content"
+	"go-bot/internal/providersettings"
 )
 
 const (

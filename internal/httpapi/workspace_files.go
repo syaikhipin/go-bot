@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"go-harness/internal/agentfs"
+	"go-bot/internal/agentfs"
 
 	"github.com/gin-gonic/gin"
 )

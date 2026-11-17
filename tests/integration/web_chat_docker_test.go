@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/frontend"
-	"go-harness/harness/session"
-	"go-harness/internal/config"
-	"go-harness/internal/controller"
+	"go-bot/frontend"
+	"go-bot/harness/session"
+	"go-bot/internal/config"
+	"go-bot/internal/controller"
 )
 
 func TestDockerWebChatPreview(t *testing.T) {
@@ -107,7 +107,7 @@ func TestDockerWebChatPreview(t *testing.T) {
 	}
 	sid := created.SessionID
 	url := "/v1/sessions/" + sid
-	if files != nil && !strings.Contains(read("GET", "/chat/"+sid, "", 200), "Go Harness") {
+	if files != nil && !strings.Contains(read("GET", "/chat/"+sid, "", 200), "Go Bot") {
 		t.Fatal("Controller does not serve direct chat links")
 	}
 	stream := call("GET", url+"/stream", "", 200)

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"go-harness/internal/modeldata"
+	"go-bot/internal/modeldata"
 )
 
 type nativePartialBlock struct {

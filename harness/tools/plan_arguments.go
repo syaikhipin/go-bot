@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 func exitPlanModeSpec() agent.ToolSpec {

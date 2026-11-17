@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"go-harness/thirdparty/providerhttp"
+	"go-bot/thirdparty/providerhttp"
 )
 
 const Endpoint = "https://open.feedcoopapi.com/search_api/web_search"

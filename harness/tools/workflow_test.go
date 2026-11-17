@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/jobs"
-	"go-harness/harness/session"
-	"go-harness/harness/workflow"
+	"go-bot/harness/jobs"
+	"go-bot/harness/session"
+	"go-bot/harness/workflow"
 )
 
 type workflowJournal struct {

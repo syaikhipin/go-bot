@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	agentcontent "go-harness/harness/content"
-	"go-harness/internal/modeldata"
-	"go-harness/thirdparty/llm"
+	agentcontent "go-bot/harness/content"
+	"go-bot/internal/modeldata"
+	"go-bot/thirdparty/llm"
 )
 
 // LLMTransport is the low-level model call used by the ServerAgents Harness.

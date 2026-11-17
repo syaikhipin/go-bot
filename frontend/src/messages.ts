@@ -2,7 +2,7 @@ export type Language = 'en' | 'zh-CN'
 
 const chinese: Readonly<Record<string, string>> = {
   "Language": "语言",
-  "Go Harness Chat": "Go Harness 会话",
+  "Go Bot Chat": "Go Bot 会话",
   "Create an account": "创建账号",
   "Open your account": "打开账号",
   "Account name": "账号名",

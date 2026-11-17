@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Go Harness HTTP API
+  title: Go Bot HTTP API
   version: 0.1.0
   description: The local Controller selects an account through X-User-ID.
     Direct Host requests use the internal Host token instead.

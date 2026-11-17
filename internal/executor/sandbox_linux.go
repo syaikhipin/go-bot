@@ -16,8 +16,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"go-harness/harness/permission"
-	"go-harness/internal/agentfs"
+	"go-bot/harness/permission"
+	"go-bot/internal/agentfs"
 	"golang.org/x/sys/unix"
 )
 
@@ -103,8 +103,8 @@ func restrictThread(scope permission.Scope, temp string) error {
 	return nil
 }
 
-const sandboxRunner = "__go_harness_landlock"
-const sandboxFailurePrefix = "[go-harness sandbox setup] "
+const sandboxRunner = "__go_bot_landlock"
+const sandboxFailurePrefix = "[go-bot sandbox setup] "
 
 type fileEffectResult struct {
 	Error       string
@@ -232,5 +232,5 @@ func shellSandboxTemp(ctx context.Context) (string, error) {
 	if permission.From(ctx).Mode != permission.WorkspaceWrite {
 		return "", nil
 	}
-	return os.MkdirTemp("/tmp", "go-harness-sandbox-")
+	return os.MkdirTemp("/tmp", "go-bot-sandbox-")
 }

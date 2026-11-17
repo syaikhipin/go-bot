@@ -15,7 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 const (

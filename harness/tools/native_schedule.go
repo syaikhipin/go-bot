@@ -6,8 +6,8 @@ import (
 	"errors"
 	"strings"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/schedule"
+	"go-bot/harness/agent"
+	"go-bot/harness/schedule"
 )
 
 type NativeSchedule struct {

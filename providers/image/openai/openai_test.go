@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/content"
+	"go-bot/harness/content"
 )
 
 func TestGenerate(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"sync"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 const NativeStructuredOutputInstruction = "When you have your final answer, you MUST report it by calling the `structured_output` tool with arguments matching its parameter schema exactly. Do not finish with a plain text answer: only the tool call counts as your result."

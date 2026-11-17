@@ -22,7 +22,7 @@ const (
 	UserDSHHomeDir = ".dsh"
 	UserDSHHome    = "/root/harness/" + UserDSHHomeDir
 	UserAgentsHome = "/root/harness/.agents"
-	SeedDir        = "/usr/share/go-harness/skill-seed"
+	SeedDir        = "/usr/share/go-bot/skill-seed"
 	maxSkillBytes  = 256 << 10
 )
 

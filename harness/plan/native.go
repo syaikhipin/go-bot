@@ -6,7 +6,7 @@ import (
 	"errors"
 	"sync"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 // NativeService stores only the released v4 plan/mode fact in the Session.

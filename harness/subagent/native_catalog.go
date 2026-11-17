@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 // RecordNativeChild publishes one direct-child discovery fact in its parent

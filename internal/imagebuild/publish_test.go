@@ -17,7 +17,7 @@ set -eu
 [ "${MODEL_API_KEY+x}${WEB_SEARCH_API_KEY+x}${ALIBABA_CLOUD_ACCESS_KEY_SECRET+x}${REGISTRY_PASSWORD+x}" = '' ]
 [ "$DOCKER_CONFIG" = '/docker-test-config' ]
 if [ "$1" = buildx ]; then
-  [ "$*" = 'buildx build --platform linux/amd64 --provenance=false --load --file build/Dockerfile.host --tag go-harness/host:eci --tag registry.example.com/agent/host:v1 .' ]
+  [ "$*" = 'buildx build --platform linux/amd64 --provenance=false --load --file build/Dockerfile.host --tag go-bot/host:eci --tag registry.example.com/agent/host:v1 .' ]
   touch "$DOCKER_BUILD_MARKER"
   printf '%s\n' 'built fixture image' >&2
 else
@@ -36,7 +36,7 @@ fi
 		t.Setenv(key, "fixture-value")
 	}
 	var logs bytes.Buffer
-	got, err := PublishAMD64(t.Context(), "go-harness/host:eci", image, &logs)
+	got, err := PublishAMD64(t.Context(), "go-bot/host:eci", image, &logs)
 	if err != nil || got != digest || !strings.Contains(logs.String(), "built fixture image") {
 		t.Fatalf("PublishAMD64 = %q, %v; logs = %q", got, err, logs.String())
 	}

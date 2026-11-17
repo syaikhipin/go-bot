@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 // ChildCoordinator is implemented by the owning worker process. A child is

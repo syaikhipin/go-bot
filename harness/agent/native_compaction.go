@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/harness/content"
-	"go-harness/harness/session"
-	"go-harness/internal/modeldata"
+	"go-bot/harness/content"
+	"go-bot/harness/session"
+	"go-bot/internal/modeldata"
 )
 
 // The v4 checkpoint is a surface replacement, not a private message overlay.

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"sync"
 
-	"go-harness/internal/providersettings"
-	webproviders "go-harness/providers/web"
-	"go-harness/web"
+	"go-bot/internal/providersettings"
+	webproviders "go-bot/providers/web"
+	"go-bot/web"
 )
 
 type hostWebSearch struct {

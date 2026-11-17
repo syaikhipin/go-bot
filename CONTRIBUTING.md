@@ -58,5 +58,5 @@ credential validation, cancellation and error tests. Do not expose SDK types in
 the public runtime contract. Never commit private environment profiles or generated tokens.
 
 Document behavior changes, data compatibility and checks performed. Open an issue
-or describe a design before large protocol/format changes. Contributions to Go Harness
+or describe a design before large protocol/format changes. Contributions to Go Bot
 are provided under the [MIT License](LICENSE) unless stated otherwise.

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"go-harness/thirdparty/llm"
+	"go-bot/thirdparty/llm"
 )
 
 func TestLLMStreamProjectionKeepsRealInterleavedDeltasAndSettlement(t *testing.T) {

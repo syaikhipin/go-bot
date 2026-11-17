@@ -1,6 +1,6 @@
-# go-harness 移动端
+# go-bot 移动端
 
-Expo SDK 58 / React Native 项目，运行在 iOS 和 Android 上。用同一个账号连接 `go-harness` Controller，即可打开会话、查看 Host 文件和定时任务，并配置模型、网页搜索和图片生成。
+Expo SDK 58 / React Native 项目，运行在 iOS 和 Android 上。用同一个账号连接 `go-bot` Controller，即可打开会话、查看 Host 文件和定时任务，并配置模型、网页搜索和图片生成。
 
 ## 本地运行
 
@@ -15,6 +15,12 @@ npm run android
 ```
 
 开发时可运行 `npm start` 重新启动 Metro。Expo 生成的原生工程由 `app.json` 配置。使用实体设备时，连接或启动设备后运行 `npm run ios -- --device` 或 `npm run android -- --device`。iOS 实体设备需要在 Xcode 中配置签名。
+
+### 重新生成工程和打包
+
+在 `mobile/` 运行 `npx expo prebuild --clean`，从 Expo 配置重新生成 Android 和 iOS 工程。两端的应用 ID 都是 `com.gobot.mobile`。原生配置应写入 `app.json`，这样重新生成时会保留 Android Release 的 R8 设置和连接配置。
+
+在 `android/` 运行 `./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a` 可生成 ARM64 Release APK。发布时用 Android SDK 的 `zipalign -P 16` 对齐、再用 `apksigner` 签名，最后验证签名和对齐。发布密钥保存在仓库外。
 
 在连接页填写 Controller 入口地址和账号名。可以连接已有账号，也可以在同一页面创建账号。新账号在「我的 → 模型」设置端点和默认模型后即可发送第一条消息。iOS 模拟器可直接填同机的 `http://127.0.0.1:8080`。
 

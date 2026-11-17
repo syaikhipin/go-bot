@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/jobs"
-	"go-harness/harness/permission"
+	"go-bot/harness/agent"
+	"go-bot/harness/jobs"
+	"go-bot/harness/permission"
 )
 
 type ShellResult struct {

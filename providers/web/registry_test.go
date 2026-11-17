@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/tools"
-	"go-harness/web"
+	"go-bot/harness/tools"
+	"go-bot/web"
 )
 
 func TestDeepSeekProviderUsesSearchAPI(t *testing.T) {

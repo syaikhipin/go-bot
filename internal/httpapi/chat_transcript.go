@@ -12,12 +12,12 @@ import (
 	"strconv"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/attachments"
-	"go-harness/harness/content"
-	"go-harness/harness/interaction"
-	"go-harness/harness/session"
-	"go-harness/internal/hostruntime"
+	"go-bot/harness/agent"
+	"go-bot/harness/attachments"
+	"go-bot/harness/content"
+	"go-bot/harness/interaction"
+	"go-bot/harness/session"
+	"go-bot/internal/hostruntime"
 )
 
 type chatBlock struct {

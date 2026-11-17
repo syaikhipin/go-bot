@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 
-	"go-harness/harness/content"
+	"go-bot/harness/content"
 )
 
 type ImageAttachmentReader interface {

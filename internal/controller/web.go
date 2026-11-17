@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/internal/config"
+	"go-bot/internal/config"
 )
 
 type WebOptions struct {

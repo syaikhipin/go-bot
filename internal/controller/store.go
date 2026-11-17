@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
-	"go-harness/internal/modelsettings"
-	"go-harness/internal/providersettings"
+	"go-bot/internal/modelsettings"
+	"go-bot/internal/providersettings"
 )
 
 var ErrAccountNotFound = errors.New("account not found")

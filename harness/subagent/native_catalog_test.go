@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"go-harness/harness/session"
+	"go-bot/harness/session"
 )
 
 type nativeCatalogJournal struct{ events []sessionformat.Event }

@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"go-harness/web"
+	"go-bot/web"
 )
 
 func TestPinnedDeepSeekWebParity(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"go-harness/internal/modeldata"
-	"go-harness/thirdparty/llm"
+	"go-bot/internal/modeldata"
+	"go-bot/thirdparty/llm"
 )
 
 // DeepSeek's default provider policy: five bounded retries for transient

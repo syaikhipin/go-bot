@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/session"
-	"go-harness/internal/testsupport/session"
-	"go-harness/thirdparty/llm"
+	"go-bot/harness/session"
+	"go-bot/internal/testsupport/session"
+	"go-bot/thirdparty/llm"
 )
 
 type nativeCompactionModel struct {

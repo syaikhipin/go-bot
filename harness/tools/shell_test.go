@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"go-harness/harness/jobs"
+	"go-bot/harness/jobs"
 )
 
 type shellResultStub struct{ result ShellResult }

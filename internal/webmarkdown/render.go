@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/dop251/goja"
-	"go-harness/web"
+	"go-bot/web"
 )
 
 //go:embed render.js

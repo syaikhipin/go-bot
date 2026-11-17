@@ -8,8 +8,8 @@ import (
 	"math"
 	"time"
 
-	"go-harness/harness/agent"
-	"go-harness/harness/jobs"
+	"go-bot/harness/agent"
+	"go-bot/harness/jobs"
 )
 
 type JobOutput struct{ Registry *jobs.Registry }

@@ -14,8 +14,8 @@ import (
 	"unicode/utf8"
 
 	whatwg "github.com/nlnwa/whatwg-url/url"
-	"go-harness/internal/publicnet"
-	"go-harness/web"
+	"go-bot/internal/publicnet"
+	"go-bot/web"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/unicode"

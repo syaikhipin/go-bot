@@ -41,7 +41,7 @@ export function AccountEntry({ onOpen }: { onOpen: (userId: string, created: boo
     <main className="account-page">
       <form className="account-card" onSubmit={submit}>
         <div className="account-card-heading">
-          <div className="brand"><HarnessAvatar className="brand-mark" />Go Harness</div>
+          <div className="brand"><HarnessAvatar className="brand-mark" />Go Bot</div>
           <LanguagePicker />
         </div>
         <h1>{create ? t('Create an account') : t('Open your account')}</h1>

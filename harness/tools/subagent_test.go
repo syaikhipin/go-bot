@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"go-harness/harness/agent"
+	"go-bot/harness/agent"
 )
 
 type selectableChildCoordinator struct {

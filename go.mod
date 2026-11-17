@@ -1,4 +1,4 @@
-module go-harness
+module go-bot
 
 go 1.26.0
 
