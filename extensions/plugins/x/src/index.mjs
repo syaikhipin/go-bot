@@ -27,7 +27,10 @@ export async function apply(ctx) {
     if(bridge || !(await inspect()).configured)return
     bridge=await ctx.host.mcp.register({name:'api',connection:{transport:'stdio',command:'xurl',args:['mcp','https://api.x.com/mcp']},toolLoading:'on-demand'})
   })
-  await ctx.host.authorization.register({key:'account',title:'X',methods:[{id:'oauth',label:'Connect X account'}],inspect,
+  const account=await nativeAccount(directory)
+  const methods=[{id:'oauth',label:'Native App (no Client Secret)'},{id:'oauth-confidential',label:'Web App / confidential client'}]
+  if(account.app?.client_secret)methods.reverse()
+  await ctx.host.authorization.register({key:'account',title:'X',methods,inspect,
     disconnect:async({signal})=>{
       await closeBridge()
       const row=await nativeAccount(directory)
@@ -45,14 +48,22 @@ export async function apply(ctx) {
 export async function authorize(session,directory){
       const row=await nativeAccount(directory)
       const env={...process.env}
+      const confidential=session.method==='oauth-confidential'
+      // Do not inherit another application's credentials from the Host environment.
+      env.CLIENT_ID=row.app?.client_id||''
+      env.CLIENT_SECRET=''
+      if(!confidential&&row.app?.client_secret)throw new Error('This saved X app uses a Client Secret. Select the confidential-client authorization method.')
       if(!row.app?.client_id){
         // The setup link already lives in the plugin detail. Keeping it as a
         // second "Continue in browser" notice obscures the real login link.
         await session.notify({message:'Create your X Developer App and enable OAuth 2.0. Register http://localhost:8080/callback as its callback URL. API usage is billed to your developer account.'})
         env.CLIENT_ID=(await session.prompt({kind:'text',message:'Enter your X app Client ID.'})).trim()
         if(!env.CLIENT_ID)throw new Error('X Client ID is required.')
-        env.CLIENT_SECRET=(await session.prompt({kind:'secret',message:'Enter the Client Secret only for a Web App / confidential client. For a Native App / public client, leave this empty.'})).trim()
         env.REDIRECT_URI='http://localhost:8080/callback'
+      }
+      if(confidential){
+        env.CLIENT_SECRET=row.app?.client_secret||(await session.prompt({kind:'secret',message:'Enter your confidential X app Client Secret.'})).trim()
+        if(!env.CLIENT_SECRET)throw new Error('X Client Secret is required for a confidential client.')
       }
       const cli=interactive('xurl',['auth','oauth2','--headless','--app',row.appName||'default'],{signal:session.signal,env,acceptURL:u=>u.protocol==='https:'&&['x.com','twitter.com'].includes(u.hostname)&&u.searchParams.has('redirect_uri')})
       try{

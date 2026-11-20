@@ -22,12 +22,12 @@ const fakeX=`
 const fs=require('node:fs'),path=require('node:path');const args=process.argv.slice(2),file=path.join(process.env.HOME,'.xurl','auth.yml');
 if(args[0]==='--version'){console.log('xurl test');process.exit(0)}
 if(args[1]==='oauth2'){
- if(process.env.CLIENT_ID!=='project-x-client'||process.env.CLIENT_SECRET!=='')process.exit(3);
+ if(process.env.CLIENT_ID!=='project-x-client'||process.env.CLIENT_SECRET!==(process.env.X_TEST_EXPECTED_SECRET||''))process.exit(3);
  const url='https://x.com/i/oauth2/authorize?client_id=project-x-client&redirect_uri='+encodeURIComponent('http://localhost:8080/callback')+'&state=attempt-state&code_challenge=test';
  process.stderr.write(url.slice(0,75));setTimeout(()=>process.stderr.write(url.slice(75)+'\\n'),10);
  let input='';process.stdin.on('data',v=>input+=v);process.stdin.on('end',()=>{
  const value=new URL(input.trim());if(value.searchParams.get('code')!=='accepted'||value.searchParams.get('state')!=='attempt-state')process.exit(4);
- fs.writeFileSync(file,JSON.stringify({default_app:'default',apps:{default:{client_id:process.env.CLIENT_ID,default_user:'alice',oauth2_tokens:{alice:{oauth2:{access_token:'private-access',refresh_token:'private-refresh',expiration_time:1}}}}}}),{mode:0o600});
+ fs.writeFileSync(file,JSON.stringify({default_app:'default',apps:{default:{client_id:process.env.CLIENT_ID,client_secret:process.env.CLIENT_SECRET,default_user:'alice',oauth2_tokens:{alice:{oauth2:{access_token:'private-access',refresh_token:'private-refresh',expiration_time:1}}}}}}),{mode:0o600});
  });
 }else if(args[1]==='clear'){
  if(args.at(-2)!=='--oauth2-username')process.exit(5);
@@ -57,14 +57,14 @@ function context(){
  const ctx={host:{info:async()=>({instanceId:'x'}),authorization:{register:async row=>state.flows.push(row)},mcp:{register:async row=>{state.mcps.push(row);registration.resolve();return {dispose:async()=>state.removed++}}},skills:{registerDirectory:async dir=>state.skills.push(dir)},prompts:{register:async()=>{}}},on:(name,handler)=>state.events.set(name,handler),logger:{warn:()=>{}}}
  return {ctx,state}
 }
-function session(provider){
+function session(provider,method='oauth',secret=''){
  const notices=[],prompts=[],signal=new AbortController().signal
- return {notices,prompts,method:'oauth',signal,notify:async value=>notices.push(value),prompt:async prompt=>{
+ return {notices,prompts,method,signal,notify:async value=>notices.push(value),prompt:async prompt=>{
   prompts.push(prompt)
   if(prompt.kind==='select')return 'readonly'
   if(prompt.message.includes('Google Desktop OAuth client JSON'))return JSON.stringify({installed:{client_id:'project-google-client',client_secret:'desktop-public-value'}})
   if(prompt.message==='Enter your X app Client ID.')return 'project-x-client'
-  if(prompt.message.includes('Client Secret'))return ''
+  if(prompt.message.includes('Client Secret'))return secret
   const url=new URL(notices.at(-1).url),redirect=new URL(url.searchParams.get('redirect_uri'));redirect.searchParams.set('code','accepted');redirect.searchParams.set('state',url.searchParams.get('state'));return redirect.href
  }}
 }
@@ -72,13 +72,14 @@ test('native X authorization uses child env, keeps tokens native and only starts
  const f=await fixture(t);await f.binary('xurl',fakeX)
  const {ctx,state}=context();await applyX(ctx)
  assert.equal(state.mcps.length,0);assert.deepEqual(await state.flows[0].inspect(),{configured:false})
+ assert.deepEqual(state.flows[0].methods.map(method=>method.id),['oauth','oauth-confidential'])
  const s=session('x'),root=path.join(process.env.DSH_HOME,'credentials','x')
  await authorizeX(s,root)
- assert.equal(s.prompts.length,3,'first connection collects application ID, optional secret and callback')
+ assert.equal(s.prompts.length,2,'a Native App only needs the application ID and callback')
  assert.equal(s.notices.filter(n=>n.url).length,1,'only the actual account login URL should be offered during authorization')
- assert.match(s.prompts[2].message,/First open the authorization link/)
- assert.match(s.prompts[2].placeholder,/localhost:8080\/callback/)
- assert.equal(s.prompts[1].kind,'secret');assert.equal(s.prompts[2].kind,'text')
+ assert.match(s.prompts[1].message,/First open the authorization link/)
+ assert.match(s.prompts[1].placeholder,/localhost:8080\/callback/)
+ assert.ok(s.prompts.every(prompt=>prompt.kind==='text'))
  assert.equal((await nativeAccount(root)).configured,true,'expired access tokens with refresh tokens remain configured')
  state.events.get('host/authorization-changed')({instanceId:'google-workspace',key:'account',phase:'authorized'})
  assert.equal(state.mcps.length,0,'another plugin authorization must not activate this bridge')
@@ -90,6 +91,34 @@ test('native X authorization uses child env, keeps tokens native and only starts
  await state.flows[0].disconnect({signal:s.signal})
  assert.equal(state.removed,1);assert.deepEqual(await state.flows[0].inspect(),{configured:false})
  assert.equal(process.env.CLIENT_ID,undefined)
+})
+test('Native App login ignores inherited application secrets and reuses its saved Client ID',async t=>{
+ const f=await fixture(t);await f.binary('xurl',fakeX)
+ const {ctx}=context();await applyX(ctx)
+ process.env.CLIENT_ID='another-application';process.env.CLIENT_SECRET='unrelated-host-secret'
+ const root=path.join(process.env.DSH_HOME,'credentials','x')
+ await authorizeX(session('x'),root)
+ assert.equal((await nativeAccount(root)).app.client_secret,'')
+ const again=session('x');await authorizeX(again,root)
+ assert.equal(again.prompts.length,1,'saved Native Apps go straight to the callback question')
+ assert.equal(process.env.CLIENT_SECRET,'unrelated-host-secret','child overrides must not modify Host environment')
+})
+test('confidential X login requires a secret, then reuses native credentials without another secret prompt',async t=>{
+ const f=await fixture(t);await f.binary('xurl',fakeX)
+ const {ctx}=context();await applyX(ctx)
+ const root=path.join(process.env.DSH_HOME,'credentials','x')
+ const empty=session('x','oauth-confidential')
+ await assert.rejects(authorizeX(empty,root),/Client Secret is required/)
+ assert.equal(empty.notices.filter(notice=>notice.url).length,0,'do not start OAuth with missing credentials')
+ process.env.X_TEST_EXPECTED_SECRET='confidential-test-secret'
+ const s=session('x','oauth-confidential','confidential-test-secret');await authorizeX(s,root)
+ assert.deepEqual(s.prompts.map(prompt=>prompt.kind),['text','secret','text'])
+ assert.equal((await nativeAccount(root)).app.client_secret,'confidential-test-secret')
+ const again=session('x','oauth-confidential');await authorizeX(again,root)
+ assert.equal(again.prompts.length,1)
+ await assert.rejects(authorizeX(session('x'),root),/Select the confidential-client/)
+ const reloaded=context();await applyX(reloaded.ctx)
+ assert.equal(reloaded.state.flows[0].methods[0].id,'oauth-confidential','default to the saved application type after reload')
 })
 test('native Google authorization relays only the current callback and stores an actual native grant',async t=>{
  const f=await fixture(t);await f.binary('gws',fakeGoogle)
