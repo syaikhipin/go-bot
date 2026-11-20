@@ -1,4 +1,5 @@
 import { ProtocolDropdown } from './ProtocolDropdown'
+import { imageGenerationSettingsEnabled } from '../../frontend/src/features'
 import { changeProtocolURL, modelProtocol, modelRequestURL, protocolNames, protocolURLs, type ModelProtocol } from '../../frontend/src/settings/modelProtocol'
 import { languages, useLocale } from './locale'
 import { useEffect, useState } from 'react'
@@ -57,7 +58,7 @@ export function Me({ api, section, open, close, exitAccount }: {
           ['web-search', '网页搜索', Search],
           ['image-generation', '图片生成', Drawing],
           ['language', '语言', Languages],
-        ] as const).map(([id, label, Icon], index) => <Pressable accessibilityRole="button" key={id}
+        ] as const).filter(([id]) => id !== 'image-generation' || imageGenerationSettingsEnabled).map(([id, label, Icon], index) => <Pressable accessibilityRole="button" key={id}
           onPress={() => id === 'language' ? setLanguageOpen(true) : open(id)}
           style={[s.row, { minHeight: 54, gap: 14 }, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: edge }]}>
           <Icon size={20} color={muted} strokeWidth={1.7} />
@@ -100,7 +101,7 @@ export function Me({ api, section, open, close, exitAccount }: {
       if (!modelDirty) { proceed(); return }
       Alert.alert(t('放弃未保存的修改？'), undefined, [{ text: t('取消'), style: 'cancel' }, { text: t('放弃修改'), style: 'destructive', onPress: proceed }])
     }}><Models api={api} onDirtyChange={setModelDirty} /></Sheet>}
-    {section && section !== 'models' && <Sheet title={t(providerLabels[section])} onClose={close}><Providers key={section} api={api} page={section} /></Sheet>}
+    {section && section !== 'models' && (section !== 'image-generation' || imageGenerationSettingsEnabled) && <Sheet title={t(providerLabels[section])} onClose={close}><Providers key={section} api={api} page={section} /></Sheet>}
 
   </>
 }

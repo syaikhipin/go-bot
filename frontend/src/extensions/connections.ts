@@ -1,4 +1,13 @@
-import type { MCPServer, MCPOAuthAttempt } from '../api/extensions'
+import type { AuthorizationEntry, MCPServer, MCPOAuthAttempt } from '../api/extensions'
+
+export function authorizationEntryLabels(entry: AuthorizationEntry) {
+ const apiKey = entry.methods.length === 1 && entry.methods[0].id === 'api-key'
+ return {
+  status: entry.inFlight ? 'Authorization in progress' : entry.configured ? apiKey ? 'Configured' : 'Connected' : 'Not configured',
+  start: entry.inFlight ? 'Continue authorization' : entry.configured ? apiKey ? 'Update API Key' : 'Authorize again' : entry.methods.length === 1 ? entry.methods[0].label : 'Authorize',
+  disconnect: apiKey ? 'Remove API Key' : 'Disconnect account',
+ }
+}
 
 export function pluginOAuthConnections(servers: MCPServer[], instances: string[]): MCPServer[] {
  return servers.filter(server => server.source === 'plugin' && server.oauthEnabled && instances.some(id => server.name.startsWith(id + '__')))

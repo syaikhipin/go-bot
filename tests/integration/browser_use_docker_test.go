@@ -61,7 +61,7 @@ func TestDockerBrowserSkillAndSessionIsolation(t *testing.T) {
 		for _, tool := range body.Tools {
 			tools[tool.Name] = true
 		}
-		if !tools["generateimage"] || !tools["web_search"] || !tools["skill"] {
+		if tools["generateimage"] || !tools["readimage"] || !tools["present"] || !tools["web_search"] || !tools["skill"] {
 			t.Error("expected built-in tools were not registered")
 		}
 		var userMessage string
@@ -137,12 +137,9 @@ printf "fresh browser session"
 			} else {
 				check("browser-cold", "fresh browser session")
 			}
-		case "Image without configuration":
-			if outputs["image-without-key"] == "" {
-				output = webCall("image-without-key", "generateimage", `{"prompt":"a flower"}`)
-			} else {
-				check("image-without-key", "Image generation is not configured")
-			}
+		case "Built-in image generation disabled":
+			// The model can read and present plugin-generated images, but no
+			// built-in generation tool is advertised, even with saved settings.
 		default:
 			t.Errorf("unexpected user message %q", userMessage)
 		}
@@ -250,5 +247,5 @@ printf "fresh browser session"
 		t.Fatal(err)
 	}
 	send(second, "Browser after restart", after)
-	send(newSession(), "Image without configuration", "")
+	send(newSession(), "Built-in image generation disabled", "")
 }

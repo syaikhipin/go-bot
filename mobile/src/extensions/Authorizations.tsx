@@ -7,7 +7,7 @@ import { useLocale } from '../locale'
 import { accent, Button, edge, Field, Hint, ink, muted, Panel, s } from '../ui'
 import { authorizationAPI, mcpAuthorizationAPI } from './api'
 import { useMCPAuthorization } from '../../../frontend/src/extensions/useMCPAuthorization'
-import { connectionLabel, connectionTitle, mcpAuthorizationLabel, mcpAuthorizationRunning } from '../../../frontend/src/extensions/connections'
+import { authorizationEntryLabels, connectionLabel, connectionTitle, mcpAuthorizationLabel, mcpAuthorizationRunning } from '../../../frontend/src/extensions/connections'
 import { Choice } from './Choice'
 import { Feedback, TextAction, Toolbar, type ScreenProps, x } from './shared'
 
@@ -49,10 +49,11 @@ export function Authorizations({ connections, onBusyChange, onBack }: Pick<Scree
 }
 function Account({ entry, busy, onStart, onCancel, onView, onDisconnect }: { entry: AuthorizationEntry; busy: boolean; onStart: (method: string) => void; onCancel: () => void; onView: () => void; onDisconnect: () => void }) {
   const { t } = useLocale(), [method, setMethod] = useState(entry.methods[0]?.id ?? '')
-  return <Panel style={a.panel}><View style={a.status}><KeyRound size={19} color={muted} strokeWidth={1.6} /><View style={x.identity}><Text style={x.heading}>{entry.label}</Text><Text style={s.meta}>{t(entry.inFlight ? 'Authorization in progress' : entry.configured ? 'Connected' : 'Not configured')}{entry.accountLabel ? ' · ' + entry.accountLabel : ''}</Text></View></View>
+  const labels = authorizationEntryLabels(entry)
+  return <Panel style={a.panel}><View style={a.status}><KeyRound size={19} color={muted} strokeWidth={1.6} /><View style={x.identity}><Text style={x.heading}>{entry.label}</Text><Text style={s.meta}>{t(labels.status)}{entry.accountLabel ? ' · ' + entry.accountLabel : ''}</Text></View></View>
     {entry.methods.length > 1 && <Choice label="Authorization method" value={method} options={entry.methods.map(method => ({ value: method.id, label: t(method.label) }))} disabled={busy || entry.inFlight} onChange={setMethod} />}
-    <TextAction label={entry.inFlight ? 'Continue authorization' : entry.configured ? 'Authorize again' : entry.methods.length === 1 ? entry.methods[0].label : 'Authorize'} disabled={busy} onPress={() => onStart(method)} />
-    {entry.configured && entry.canDisconnect && !entry.inFlight && <TextAction label="Disconnect account" disabled={busy} onPress={onDisconnect} />}
+    <TextAction label={labels.start} disabled={busy} onPress={() => onStart(method)} />
+    {entry.configured && entry.canDisconnect && !entry.inFlight && <TextAction label={labels.disconnect} disabled={busy} onPress={onDisconnect} />}
     {entry.inFlight && <TextAction label="Cancel authorization" disabled={busy} onPress={onCancel} />}
     {!entry.inFlight && entry.attemptId && <TextAction label="View last result" disabled={busy} onPress={onView} />}
   </Panel>

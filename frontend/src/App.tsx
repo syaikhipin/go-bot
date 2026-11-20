@@ -12,13 +12,14 @@ import { ToolProviders } from './settings/ToolProviders'
 import { HostFiles } from './files/HostFiles'
 import { Plugins } from './extensions/Plugins'
 import { ExtensionDialogs } from './extensions/Dialogs'
+import { imageGenerationSettingsEnabled } from './features'
 
 type SettingsPage = 'models' | ProviderPage | 'plugins'
 
 function currentSettings(): SettingsPage | undefined {
   if (window.location.pathname === '/settings/models') return 'models'
   if (window.location.pathname === '/settings/web-search') return 'web-search'
-  if (window.location.pathname === '/settings/image-generation') return 'image-generation'
+  if (window.location.pathname === '/settings/image-generation') return imageGenerationSettingsEnabled ? 'image-generation' : 'models'
   if (window.location.pathname === '/plugins') return 'plugins'
 }
 
@@ -374,8 +375,8 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
               onClick={() => selectSettings('models')}><SlidersHorizontal size={16} /> {t('Models')}</button>
             <button type="button" aria-current={settingsPage === 'web-search' ? 'page' : undefined}
               onClick={() => selectSettings('web-search')}><Globe size={16} /> {t('Web search')}</button>
-            <button type="button" aria-current={settingsPage === 'image-generation' ? 'page' : undefined}
-              onClick={() => selectSettings('image-generation')}><Image size={16} /> {t('Image generation')}</button>
+            {imageGenerationSettingsEnabled && <button type="button" aria-current={settingsPage === 'image-generation' ? 'page' : undefined}
+              onClick={() => selectSettings('image-generation')}><Image size={16} /> {t('Image generation')}</button>}
           </nav>}
           <div className="settings-content">
             {settingsPage === 'models' ? <Models userId={userId} /> : settingsPage === 'plugins' ? <Plugins userId={userId} cache={transcriptCache} selected={selectedPlugin} onSelect={setSelectedPlugin} />

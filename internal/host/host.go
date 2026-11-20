@@ -93,7 +93,12 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 	builder.ImageAttachments = images
 	builder.ImageInputEnabled = true
 	builder.WebSearcher = search
-	builder.ImageGenerator = imageGeneration
+	// Image generation is currently supplied by CLI plugins. Keep the native
+	// implementation and stored settings available for future composition.
+	const builtinImageGenerationEnabled = false
+	if builtinImageGenerationEnabled {
+		builder.ImageGenerator = imageGeneration
+	}
 	native := &hostruntime.NativeHost{UserID: c.Host.AccountID, Mode: "host", StartedAt: time.Now().UTC(), ReserveScheduleModel: models.reserve}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

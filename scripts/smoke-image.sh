@@ -16,8 +16,9 @@ docker run --rm --entrypoint /bin/sh "$image" -ec '
   ! command -v agent-browser
   ! command -v xurl
   ! command -v gws
+  ! command -v gemini-api
   test ! -e /usr/share/go-bot/skill-seed
-  for plugin in agent-browser officecli x google-workspace; do
+  for plugin in agent-browser officecli x google-workspace gemini-api; do
     test -s "/usr/share/go-bot/plugins/$plugin/package.json"
     test -s "/usr/share/go-bot/plugins/$plugin/scripts/install.mjs"
     test -s "/usr/share/go-bot/plugins/$plugin/UPSTREAM_LICENSE"

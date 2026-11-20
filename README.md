@@ -135,7 +135,7 @@ Open the browser after startup. Controller already serves the web app.
    name. Opening the account starts its Host in a separate Docker container.
 2. In **Model settings**, choose **OpenAI Responses** or **Anthropic Messages** in the protocol dropdown, then add the endpoint URL, API key,
    and at least one model ID. Then select **New chat** and send a message.
-3. For web search, save a key for DeepSeek, Zhipu, Doubao, Tavily, or Brave Search under **Settings → Web search**. For image generation, configure Seedream, OpenAI Images, or Google Nano Banana under **Settings → Image generation**. Choose **Use provider** to activate a saved service. [Provider setup](docs/providers.md)
+3. For web search, save a key for DeepSeek, Zhipu, Doubao, Tavily, or Brave Search under **Settings → Web search**, then choose **Use provider**. For image generation and other Gemini media capabilities, install and enable **Gemini API CLI** in the plugin market and configure its API key. [Provider setup](docs/providers.md) · [Plugin connection](docs/plugin-account-setup.md#gemini-api-cli)
 
 Choose **English** or **简体中文** on the account page or in **Settings**. The browser remembers your choice.
 
@@ -184,6 +184,14 @@ discovery Skill. They remain in their plugin packages under
 `/root/harness/.dsh/plugins/profile/node_modules/`, rather than being copied into
 user Skill directories. Disabling withdraws the Skills and retains installed CLI
 software. The model discovers Skill names/descriptions and loads instructions on demand.
+
+**Gemini API CLI** is also available in the plugin market. Install and enable it,
+then choose **Accounts and authorization → Configure API Key** and enter a key from
+[Google AI Studio](https://aistudio.google.com/apikey). The Agent can use the
+official `gemini-api` commands for media generation, file analysis and research.
+The key stays in the CLI's default `/root/.config/gemini-api/config.yaml`, outside
+the workspace volume; configure it again after replacing the Host container.
+[Connection guide](docs/plugin-account-setup.md#gemini-api-cli)
 
 | Runtime | Where Host data lives | What **Stop Host** does |
 | --- | --- | --- |
@@ -266,8 +274,8 @@ when you open an account.
 `start.sh` loads the selected profile, applies explicitly set deployment
 environment variables, validates the merged configuration, and saves valid
 overrides to the profile before launch. An explicitly empty value overrides a
-saved value. Model, web search and image generation settings are saved per
-account through the UI.
+saved value. Model and web-search settings are saved per account through the UI.
+Gemini media capabilities use the API key configured in the plugin detail.
 
 For an offline configuration check or a read-only runtime check, use:
 
@@ -318,6 +326,9 @@ Scan the QR code in QQ or search for group **710767129**.
 <a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="QR code for the go-bot交流 QQ group, 710767129"></a>
 
 ## Upstream and acknowledgments
+
+- [Gemini API CLI](https://github.com/google-gemini/gemini-api-cli) provides the
+  official shell interface for Gemini models and managed agents.
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is the upstream project that this Go implementation is based on. [Compatibility notes](docs/compatibility.md)
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) informed the design of local long-term memory and cross-session history search. [Memory design](docs/hermes-agent-memory-design.zh-CN.md)

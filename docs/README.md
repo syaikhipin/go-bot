@@ -10,9 +10,10 @@
 | [HTTP API](api.md) · [OpenAPI](../api/openapi.yaml) | Accounts, sessions, messages, streaming, and files |
 | [Architecture](architecture.md) | Controller, Redis, Host, and data layout |
 | [Schedule and workspaces](schedule-parity-plan.zh-CN.md) | Upstream behavior, delivery receipts, chat archiving, and mobile task management |
-| [Proactive service research and proposal](proactive-service-research-and-plan.zh-CN.md) | Official Muse, Grok Bot and dots behavior, open-source wake mechanisms, and a Go Bot proposal |
+| [Proactive wake-up research](proactive-service-research-and-plan.zh-CN.md) | Verified Muse, Grok Bot and dots behavior, disclosed triggers, and limits of public implementation details |
 | [Extending capabilities](providers.md) · [Contributing](../CONTRIBUTING.md) | Provider contracts and development workflow |
 | [X / Google account setup](plugin-account-setup.md) | Obtain your application credentials and connect native accounts |
+| [Gemini API CLI plugin plan](gemini-api-cli-plugin-plan.zh-CN.md) | API-key connection, official CLI installation, Agent usage and file delivery |
 | [Business plugin SDK](../extensions/sdk/README.md) · [Examples](../examples/plugins/README.md) | Native Cordis plugins, async Host APIs, credentials and MCP |
 | [Frontend development](../frontend/README.md) | Develop the UI with Vite against Controller |
 | [Upstream compatibility](compatibility.md) · [Validation](validation.md) | Upstream fixtures and historical verification results |

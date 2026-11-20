@@ -7,7 +7,7 @@ import { authorizationLabel, authorizationURL, useAuthorization } from './useAut
 import { useReturnFocus } from './shared'
 import { readAuthorizationJSON } from './authorizationFile'
 import { useMCPAuthorization } from './useMCPAuthorization'
-import { connectionLabel, connectionTitle, mcpAuthorizationLabel, mcpAuthorizationRunning } from './connections'
+import { authorizationEntryLabels, connectionLabel, connectionTitle, mcpAuthorizationLabel, mcpAuthorizationRunning } from './connections'
 
 export function Authorizations({ user, cache, instanceIds }: { user: string; cache: TranscriptCache; instanceIds: string[] }) {
   const api = useMemo(() => authorizationAPI(user), [user]), mcpAPI = useMemo(() => mcpAuthorizationAPI(user), [user])
@@ -33,10 +33,11 @@ export function Authorizations({ user, cache, instanceIds }: { user: string; cac
 }
 function AuthorizationRow({ entry, busy, onStart, onCancel, onView, onDisconnect }: { entry: AuthorizationEntry; busy: boolean; onStart: (method: string) => void; onCancel: () => void; onView: () => void; onDisconnect: () => void }) {
   const { t } = useLocale(), [method, setMethod] = useState(entry.methods[0]?.id ?? '')
-  return <div className="extension-account-row"><KeyRound size={18} strokeWidth={1.6} /><div className="extension-identity"><strong>{entry.label}</strong><small>{t(entry.inFlight ? 'Authorization in progress' : entry.configured ? 'Connected' : 'Not configured')}{entry.accountLabel && <> · {entry.accountLabel}</>}</small></div>
+  const labels = authorizationEntryLabels(entry)
+  return <div className="extension-account-row"><KeyRound size={18} strokeWidth={1.6} /><div className="extension-identity"><strong>{entry.label}</strong><small>{t(labels.status)}{entry.accountLabel && <> · {entry.accountLabel}</>}</small></div>
     {entry.methods.length > 1 && <select className="extension-auth-method" aria-label={t('Authorization method') + ': ' + entry.label} value={method} disabled={busy || entry.inFlight} onChange={event => setMethod(event.target.value)}>{entry.methods.map(method => <option key={method.id} value={method.id}>{t(method.label)}</option>)}</select>}
-    <button className="model-secondary" type="button" disabled={busy} onClick={() => onStart(method)}>{t(entry.inFlight ? 'Continue authorization' : entry.configured ? 'Authorize again' : entry.methods.length === 1 ? entry.methods[0].label : 'Authorize')}</button>
-    {entry.configured && entry.canDisconnect && !entry.inFlight && <button type="button" className="extension-text" disabled={busy} onClick={onDisconnect}>{t('Disconnect account')}</button>}
+    <button className="model-secondary" type="button" disabled={busy} onClick={() => onStart(method)}>{t(labels.start)}</button>
+    {entry.configured && entry.canDisconnect && !entry.inFlight && <button type="button" className="extension-text" disabled={busy} onClick={onDisconnect}>{t(labels.disconnect)}</button>}
     {entry.inFlight && <button className="extension-text" type="button" disabled={busy} onClick={onCancel}>{t('Cancel authorization')}</button>}
     {!entry.inFlight && entry.attemptId && <button className="extension-text" type="button" disabled={busy} onClick={onView}>{t('View last result')}</button>}
   </div>

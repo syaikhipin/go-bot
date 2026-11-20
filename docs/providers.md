@@ -120,6 +120,13 @@ controller. Preserve durable v4 facts and tool-intent checkpoints.
 
 ## Image generation
 
+The default Host currently does not register `generateimage`, and Web/mobile
+hide its settings entry. Use the **Gemini API CLI** plugin for image generation;
+see [connection setup](plugin-account-setup.md#gemini-api-cli). `readimage`, image
+attachments and `present` remain active. The adapters, tool, settings code and
+saved account settings below are retained for future integration. This section
+documents those retained implementations, rather than the current UI.
+
 | ID | Service | Suggested model |
 | --- | --- | --- |
 | `seedream` (default) | Volcengine Ark Images API | `doubao-seedream-5-0-260128` |
