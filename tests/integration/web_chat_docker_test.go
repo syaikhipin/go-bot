@@ -30,6 +30,19 @@ func TestDockerWebChatPreview(t *testing.T) {
 	var modelCalls atomic.Int32
 	release := make(chan struct{})
 	model := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct{ Tools []struct{ Name string } }
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			http.Error(w, "invalid request", 400)
+			return
+		}
+		tools := map[string]bool{}
+		for _, tool := range request.Tools {
+			tools[tool.Name] = true
+		}
+		if tools["generateimage"] || !tools["readimage"] || !tools["present"] {
+			t.Error("Host must retain image reading and delivery without registering native generation")
+		}
 		call := modelCalls.Add(1)
 		if call == 1 {
 			select {
@@ -49,7 +62,7 @@ func TestDockerWebChatPreview(t *testing.T) {
 	model.Start()
 	defer model.Close()
 
-	c := config.Default()
+	c := dockerFixtureConfig()
 	c.Model.Main = config.MainModel{Provider: "custom", Name: "preview-fixture", Protocol: "responses",
 		BaseURL: fmt.Sprintf("http://host.docker.internal:%d", listener.Addr().(*net.TCPAddr).Port),
 		Auth:    "bearer", APIKey: "fixture-model-key", ContextWindow: config.ModelContextWindow}

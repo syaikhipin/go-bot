@@ -36,6 +36,13 @@
     ]
   },
   {
+    "pluginId": "gemini-api",
+    "package": "@go-bot/plugin-gemini-api",
+    "version": "0.1.0",
+    "source": { "type": "bundled", "spec": "gemini-api" },
+    "builds": ["@go-bot/plugin-gemini-api"]
+  },
+  {
     "pluginId": "google-workspace",
     "package": "@go-bot/plugin-google-workspace",
     "version": "0.1.0",

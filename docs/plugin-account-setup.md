@@ -1,4 +1,4 @@
-# Connect X and Google Workspace
+# Connect plugin services
 
 X uses each user's own developer application, entered inside the plugin's
 Accounts and authorization panel. Google Workspace also uses each user's own
@@ -6,6 +6,34 @@ application: create a Desktop OAuth client and provide its downloaded JSON on
 first connection. Account
 tokens for both services stay in each user's native CLI store, never in Redis or
 Go credentials. Do not put user credentials in chat, deployment `.env` or Git.
+
+## Gemini API CLI
+
+1. Create your own Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey).
+2. Install and enable **Gemini API CLI** in the plugin market.
+3. Open **Accounts and authorization → Configure API Key**. Enter the key in the
+   protected field. A live `models list` request checks access without generating content.
+4. Return to chat. The Agent uses the official CLI and existing image/file delivery.
+
+Use **Update API Key** to replace a key, or **Remove API Key** to clear it from
+this Host. A failed or cancelled replacement preserves the previous key.
+Only API-key authentication is offered; no OAuth application or callback is needed.
+Google controls available models, regional access, quotas and billing.
+
+The CLI reads `/root/.config/gemini-api/config.yaml` directly. No symlink or
+additional mount is created. Configuration remains across a stop/start of the
+same container, but is outside `/root/harness` and needs to be entered again
+after the Host container is replaced. Redis and chat history do not store it.
+
+### Gemini API CLI：中文配置指引
+
+在 [Google AI Studio](https://aistudio.google.com/apikey) 创建自己的 API Key，
+安装并启用插件后，打开「账号与授权 → 配置 API Key」输入密钥。保存前通过在线
+`models list` 检查访问，不生成内容。修改用「更新 API Key」，清除用「移除 API Key」；
+修改失败或取消会保留原密钥。仅支持 API Key，不需要 OAuth 应用或回跳地址。
+
+配置直接位于 `/root/.config/gemini-api/config.yaml`，不做映射，不写入 Redis 或聊天记录。
+同一容器停止再启动后保留；删除并重建 Host 容器后需重新填写。模型、配额、地区和费用由 Google 管理。
 
 ## X
 

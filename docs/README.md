@@ -13,6 +13,7 @@
 | [Proactive wake-up research](proactive-service-research-and-plan.zh-CN.md) | Verified Muse, Grok Bot and dots behavior, disclosed triggers, and limits of public implementation details |
 | [Extending capabilities](providers.md) · [Contributing](../CONTRIBUTING.md) | Provider contracts and development workflow |
 | [X / Google account setup](plugin-account-setup.md) | Obtain your application credentials and connect native accounts |
+| [Gemini API CLI plugin plan](gemini-api-cli-plugin-plan.zh-CN.md) | API-key connection, official CLI installation, Agent usage and file delivery |
 | [Business plugin SDK](../extensions/sdk/README.md) · [Examples](../examples/plugins/README.md) | Native Cordis plugins, async Host APIs, credentials and MCP |
 | [Frontend development](../frontend/README.md) | Develop the UI with Vite against Controller |
 | [Upstream compatibility](compatibility.md) · [Validation](validation.md) | Upstream fixtures and historical verification results |

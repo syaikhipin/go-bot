@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { connectionLabel, mcpAuthorizationRunning, pluginOAuthConnections } from '../src/extensions/connections.ts'
-import type { MCPServer } from '../src/api/extensions.ts'
+import { authorizationEntryLabels, connectionLabel, mcpAuthorizationRunning, pluginOAuthConnections } from '../src/extensions/connections.ts'
+import type { AuthorizationEntry, MCPServer } from '../src/api/extensions.ts'
 
 const server = (overrides: Partial<MCPServer> = {}): MCPServer => ({ name: 'mail__account', source: 'plugin', state: 'waiting-authorization', oauthEnabled: true, ...overrides })
 
@@ -18,4 +18,13 @@ test('credential authorization and an actual service connection remain distinct'
  assert.equal(mcpAuthorizationRunning({ ...grant, phase: 'committing' }), true)
  assert.equal(mcpAuthorizationRunning({ ...grant, phase: 'failed' }), false)
  assert.equal(mcpAuthorizationRunning(undefined), false)
+})
+
+test('API-key flows show configuration actions while OAuth retains account language', () => {
+ const entry = { methods: [{ id: 'api-key', label: 'Configure API Key' }], configured: false } as AuthorizationEntry
+ assert.deepEqual(authorizationEntryLabels(entry), { status: 'Not configured', start: 'Configure API Key', disconnect: 'Remove API Key' })
+ assert.deepEqual(authorizationEntryLabels({ ...entry, configured: true }), { status: 'Configured', start: 'Update API Key', disconnect: 'Remove API Key' })
+ assert.equal(authorizationEntryLabels({ ...entry, inFlight: true }).start, 'Continue authorization')
+ const oauth = { ...entry, methods: [{ id: 'oauth', label: 'Connect Google account' }], configured: true }
+ assert.deepEqual(authorizationEntryLabels(oauth), { status: 'Connected', start: 'Authorize again', disconnect: 'Disconnect account' })
 })

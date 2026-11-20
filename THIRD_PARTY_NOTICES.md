@@ -109,3 +109,14 @@ GitHub organization avatar, obtained from
 <https://avatars.githubusercontent.com/u/3708359?v=4>.
 Google names and marks belong to their owners. This CLI is not an officially
 supported Google product.
+
+## Gemini API CLI
+
+The Gemini API CLI plugin installs Google's official
+https://github.com/google-gemini/gemini-api-cli with its official install script.
+The upstream Apache-2.0 license is included at
+`/usr/share/go-bot/plugins/gemini-api/UPSTREAM_LICENSE`.
+The wrapper uses `yaml` (ISC) for the upstream native configuration format.
+Its icon is the official Google AI Studio mark from
+https://www.gstatic.com/images/branding/productlogos/ai_studio/v1/web-512dp/logo_ai_studio_color_1x_web_512dp.png.
+Google names and marks belong to Google.

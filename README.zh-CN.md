@@ -132,7 +132,7 @@ go-bot 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Person
    打开账号时，Controller 会启动独立的 Docker Host 容器。
 2. 在 **Model settings** 通过协议下拉框选择 **OpenAI Responses** 或 **Anthropic Messages**，填写端点地址、API Key 和至少一个模型 ID，
    然后点击 **New chat** 发消息。
-3. 在 **Settings → Web search** 可配置 DeepSeek、智谱、豆包、Tavily 或 Brave Search。在 **Settings → Image generation** 可配置 Seedream、OpenAI Images 或 Google Nano Banana。保存凭证后点击 **Use provider** 选用。 [供应商配置](docs/providers.md)
+3. 在 **Settings → Web search** 配置 DeepSeek、智谱、豆包、Tavily 或 Brave Search，保存后点击 **Use provider** 选用。需要生图及其他 Gemini 媒体能力时，在插件市场安装并启用 **Gemini API CLI**，然后配置其 API Key。[供应商配置](docs/providers.md) · [插件连接](docs/plugin-account-setup.md#gemini-api-cli)
 
 可在账号页或「设置」选择简体中文或 English。浏览器会记住语言偏好。
 
@@ -175,6 +175,12 @@ Host 预装 Chromium、Python、Node.js 与通用文档处理环境。
 OfficeCLI 提供 11 个原始 Skills，agent-browser 提供官方发现 Skill；资源保存在
 `/root/harness/.dsh/plugins/profile/node_modules/` 的对应包内，不再复制到用户 Skill 目录。
 停用会撤销 Skills，保留已安装的 CLI。模型先看到名称和摘要，再按需加载正文。
+
+插件市场还提供 **Gemini API CLI**。安装并启用后，在「账号与授权 → 配置 API Key」
+填写从 [Google AI Studio](https://aistudio.google.com/apikey) 获取的密钥，Agent 即可通过
+官方 `gemini-api` 命令生成媒体、分析文件和开展研究。密钥保存在 CLI 默认的
+`/root/.config/gemini-api/config.yaml`，不在工作区卷内；更换 Host 容器后需要重新配置。
+[连接指引](docs/plugin-account-setup.md#gemini-api-cli)
 
 | 运行模式 | Host 数据存在哪里 | 点击 **Stop Host** 后 |
 | --- | --- | --- |
@@ -247,7 +253,7 @@ OfficeCLI 提供 11 个原始 Skills，agent-browser 提供官方发现 Skill；
 ## 配置与检查
 
 `start.sh` 读取指定配置文件，合并显式设置的部署环境变量，校验通过后才将覆盖值写回文件并启动。
-显式传入空值会覆盖文件里的值。模型、网页搜索和生图由用户在界面按账号配置。
+显式传入空值会覆盖文件里的值。模型和网页搜索由用户在设置界面按账号配置；Gemini 生图等能力在插件详情中配置 API Key。
 
 用下面的命令检查 ECI 配置或运行环境：
 
@@ -293,6 +299,8 @@ Compose 负责启动 Redis 并构建前端。Agent 使用的 Python、Node.js、
 <a href="assets/qq-community.jpg"><img src="assets/qq-community.jpg" width="260" alt="go-bot交流 QQ 群二维码，群号 710767129"></a>
 
 ## 上游项目与致谢
+
+- [Gemini API CLI](https://github.com/google-gemini/gemini-api-cli) 提供调用 Gemini 模型与托管 Agent 的官方命令行接口。
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 是本 Go 实现所参考的上游项目。 [兼容性说明](docs/compatibility.md)
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) 启发了本地长期记忆和跨会话历史检索的设计。 [记忆设计](docs/hermes-agent-memory-design.zh-CN.md)
