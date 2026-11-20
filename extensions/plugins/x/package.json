@@ -1,6 +1,6 @@
 {
   "name": "@go-bot/plugin-x",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Connect X with the official xurl MCP bridge and native account authorization.",
   "license": "MIT",

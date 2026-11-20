@@ -11,16 +11,20 @@ Go credentials. Do not put user credentials in chat, deployment `.env` or Git.
 
 1. Open the [X Developer Console](https://developer.x.com/), create an app and
    enable OAuth 2.0 user authentication. Select the app permissions you need.
+   Use **Native App (public client)** for the default connection flow.
 2. Register `http://localhost:8080/callback` exactly as a callback URL. Obtain your
-   **Client ID** and, for a confidential client, **Client Secret**. A Native App
-   is a public client: leave the Secret empty, even if the console still shows a
-   secret value. Supplying one makes xurl use confidential-client authentication.
+   **Client ID**. A Native App is a public client and does not need a Secret.
+   If you use a **Web App / confidential client**, obtain its **Client Secret**
+   as well; this application type requires it.
    **Website URL** is the application's homepage, for example
    `https://github.com/xyc999-ai/go-bot`. It introduces the app; it is not the
    Controller address or OAuth callback and does not need another deployed server.
-3. Install and enable X in the plugin market. Open **Accounts and authorization →
-   Connect X account**. On first connection, enter the Client ID and Secret (leave
-   the latter empty only if you chose a public Native App).
+3. Install and enable X in the plugin market. Open **Accounts and authorization** and
+   use the authorization-method selector. Keep the default **Native App (no Client
+   Secret)** and authorize: first connection asks only for the Client ID. For a
+   confidential application, select **Web App / confidential client** instead;
+   only that method asks for a Client Secret. Use the method matching your saved
+   application when authorizing again.
 4. Open the authorization link in your own browser, sign in to X and approve
    access. Copy the **complete redirect URL** from the address bar into the panel,
    even if its localhost page cannot open. Submit it immediately: X documents a
@@ -29,9 +33,10 @@ Go credentials. Do not put user credentials in chat, deployment `.env` or Git.
 5. Wait for the native authorization result. Subsequent connections reuse the
    native application configuration, and xurl refreshes account tokens.
 
-If an attempt fails or is cancelled, select **Connect X account** again. No Host
-restart is needed. Open the new authorization link and submit that attempt's new
-redirect URL; do not reuse an earlier URL or authorization code.
+If an attempt fails or is cancelled, start authorization again with the same
+application type. No Host restart is needed. Open the new authorization link and
+submit that attempt's new redirect URL; do not reuse an earlier URL or
+authorization code.
 
 X API usage is billed to the developer application/account. Connecting your own
 X account does not make API calls free. Review your developer account's credits,
