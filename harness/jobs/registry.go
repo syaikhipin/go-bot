@@ -88,6 +88,15 @@ func New(parent context.Context, maxConcurrent, retainBytes int, onSettle func(S
 
 func terminal(status Status) bool { return status == Completed || status == Failed || status == Killed }
 
+// OutputLimit captures the visible producer buffer budget before a Job tool
+// starts waiting or consumes output. It remains usable if the Job disappears.
+func (r *Registry) OutputLimit(id string) (int, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, exists := r.jobs[id]
+	return r.retain, exists
+}
+
 // Start reserves capacity before running producer code. A failed admission
 // starts no goroutine or external effect.
 func (r *Registry) Start(kind, label string, run Runner) (Snapshot, error) {

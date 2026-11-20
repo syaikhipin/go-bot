@@ -3,7 +3,7 @@
 Follow the [local Quickstart](../README.md#quickstart) from the repository root and open
 [http://127.0.0.1:8080/](http://127.0.0.1:8080/). The Controller serves the
 page and relays API calls and SSE to the selected account's Docker or ECI Host.
-Create or open an account by name. Configure Responses endpoints in Model settings, and use the model picker below a chat to change its model. Add a DeepSeek search API key under **Settings → Web search**.
+Create or open an account by name. Configure OpenAI Responses or Anthropic Messages endpoints using the protocol dropdown in Model settings, and use the model picker below a chat to change its model. Under **Settings → Web search**, save a key for DeepSeek, Zhipu, Doubao, Tavily, or Brave Search and choose **Use provider**.
 
 For a custom mobile, desktop or web interface, use the Controller's
 [HTTP and SSE API](../docs/api.md). The [minimal example](../examples/frontend-minimal/index.html)
@@ -27,7 +27,10 @@ and Agent responses keep their original language.
 You can send more messages while a reply is generating. They appear above the
 composer. **Steer** adds that message to the current reply's next Agent step.
 **Delete** removes just that queued message. Questions from the Agent appear
-above the composer and can be answered there.
+above the composer and can be answered there. One Host SSE stays connected
+while switching chats or opening settings. A pending question or approval in
+another chat adds a chat-list indicator; open that chat to respond. Execution
+approvals have no fixed timeout and reappear after reconnecting.
 
 Use the plus button to choose attachments, or paste files when your browser
 provides them in the clipboard. The composer keeps them in the draft until
@@ -47,7 +50,8 @@ npm --prefix frontend run dev
 ```
 
 Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/). Vite proxies `/v1`
-to Controller on port 8080. Set the exact loopback origin in
+to Controller on port 8080 and preserves the browser-facing Host, so local OAuth
+callbacks return through the same `/v1` proxy. Set the exact loopback origin in
 `--web-dev-origin` when changing the Vite port. The production UI uses the
 Controller's own origin.
 

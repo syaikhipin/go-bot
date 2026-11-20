@@ -1,6 +1,6 @@
 import { languages, LocaleProvider, useLocale } from './src/locale'
 import { useEffect, useRef, useState } from 'react'
-import { Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { AppState, Animated, Easing, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { File, Paths } from 'expo-file-system'
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -8,9 +8,10 @@ import { CalendarDays, Languages, Link2, MessageCircle, UserRound } from 'lucide
 import { Controller, normalizeProfile, type Profile } from './src/api'
 import { Chat } from './src/Chat'
 import { LanguageSheet } from './src/LanguageSheet'
-import { Me } from './src/Me'
+import { Me, type Section } from './src/Me'
 import { Tasks } from './src/Tasks'
 import { TranscriptCache } from '../frontend/src/chat/transcriptCache'
+import { HostConnection } from '../frontend/src/chat/hostConnection'
 import { accent, Ambient, Button, edge, Field, Hint, ink, logo, muted, Panel, s, useReducedMotion } from './src/ui'
 
 const profileFile = new File(Paths.document, 'controller-profile.json')
@@ -51,7 +52,6 @@ const tabs = [
   { label: '会话', Icon: MessageCircle },
   { label: '我的', Icon: UserRound },
 ]
-type Section = 'models' | 'web-search' | 'image-generation'
 
 export default function App() {
   return <SafeAreaProvider><StatusBar style="dark" /><LocaleProvider><Main /></LocaleProvider></SafeAreaProvider>
@@ -160,6 +160,17 @@ function Workspace({ api, exitAccount }: { api: Controller; exitAccount: () => v
   const duration = reduced ? 0 : 235
 
   useEffect(() => {
+    const connection = new HostConnection(transcriptCache, (cursors, signal, opened, receive) =>
+      api.hostStream(cursors, signal, opened, receive))
+    if (AppState.currentState !== 'background') connection.start()
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'background') connection.stop()
+      else if (state === 'active') connection.start()
+    })
+    return () => { listener.remove(); connection.stop() }
+  }, [api, transcriptCache])
+
+  useEffect(() => {
     if (session !== undefined) {
       saveChat(api.profile.account, session)
       return
@@ -194,7 +205,7 @@ function Workspace({ api, exitAccount }: { api: Controller; exitAccount: () => v
 
   return <KeyboardAvoidingView style={styles.app} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <Animated.View style={{ flex: 1, transform: [{ translateX: offset }] }}>
-      <View style={tab === 0 ? styles.app : styles.hidden}><Tasks api={api} active={tab === 0} openChat={id => { setSession(id); setExternalChat(old => old + 1); activate(1) }} /></View>
+      <View style={tab === 0 ? styles.app : styles.hidden}><Tasks api={api} cache={transcriptCache} active={tab === 0} openChat={id => { setSession(id); setExternalChat(old => old + 1); activate(1) }} /></View>
       <View style={tab === 1 ? styles.app : styles.hidden}><Chat key={externalChat} api={api} cache={transcriptCache} id={session ?? ''} active={tab === 1}
         resolving={session === undefined} lookupError={lookupError} retryLookup={() => setLookupAttempt(value => value + 1)}
         selectSession={setSession} onUnavailable={unavailable} openModelSettings={openModelSettings} /></View>

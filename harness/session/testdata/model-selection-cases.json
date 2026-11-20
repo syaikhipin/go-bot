@@ -1,0 +1,141 @@
+[
+  {
+    "kind": "read"
+  },
+  {
+    "kind": "options",
+    "value": {
+      "provider": "p"
+    }
+  },
+  {
+    "kind": "options",
+    "value": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    }
+  },
+  {
+    "kind": "select",
+    "value": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    }
+  },
+  {
+    "kind": "select",
+    "value": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    }
+  },
+  {
+    "kind": "options",
+    "value": {
+      "provider": "other",
+      "model": "other",
+      "reasoningEffort": "low"
+    }
+  },
+  {
+    "kind": "header",
+    "value": {
+      "config": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      },
+      "adapterDefaults": {
+        "reasoningEffort": true
+      }
+    }
+  },
+  {
+    "kind": "header",
+    "value": {
+      "config": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      }
+    }
+  },
+  {
+    "kind": "select",
+    "value": {
+      "provider": "p",
+      "model": "b"
+    }
+  },
+  {
+    "kind": "header",
+    "value": {
+      "config": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "medium"
+      }
+    }
+  },
+  {
+    "kind": "header",
+    "value": {
+      "config": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "low"
+      },
+      "adapterDefaults": {
+        "reasoningEffort": true
+      }
+    }
+  },
+  {
+    "kind": "clear"
+  },
+  {
+    "kind": "select",
+    "value": {
+      "provider": "p",
+      "model": "b"
+    }
+  },
+  {
+    "kind": "options",
+    "value": {}
+  },
+  {
+    "kind": "select",
+    "value": {
+      "provider": "p",
+      "model": "b",
+      "reasoningEffort": "high"
+    }
+  },
+  {
+    "kind": "header",
+    "value": {
+      "config": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "high"
+      }
+    }
+  },
+  {
+    "kind": "select",
+    "value": {
+      "provider": "new",
+      "model": "b"
+    }
+  },
+  {
+    "kind": "clear"
+  },
+  {
+    "kind": "read"
+  }
+]

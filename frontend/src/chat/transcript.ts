@@ -201,6 +201,12 @@ export function attemptMessage(attempt: Attempt): Message {
 
 export function applyStreamEvent(state: Transcript, kind: string, data: unknown): Transcript {
   if (kind === 'session') return applySessionEvent(state, data as SessionEvent)
+  const through = (data as { throughSeq?: number | null })?.throughSeq
+  if (through !== undefined && through !== null && through < state.seenThrough) return state
+  if (kind === 'session.state') {
+    const { activeTurn } = data as { activeTurn: number | null }
+    return { ...state, activeTurn, draft: activeTurn === null ? null : state.draft }
+  }
   if (kind === 'chat.idle') return { ...state, draft: null, activeTurn: null }
   if (kind === 'queue.state') return { ...state, queue: (data as { queue: QueueItem[] }).queue }
   if (kind === 'permissions.state') return { ...state, permission: data as SessionPermission }
@@ -223,13 +229,16 @@ export function applyStreamEvent(state: Transcript, kind: string, data: unknown)
   if (kind !== 'assistant-stream') return state
   const { frame } = data as { frame: Frame }
   if (frame.type === 'start') {
+    if (state.draft && frame.revision < state.draft.revision) return state
+    if (state.draft?.attemptId === frame.attemptId) return state
     return { ...state, draft: { ...frame, nextIndex: 0, texts: {} } }
   }
   const draft = state.draft
-  if (!draft || frame.attemptId !== draft.attemptId || frame.revision !== draft.revision) return state
+  if (!draft || frame.attemptId !== draft.attemptId || frame.revision < draft.revision) return state
+  if (frame.index !== undefined && frame.index < draft.nextIndex) return state
   if (frame.index !== draft.nextIndex) return { ...state, draft: null }
   if (frame.type === 'end') return state
   const texts = { ...draft.texts }
   if (frame.chunk) applyChunk(texts, frame.chunk)
-  return { ...state, draft: { ...draft, texts, nextIndex: draft.nextIndex + 1 } }
+  return { ...state, draft: { ...draft, revision: frame.revision, texts, nextIndex: draft.nextIndex + 1 } }
 }

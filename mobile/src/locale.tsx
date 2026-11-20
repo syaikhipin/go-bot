@@ -1,8 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { File, Paths } from 'expo-file-system'
 import { getLocales } from 'expo-localization'
+import { extensionChinese } from '../../frontend/src/extensions/messages'
+
+const extensionEnglish = Object.fromEntries(Object.entries(extensionChinese).map(([en, zh]) => [zh, en]))
 
 const english: Record<string, string> = {
+  '审阅方案': 'Review the plan',
+  '待审批': 'Approval needed', '待回答': 'Answer needed',
   '当前会话权限': 'Chat permission', '全权限': 'Full access', '工作区可写': 'Workspace write', '只读': 'Read only',
   '允许工具在 Host 可访问的范围内写入。': 'Allow writes anywhere the Host tools can access.',
   '允许写入当前会话工作区。超出范围时需要审批。': 'Allow writes in this chat’s workspace. Ask before widening access.',
@@ -57,6 +62,14 @@ const english: Record<string, string> = {
   '模型': 'Models', '无法读取模型设置。': 'Could not load model settings.',
   '无法保存。请检查端点地址、密钥与模型名。': 'Could not save. Check the URL, API key, and model names.',
   '支持 OpenAI 兼容的 Responses 接口。默认端点列表中的第一个模型用于新会话。': 'Supports OpenAI-compatible Responses endpoints. New chats use the first model on the default endpoint.',
+  '放弃未保存的修改？': 'Discard unsaved changes?', '放弃修改': 'Discard changes',
+  '请选择支持的接口协议。': 'Choose a supported API protocol.',
+  '请填写基础地址，不包含 /messages、/responses 或 /chat/completions。': 'Enter a base URL without /messages, /responses, or /chat/completions.',
+  '新地址需要重新填写 API key。': 'Enter an API key for the new address.',
+  '接口协议': 'API protocol', '请求地址': 'Request URL',
+  '按服务商提供的接口格式选择，与模型名称无关。': 'Choose the API format provided by your service, regardless of the model name.',
+  '支持 OpenAI Responses 和 Anthropic Messages 兼容接口。默认端点的第一个模型用于新会话。': 'Supports OpenAI Responses and Anthropic Messages compatible endpoints. New chats use the first model on the default endpoint.',
+  '将在下一轮使用此模型。': 'This model will be used from the next turn.',
   '默认': 'Default', '添加端点': 'Add endpoint', '名称': 'Name', '端点地址': 'Endpoint URL',
   '已保存，留空保留当前密钥': 'Saved. Leave blank to keep the current key.', '输入 API key': 'Enter an API key',
   '模型名（每行一个）': 'Model names (one per line)', '保存端点': 'Save endpoint', '设为默认端点': 'Set as default',
@@ -111,6 +124,11 @@ const english: Record<string, string> = {
   '助手未能完成回复。': 'The agent could not finish its reply.',
 }
 const notices: Record<string, string> = {
+  'Approve this plan and leave plan mode?': '确认方案后开始执行，或提出修改意见继续规划。',
+  'Approve': '按此方案执行', 'Keep planning': '继续完善方案',
+  'Leave plan mode; the plan is carried out from the next step.': '退出规划模式，从下一步开始执行方案。',
+  'Stay in plan mode; feedback goes back to the model.': '保持规划模式，将修改意见交给助手。',
+
   'Scheduled task': '定时任务',
   'Background task': '后台任务',
   'The reply was interrupted.': '回复已中断。',
@@ -119,7 +137,7 @@ const notices: Record<string, string> = {
 export type Language = 'zh-CN' | 'en'
 export const languages: readonly { id: Language; name: string }[] = [{ id: 'zh-CN', name: '简体中文' }, { id: 'en', name: 'English' }]
 const preference = new File(Paths.document, 'ui-language.txt')
-const Locale = createContext({ language: 'zh-CN' as Language, changeLanguage: async (_language: Language) => {}, t: (key: string) => key })
+const Locale = createContext({ language: 'zh-CN' as Language, changeLanguage: async (_language: Language) => {}, t: (key: string, _values?: Record<string, string | number>) => key })
 
 function deviceLanguage(): Language {
   return getLocales()[0]?.languageCode === 'zh' ? 'zh-CN' : 'en'
@@ -138,9 +156,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     preference.write(next)
     setLanguage(next)
   }
-  const t = (key: string) => {
+  const t = (key: string, values?: Record<string, string | number>) => {
     const dictionary = language === 'en' ? english : notices
-    return Object.hasOwn(dictionary, key) ? dictionary[key] : key
+    const fallback = language === 'en' ? extensionEnglish : extensionChinese
+    const text = Object.hasOwn(dictionary, key) ? dictionary[key] : fallback[key] ?? key
+    return text.replace(/\{(\w+)\}/g, (match, name: string) => values?.[name] === undefined ? match : String(values[name]))
   }
   return <Locale.Provider value={{ language, changeLanguage, t }}>{ready && children}</Locale.Provider>
 }

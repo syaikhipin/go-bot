@@ -23,18 +23,23 @@ import (
 	"go-bot/harness/sessionsearch"
 	"go-bot/harness/skills"
 	"go-bot/harness/tools"
+	"go-bot/internal/authorization"
 	"go-bot/internal/config"
+	"go-bot/internal/credentials"
 	"go-bot/internal/durablefs"
 	"go-bot/internal/executor"
 	"go-bot/internal/hostruntime"
 	"go-bot/internal/httpapi"
+	"go-bot/internal/mcpclient"
 	"go-bot/internal/modelsettings"
+	"go-bot/internal/plugins"
 	"go-bot/internal/websearchsettings"
+	mcpconfig "go-bot/mcp"
+	"go-bot/plugin"
 	imageproviders "go-bot/providers/image"
 	"go-bot/providers/model/mainmodel"
 	webproviders "go-bot/providers/web"
 	builtin "go-bot/providers/web/builtin"
-	"go-bot/thirdparty/llm"
 	"go-bot/web"
 )
 
@@ -70,9 +75,6 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 	if err != nil {
 		return err
 	}
-	if err := skills.Bootstrap(ctx, root, skills.SeedDir); err != nil {
-		return fmt.Errorf("initialize Host skills: %w", err)
-	}
 	search := &hostWebSearch{defaultFactory: newSearchProvider}
 	imageGeneration := &hostImageGeneration{}
 	dshHome := filepath.Join(root, skills.UserDSHHomeDir)
@@ -93,6 +95,28 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 	builder.WebSearcher = search
 	builder.ImageGenerator = imageGeneration
 	native := &hostruntime.NativeHost{UserID: c.Host.AccountID, Mode: "host", StartedAt: time.Now().UTC(), ReserveScheduleModel: models.reserve}
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	credentialStore, err := credentials.Open(filepath.Join(dshHome, credentials.Filename), credentials.Options{Watch: true})
+	if err != nil {
+		return err
+	}
+	defer credentialStore.Close()
+	commonAuthorization := authorization.New(credentialStore)
+	mcpManager := mcpclient.NewManager(runCtx, mcpclient.ManagerOptions{Authorization: commonAuthorization, Credentials: credentialStore, Images: images, CWD: root, Changed: native.WakeSessions})
+	defer mcpManager.Close()
+	extensions, err := plugins.NewManager(runCtx, plugins.ManagerConfig{
+		Directory:   filepath.Join(dshHome, "plugins"),
+		Runtime:     plugins.RuntimeConfig{UserID: c.Host.AccountID, HostID: c.Host.RunID, Authorization: commonAuthorization, Credentials: credentialStore, Main: "/usr/share/go-bot/cordis/src/main.mjs", Home: "/root", DSHHome: dshHome, MCP: mcpManager, Skills: builder.Skills, Workspace: root},
+		PackageMain: "/usr/share/go-bot/cordis/src/package-main.mjs", Changed: native.WakeSessions,
+	})
+	if err != nil {
+		return err
+	}
+	defer extensions.Close()
+	builder.Skills.Providers = extensions.Skills
+	native.PluginsChanges = extensions.Changes
+	native.MCPChanges = mcpManager.Changes
 	scheduleStore := schedule.FileStore{Path: filepath.Join(dshHome, "storages", "schedule.json")}
 	native.Schedule, err = schedule.NewHostService(scheduleStore, native.PrepareSchedule, native.DeliverSchedule)
 	if err != nil {
@@ -189,8 +213,10 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		return &hostruntime.NativeRuntime{
 			Factory: assembly.NativeFactory{
 				Storage: executor.NativeFileStorage{Store: atWorkspace(workspace), SessionID: sid},
-				Builder: builder, Model: model, ResolveTurnModel: models.resolver(sid),
-				Provider: "unconfigured", ModelID: "unconfigured", SystemPrompt: assembly.DefaultCoreSystemPrompt,
+				Builder: builder, Model: model, ResolveTurnModel: models.resolver(sid), ResolveSelectedModel: models.selected,
+				ToolSource: extensions.Tools, PromptSource: extensions.AssemblePrompt, ToolInvocationSource: extensions.ToolInvocations,
+				ExtensionScope: func() assembly.NativeExtensionScope { return mcpManager.NewScope() },
+				Provider:       "unconfigured", ModelID: "unconfigured", SystemPrompt: assembly.DefaultCoreSystemPrompt,
 				Limits: agent.Limits{MaxSteps: 128, MaxToolCalls: 256, MaxModelCalls: 160, MaxParallelToolCalls: 4,
 					ContextWindowTokens: config.ModelContextWindow, ReservedOutputTokens: 16 * 1024, ContextHeadroomTokens: 8 * 1024},
 				Schedule: native.Schedule, FileAttachments: files, Memory: accountMemory, SessionSearch: history,
@@ -224,8 +250,6 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		}
 		return native.BuildInWorkspace(sid, schedule.TargetCreate{CWD: defaultSessionWorkspace(root, sid)})
 	}
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	if err = native.Schedule.Start(runCtx); err != nil {
 		return err
 	}
@@ -240,6 +264,8 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		native.WakeSessions()
 		native.Schedule.NotifyModelChange()
 	}
+	pluginHTTP := extensions.Handler()
+	mcpHTTP := mcpManager.Handler()
 	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case websearchsettings.InternalPath:
@@ -256,7 +282,7 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(ready)
 		case "/v1/capabilities":
-			_ = json.NewEncoder(w).Encode(map[string]any{"model": models.defaultModel(), "protocol": llm.Responses, "search": search.configured(), "apiVersion": "v1"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"model": models.defaultModel(), "protocol": models.defaultProtocol(), "protocols": []string{modelsettings.Responses, modelsettings.AnthropicMessages}, "search": search.configured(), "apiVersion": "v1"})
 		case "/internal/host/shutdown":
 			if r.Method != http.MethodPost {
 				http.Error(w, "method not allowed", 405)
@@ -266,6 +292,14 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 			w.WriteHeader(202)
 			cancel()
 		default:
+			if r.URL.Path == mcpconfig.InternalPath || strings.HasPrefix(r.URL.Path, mcpconfig.InternalPath+"/") {
+				mcpHTTP.ServeHTTP(w, r)
+				return
+			}
+			if r.URL.Path == plugin.InternalPath || strings.HasPrefix(r.URL.Path, plugin.InternalPath+"/") {
+				pluginHTTP.ServeHTTP(w, r)
+				return
+			}
 			if id, ok := strings.CutPrefix(r.URL.Path, modelsettings.ScheduledSelectionPrefix); ok {
 				models.handleScheduledSelection(w, r, id, wakeForModelChange)
 				return
@@ -273,7 +307,7 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 			base.ServeHTTP(w, r)
 		}
 	})
-	server := &http.Server{Handler: httpapi.Authenticate(c.Auth.HostToken, mux), BaseContext: func(net.Listener) context.Context { return runCtx }, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := &http.Server{Handler: httpapi.Authenticate(c.Auth.HostToken, mcpManager.ControllerOAuth(mux)), BaseContext: func(net.Listener) context.Context { return runCtx }, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	listener, err := net.Listen("tcp", config.HostListen)
 	if err != nil {
 		native.Schedule.Close()

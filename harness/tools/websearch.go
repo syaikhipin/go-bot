@@ -23,6 +23,8 @@ type WebSearch struct {
 	SpillWorkdir string
 }
 
+func (WebSearch) RetainsOutput() bool { return true }
+
 const (
 	webSearchMaxQueries = 10
 	webSearchMaxResults = 10

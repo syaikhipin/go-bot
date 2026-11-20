@@ -37,7 +37,28 @@ func TestDockerModelSettingsSwitchBetweenTurns(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		calls <- modelCall{r.URL.Path, input.Model, r.Header.Get("Authorization")}
+		auth := r.Header.Get("Authorization")
+		if strings.HasSuffix(r.URL.Path, "/messages") {
+			auth = r.Header.Get("x-api-key")
+		}
+		calls <- modelCall{r.URL.Path, input.Model, auth}
+		if strings.HasSuffix(r.URL.Path, "/messages") {
+			if r.Header.Get("anthropic-version") != "2023-06-01" {
+				t.Error("missing Anthropic version")
+			}
+			w.Header().Set("Content-Type", "text/event-stream")
+			for _, frame := range []string{
+				`{"type":"message_start","message":{"id":"a","usage":{"input_tokens":10}}}`,
+				`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Done"}}`,
+				`{"type":"content_block_stop","index":0}`,
+				`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}`,
+				`{"type":"message_stop"}`,
+			} {
+				fmt.Fprintf(w, "data: %s\n\n", frame)
+			}
+			return
+		}
 		output := []map[string]any{{"type": "message", "id": "reply", "role": "assistant", "content": []map[string]string{{"type": "output_text", "text": "Done"}}}}
 		if input.Model == "first" && !strings.Contains(string(body), "function_call_output") {
 			select {
@@ -121,7 +142,11 @@ func TestDockerModelSettingsSwitchBetweenTurns(t *testing.T) {
 	}
 	add := func(path, key string, models []string) string {
 		t.Helper()
-		body, _ := json.Marshal(modelsettings.Endpoint{Name: path, BaseURL: base + path, APIKey: key, Models: models})
+		protocol := modelsettings.Responses
+		if path == "/second" {
+			protocol = modelsettings.AnthropicMessages
+		}
+		body, _ := json.Marshal(modelsettings.Endpoint{Protocol: protocol, Name: path, BaseURL: base + path, APIKey: key, Models: models})
 		var endpoint struct{ EndpointID string }
 		decode(call("POST", "/v1/settings/models/endpoints", string(body), 201), &endpoint)
 		return endpoint.EndpointID
@@ -183,7 +208,7 @@ func TestDockerModelSettingsSwitchBetweenTurns(t *testing.T) {
 	stream = call("GET", fmt.Sprintf("%s/stream?after=%d", path, events[len(events)-1].Seq), "", 200)
 	defer stream.Body.Close()
 	call("POST", path+"/messages", `{"content":"Continue with the second model"}`, 202).Body.Close()
-	expect(modelCall{"/second/responses", "second", "Bearer second-fixture-key"})
+	expect(modelCall{"/second/messages", "second", "second-fixture-key"})
 	readWebTurn(t, stream.Body)
 	stream.Body.Close()
 	if readSelection(other) != first {

@@ -94,6 +94,7 @@ Each account has one Redis Hash at `user:<userId>` with no expiration.
 | `llm` | JSON | `defaultEndpointId` and `endpoints`. Each endpoint stores its name, URL, API key and ordered model list |
 | `webSearch` | JSON | Active `provider` and per-provider `entries` with API keys |
 | `imageGeneration` | JSON | Active `provider` and per-provider `entries` with API keys and model names |
+| `plugins` | JSON | Per-package user selections: catalogId, fixed version and enabled. No instance configs, sources or secrets; credentials remain in the Host |
 | `sessionModels` | JSON | Map from session ID to `{endpointId, modelId}` |
 | `modelRevision` | Integer | Version of the model catalog and session selections synchronized with the Host |
 
@@ -104,7 +105,7 @@ from the previous development storage format.
 
 Controller supplies `HOST_ACCOUNT_ID`, `HOST_ID`, `HOST_API_TOKEN` and
 `HOST_DATA_MOUNTED` when it starts the Host. It synchronizes the selected search
-and image settings, model catalog and session selections over the authenticated
+and image settings, model catalog, session selections and saved plugin intent over the authenticated
 Host control channel. Open an account to start or reconnect its
 Host. Use the stop request to stop it. Host-created scheduled sessions
 store their model selections in the Host data directory.

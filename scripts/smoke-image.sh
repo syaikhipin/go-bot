@@ -7,24 +7,24 @@ docker run --rm --entrypoint /bin/sh "$image" -ec '
   node --version
   npm --version
   npx --version
+  node -e "require(\"pdf-lib\")"
   chromium --version
   soffice --version
-  officecli --version
   python -c "import pypdf,pdfplumber,reportlab,pymupdf,pypdfium2,pptx"
-  mkdir /tmp/office-smoke
-  officecli create /tmp/office-smoke/report.docx
-  officecli add /tmp/office-smoke/report.docx /body --type paragraph --prop "text=Go Bot smoke"
-  officecli get /tmp/office-smoke/report.docx /
-  officecli save /tmp/office-smoke/report.docx
-  soffice -env:UserInstallation=file:///tmp/lo-smoke --headless --convert-to pdf --outdir /tmp/office-smoke /tmp/office-smoke/report.docx
-  pdfinfo /tmp/office-smoke/report.pdf
+  # Official CLIs are installed by plugin lifecycle scripts, not preinstalled.
+  ! command -v officecli
+  ! command -v agent-browser
+  ! command -v xurl
+  ! command -v gws
+  test ! -e /usr/share/go-bot/skill-seed
+  for plugin in agent-browser officecli x google-workspace; do
+    test -s "/usr/share/go-bot/plugins/$plugin/package.json"
+    test -s "/usr/share/go-bot/plugins/$plugin/scripts/install.mjs"
+    test -s "/usr/share/go-bot/plugins/$plugin/UPSTREAM_LICENSE"
+    test -s "/usr/share/go-bot/plugins/$plugin/assets/icon.png"
+  done
+  test -s /usr/share/go-bot/plugins/google-workspace/skills/gws-shared/SKILL.md
   chromium --headless --no-sandbox --disable-dev-shm-usage --no-zygote --screenshot=/tmp/browser.png "data:text/html,<h1>Go Bot</h1>" >/dev/null 2>&1
   test -s /tmp/browser.png
-  agent-browser --version
-  agent-browser skills get core > /tmp/agent-browser-core.md
-  grep -q "agent-browser core" /tmp/agent-browser-core.md
-  export AGENT_BROWSER_SOCKET_DIR="$(mktemp -d /tmp/ghb-XXXXXXXX)"
-  trap "agent-browser close --all" EXIT
-  agent-browser open about:blank
-  echo "Image document/browser smoke: OK"
+  echo "Base environment and packaged plugin smoke: OK"
 '

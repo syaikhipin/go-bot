@@ -70,7 +70,7 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 	model.Start()
 	defer model.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	c := dockerFixtureConfig()
 	baseImage := c.Runtime.Image
@@ -125,6 +125,14 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 		b, _ := io.ReadAll(res.Body)
 		return res.StatusCode, b
 	}
+	for _, operation := range []struct{ method, path, body string }{
+		{"POST", "/v1/settings/plugins/packages", `{"pluginId":"officecli"}`},
+		{"PUT", "/v1/settings/plugins/packages/%40go-bot%2Fplugin-officecli", `{"enabled":true}`},
+	} {
+		if code, body := call(operation.method, operation.path, operation.body); code != 200 {
+			t.Fatalf("prepare OfficeCLI plugin: %d %s", code, body)
+		}
+	}
 	status, b := call("POST", "/v1/sessions", "")
 	if status != 201 {
 		t.Fatalf("create: %d %s", status, b)
@@ -176,9 +184,9 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 		test "$HOME" = /root && test "$DSH_HOME" = /root/harness/.dsh
 		test "$DSH_AGENTS_HOME" = /root/harness/.agents && test "$PWD" = /root/harness
 		for bundle in officecli officecli-docx officecli-xlsx officecli-pptx officecli-academic-paper officecli-data-dashboard officecli-financial-model officecli-pitch-deck officecli-word-form morph-ppt morph-ppt-3d; do
-		  test -s "$DSH_HOME/skills/$bundle/SKILL.md"
+		  test -s "$DSH_HOME/plugins/profile/node_modules/@go-bot/plugin-officecli/skills/$bundle/SKILL.md"
 		done
-		test -s "$DSH_HOME/skills/morph-ppt/reference/styles/INDEX.md"
+		test -s "$DSH_HOME/plugins/profile/node_modules/@go-bot/plugin-officecli/skills/morph-ppt/reference/styles/INDEX.md"
 	`); e != nil {
 		t.Fatalf("unexpected container skills or environment: %v", e)
 	}
@@ -210,7 +218,8 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 	_ = readWebTurn(t, otherStream.Body)
 	otherStream.Body.Close()
 	assertDockerSkills(t, manager.Journal(t, ctx, second.SessionID), false, true)
-	manager.Exec(t, ctx, "rm", "-r", ".dsh/skills/officecli-pitch-deck")
+	writeSkill(".dsh/skills/deleted-user-skill/SKILL.md", "---\nname: deleted-user-skill\ndescription: Deleted user skill\n---\nremoved\n")
+	manager.Exec(t, ctx, "rm", "-r", ".dsh/skills/deleted-user-skill")
 	beforeStop, e := manager.Store.Get(ctx, manager.account)
 	if e != nil || beforeStop.HostEndpoint != instance.Endpoint {
 		t.Fatalf("running Host route was not saved: %v", e)
@@ -247,7 +256,7 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	manager.Exec(t, ctx, "sh", "-ec", `test ! -e .dsh/skills/officecli-pitch-deck/SKILL.md; test -f .agents/skills/manual/SKILL.md`)
+	manager.Exec(t, ctx, "sh", "-ec", `test ! -e .dsh/skills/deleted-user-skill/SKILL.md; test -f .agents/skills/manual/SKILL.md`)
 
 	oldImageID, e := docker.Run(ctx, nil, "container", "inspect", "--format", "{{.Image}}", instance.Ref.ID)
 	if e != nil {
@@ -306,7 +315,7 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 	if status != 200 || string(b) != "harness-output" {
 		t.Fatal("workspace did not survive")
 	}
-	manager.Exec(t, ctx, "sh", "-ec", `test ! -e .dsh/skills/officecli-pitch-deck/SKILL.md; test -f .agents/skills/manual/SKILL.md`)
+	manager.Exec(t, ctx, "sh", "-ec", `test ! -e .dsh/skills/deleted-user-skill/SKILL.md; test -f .agents/skills/manual/SKILL.md`)
 	if calls := modelCalls.Load(); calls < 5 {
 		t.Fatalf("expected model calls for two new turns and a resumed turn, got %d", calls)
 	}

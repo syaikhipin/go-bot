@@ -10,8 +10,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"go-bot/harness/agent"
+	"go-bot/harness/interaction"
 	"go-bot/harness/permission"
 	"go-bot/harness/plan"
 	"go-bot/harness/schedule"
@@ -245,11 +248,11 @@ func TestToolPolicyCanRequireApprovalBeforeDispatch(t *testing.T) {
 		Storage: &nativeMemoryStorage{}, Builder: nativeTestBuilder{newContainerTestBuilder(t, t.TempDir())},
 		Model: &nativeGoalModel{}, Provider: "test-provider", ModelID: "test-model", SystemPrompt: "Help the user.",
 		Limits: agent.Limits{MaxSteps: 2, MaxToolCalls: 2},
-		ToolApproval: func(_ context.Context, name string, _ json.RawMessage) *permission.Request {
-			if name != "create_goal" {
-				return nil
+		ToolPreExecutePolicy: func(_ context.Context, execution agent.ToolExecution) (agent.PreToolDecision, error) {
+			if execution.Name != "create_goal" {
+				return agent.PreToolDecision{Kind: "allow"}, nil
 			}
-			return &permission.Request{Reason: "Verify pre-dispatch approval", Detail: "Create the report goal"}
+			return agent.PreToolDecision{Kind: "ask", Reason: "Verify pre-dispatch approval"}, nil
 		},
 	}
 	live, err := factory.Activate(ctx, NativeRuntimeIdentity{UserID: "alice", SessionID: "approval-test", Workspace: "/workspace"})
@@ -275,6 +278,61 @@ func TestToolPolicyCanRequireApprovalBeforeDispatch(t *testing.T) {
 	if !asked || !rejected {
 		t.Fatalf("approval audit missing: asked=%t rejected=%t", asked, rejected)
 	}
+}
+
+func TestInteractiveApprovalHasNoDeadlineAndSurvivesClientDetach(t *testing.T) {
+	factory := NativeFactory{
+		Storage: &nativeMemoryStorage{}, Builder: nativeTestBuilder{newContainerTestBuilder(t, t.TempDir())},
+		Model: &nativeGoalModel{}, Provider: "test", ModelID: "test", SystemPrompt: "Help.",
+		Limits: agent.Limits{MaxSteps: 2, MaxToolCalls: 2},
+		ToolPreExecutePolicy: func(context.Context, agent.ToolExecution) (agent.PreToolDecision, error) {
+			return agent.PreToolDecision{Kind: "ask", Reason: "Test approval"}, nil
+		},
+	}
+	live, err := factory.Activate(t.Context(), NativeRuntimeIdentity{UserID: "alice", SessionID: "no-approval-timeout", Workspace: "/workspace"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close()
+	live.Questions.Enable()
+	if err := permission.Save(t.Context(), live.Session, permission.ReadOnly, false, false); err != nil {
+		t.Fatal(err)
+	}
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		detach := live.Questions.AttachApprovalClient()
+		result := make(chan error, 1)
+		go func() { _, err := live.Agent.RunTextTurn(ctx, "Create a report goal"); result <- err }()
+		synctest.Wait()
+		if len(live.Questions.Pending()) != 1 {
+			t.Fatal("approval was not pending")
+		}
+		detach()
+		time.Sleep(3 * time.Minute)
+		synctest.Wait()
+		select {
+		case err := <-result:
+			t.Fatalf("approval ended without a decision: %v", err)
+		default:
+		}
+		pending := live.Questions.Pending()
+		if len(pending) != 1 {
+			t.Fatal("approval expired or disappeared after disconnect")
+		}
+		detach = live.Questions.AttachApprovalClient()
+		defer detach()
+		if err := live.Questions.Answer(ctx, pending[0].CallID, interaction.Answer{Answers: []interaction.AnswerItem{{ID: "approval", Selected: []string{permission.Approve}}}}); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if err := <-result; err != nil {
+			t.Fatal(err)
+		}
+		if _, found, err := live.Goals.Get(); err != nil || !found {
+			t.Fatalf("late approval failed to execute: found=%t err=%v", found, err)
+		}
+	})
 }
 
 func TestNativeFactoryGoalToolWritesV4AndResumesDisarmed(t *testing.T) {

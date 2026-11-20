@@ -43,7 +43,7 @@ func (c *Client) StreamWithProtocol(ctx context.Context, protocol Protocol, requ
 		}()
 		pulse = func() { timer.Reset(c.nonStreamingIdleTimeout) }
 	}
-	res, err := c.post(requestCtx, path, body, true)
+	res, err := c.post(requestCtx, protocol, path, body, true)
 	if err != nil {
 		return nil, idleRequestError(requestCtx, errRequestIdle, err)
 	}
@@ -67,6 +67,8 @@ func (c *Client) StreamWithProtocol(ctx context.Context, protocol Protocol, requ
 	}
 	var result *Response
 	switch protocol {
+	case AnthropicMessages:
+		result, err = consumeAnthropicStream(res.Body, sink, pulse)
 	case Responses:
 		result, err = consumeResponsesStream(res.Body, sink, pulse)
 	case ChatCompletions:

@@ -2,7 +2,9 @@ package skills
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -22,7 +24,6 @@ const (
 	UserDSHHomeDir = ".dsh"
 	UserDSHHome    = "/root/harness/" + UserDSHHomeDir
 	UserAgentsHome = "/root/harness/.agents"
-	SeedDir        = "/usr/share/go-bot/skill-seed"
 	maxSkillBytes  = 256 << 10
 )
 
@@ -41,8 +42,10 @@ func IsSpace(r rune) bool {
 }
 
 type Lookup struct {
-	CWD       string
-	Workspace string
+	CWD       string `json:"cwd"`
+	Workspace string `json:"workspace"`
+	SessionID string `json:"sessionId,omitempty"`
+	ScopeID   string `json:"scopeId,omitempty"`
 }
 
 // Registry discovers filesystem skills in precedence order. Custom and bundled
@@ -51,6 +54,27 @@ type Registry struct {
 	DSHHome    string
 	AgentsHome string
 	CustomDirs []string
+	Providers  func(context.Context, Lookup) ([]Provider, error)
+}
+
+// Provider supplements filesystem discovery. Candidates retain the selected
+// provider's loader; a later same-name registration cannot replace that loader.
+type Provider struct {
+	Name string
+	List func(context.Context, Lookup) (ProviderSnapshot, error)
+	Load func(context.Context, Lookup, ProviderEntry) (Loaded, error)
+}
+
+type ProviderEntry struct {
+	Summary
+	Rank         float64         `json:"rank"`
+	Data         json.RawMessage `json:"data"`
+	Priority     int             `json:"priority,omitempty"`
+	Presentation *CatalogSkill   `json:"presentation,omitempty"`
+}
+type ProviderSnapshot struct {
+	Entries  []ProviderEntry `json:"entries"`
+	Complete bool            `json:"complete"`
 }
 
 type Summary struct {
@@ -63,8 +87,10 @@ type Summary struct {
 }
 
 type ResourceBase struct {
-	Kind string `json:"kind"`
-	Path string `json:"path"`
+	Kind        string `json:"kind"`
+	Path        string `json:"path,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type Value struct {
@@ -81,10 +107,15 @@ type Loaded struct {
 
 type Candidate struct {
 	Summary
-	source skillRoot
-	root   string
-	path   string
-	base   string
+	source       skillRoot
+	root         string
+	path         string
+	base         string
+	loader       func(context.Context) (Loaded, error)
+	rank         float64
+	priority     int
+	presentation *CatalogSkill
+	providerName string
 }
 
 type Snapshot struct {
@@ -96,24 +127,25 @@ type skillRoot struct {
 	path       string
 	boundary   string
 	skipSystem bool
+	rank       float64
 }
 
 func (r *Registry) roots(lookup Lookup) []skillRoot {
 	var roots []skillRoot
 	if project, workspace := projectRoot(lookup); project != "" {
 		roots = append(roots,
-			skillRoot{path: filepath.Join(project, ".dsh", "skills"), boundary: workspace},
-			skillRoot{path: filepath.Join(project, ".agents", "skills"), boundary: workspace},
+			skillRoot{path: filepath.Join(project, ".dsh", "skills"), boundary: workspace, rank: 100},
+			skillRoot{path: filepath.Join(project, ".agents", "skills"), boundary: workspace, rank: 200},
 		)
 	}
 	for _, path := range r.CustomDirs {
-		roots = append(roots, skillRoot{path: path})
+		roots = append(roots, skillRoot{path: path, rank: 300})
 	}
 	if r.DSHHome != "" {
-		roots = append(roots, skillRoot{path: filepath.Join(r.DSHHome, "skills"), boundary: r.DSHHome, skipSystem: true})
+		roots = append(roots, skillRoot{path: filepath.Join(r.DSHHome, "skills"), boundary: r.DSHHome, skipSystem: true, rank: 400})
 	}
 	if r.AgentsHome != "" {
-		roots = append(roots, skillRoot{path: filepath.Join(r.AgentsHome, "skills"), boundary: r.AgentsHome})
+		roots = append(roots, skillRoot{path: filepath.Join(r.AgentsHome, "skills"), boundary: r.AgentsHome, rank: 500})
 	}
 	return roots
 }
@@ -164,6 +196,28 @@ func (r *Registry) Snapshot(ctx context.Context, lookup Lookup) (Snapshot, error
 			}
 		}
 	}
+	if r.Providers != nil {
+		providers, err := r.Providers(ctx, lookup)
+		if err != nil {
+			return Snapshot{}, err
+		}
+		for _, provider := range providers {
+			entries, err := provider.List(ctx, lookup)
+			if err != nil {
+				return Snapshot{}, fmt.Errorf("discover skill provider %s: %w", provider.Name, err)
+			}
+			snapshot.Complete = snapshot.Complete && entries.Complete
+			for _, entry := range entries.Entries {
+				if !IsName(entry.Name) || entry.Description == "" {
+					return Snapshot{}, errors.New("skill provider returned an invalid summary")
+				}
+				if prior, exists := winners[entry.Name]; exists && (prior.priority > entry.Priority || (prior.priority == entry.Priority && prior.rank <= entry.Rank)) {
+					continue
+				}
+				winners[entry.Name] = Candidate{Summary: entry.Summary, rank: entry.Rank, priority: entry.Priority, presentation: entry.Presentation, providerName: provider.Name, loader: func(ctx context.Context) (Loaded, error) { return provider.Load(ctx, lookup, entry) }}
+			}
+		}
+	}
 	for _, entry := range winners {
 		snapshot.Entries = append(snapshot.Entries, entry)
 	}
@@ -192,6 +246,16 @@ func (r *Registry) Find(ctx context.Context, lookup Lookup, name string) (Candid
 func (c Candidate) Load(ctx context.Context) (Loaded, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return Loaded{}, false, err
+	}
+	if c.loader != nil {
+		loaded, err := c.loader(ctx)
+		if errors.Is(err, os.ErrNotExist) {
+			return Loaded{}, false, nil
+		}
+		if err == nil && (loaded.Name != c.Name || loaded.Value.Name != c.Name || len(loaded.Value.Content) > maxSkillBytes || loaded.Value.Provider == "") {
+			return Loaded{}, false, errors.New("skill provider returned an invalid identity or content")
+		}
+		return loaded, err == nil, err
 	}
 	root, err := openSkillRoot(c.source)
 	if err != nil {
@@ -303,7 +367,7 @@ func discover(ctx context.Context, source skillRoot) ([]Candidate, error) {
 		if err != nil {
 			return nil, err
 		}
-		candidates = append(candidates, Candidate{Summary: loaded.Summary, source: source, root: root.Name(), path: locator, base: base})
+		candidates = append(candidates, Candidate{Summary: loaded.Summary, source: source, root: root.Name(), path: locator, base: base, rank: source.rank})
 	}
 	return candidates, nil
 }

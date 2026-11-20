@@ -1,0 +1,22 @@
+{
+  "name": "@go-bot-example/typescript-tool",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": "./lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@go-bot/plugin-sdk": "file:../../../extensions/sdk",
+    "@types/node": "24.10.0",
+    "typescript": "7.0.2"
+  },
+  "goBot": {
+    "api": "1"
+  }
+}

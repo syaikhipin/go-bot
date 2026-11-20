@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -235,8 +236,20 @@ func TestDockerWebChatQueueAndQuestions(t *testing.T) {
 	if err := manager.Ensure(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if cold := read("GET", sessionPath+"/transcript?limit=1", "", 200); cold != latest {
-		t.Fatalf("cold transcript differs: %s", cold)
+	cold := read("GET", sessionPath+"/transcript?limit=1", "", 200)
+	var warmPage, coldPage map[string]any
+	if err := json.Unmarshal([]byte(latest), &warmPage); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(cold), &coldPage); err != nil {
+		t.Fatal(err)
+	}
+	// A loaded runtime includes its transient stream baseline; a cold session
+	// has no live stream. Persisted events, cursors and interaction state match.
+	delete(warmPage, "baseline")
+	delete(coldPage, "baseline")
+	if !reflect.DeepEqual(coldPage, warmPage) {
+		t.Fatalf("cold transcript differs: warm=%s cold=%s", latest, cold)
 	}
 	if file := read("GET", deliveryPath, "", 200); file != "updated contents" {
 		t.Fatalf("cold delivery is %q", file)

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	mcpconfig "go-bot/mcp"
+	"go-bot/plugin"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -45,6 +47,17 @@ func (m *Manager) Handler() http.Handler {
 
 func (m *Manager) HandlerWithWeb(web WebOptions) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The provider redirects without an account header and from another
+		// origin. Only this exact GET callback uses its one-time Host state;
+		// ordinary APIs retain their existing browser-origin checks.
+		if strings.HasPrefix(r.URL.Path, mcpconfig.OAuthCallbackPath) {
+			m.mcpOAuthCallbackHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, plugin.AuthorizationCallbackPath) {
+			m.pluginAuthorizationCallbackHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/v1/") {
 			w.Header().Add("Vary", "Origin")
 			w.Header().Add("Vary", "Sec-Fetch-Site")
@@ -62,6 +75,9 @@ func (m *Manager) HandlerWithWeb(web WebOptions) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		if servePluginAsset(w, r) {
+			return
+		}
 		if serveWeb(w, r, web.Files) {
 			return
 		}
@@ -71,7 +87,8 @@ func (m *Manager) HandlerWithWeb(web WebOptions) http.Handler {
 		}
 		isHost := r.URL.Path == "/v1/host" || strings.HasPrefix(r.URL.Path, "/v1/host/") || strings.HasPrefix(r.URL.Path, "/v1/hosts/")
 		isSession := r.URL.Path == "/v1/capabilities" || r.URL.Path == "/v1/sessions" || strings.HasPrefix(r.URL.Path, "/v1/sessions/")
-		isSettings := r.URL.Path == settingsPath || strings.HasPrefix(r.URL.Path, settingsPath+"/") || r.URL.Path == webSearchSettingsPath || r.URL.Path == imageSettingsPath
+		isPlugins := r.URL.Path == plugin.SettingsPath || strings.HasPrefix(r.URL.Path, plugin.SettingsPath+"/")
+		isSettings := isPlugins || r.URL.Path == settingsPath || strings.HasPrefix(r.URL.Path, settingsPath+"/") || r.URL.Path == webSearchSettingsPath || r.URL.Path == imageSettingsPath
 		if !isHost && !isSession && !isSettings {
 			http.NotFound(w, r)
 			return
@@ -81,7 +98,20 @@ func (m *Manager) HandlerWithWeb(web WebOptions) http.Handler {
 			httpError(w, http.StatusBadRequest, "provide a valid X-User-ID")
 			return
 		}
+		// Keep the actual, validated public callback with this request. Invalid
+		// or ordinary non-loopback HTTP origins do not enable OAuth, but still
+		// support normal Host operations and static credentials.
+		redirect, _ := mcpOAuthRedirect(r, r.Header.Get(mcpconfig.ControllerOriginHeader), id)
+		r = r.WithContext(withOAuthCallback(r.Context(), redirect))
 		switch {
+		case r.URL.Path == plugin.AuthorizationPath || strings.HasPrefix(r.URL.Path, plugin.AuthorizationPath+"/"):
+			m.authorizationHTTP(w, r, id)
+		case r.URL.Path == mcpconfig.RuntimePath || strings.HasPrefix(r.URL.Path, mcpconfig.RuntimePath+"/"):
+			m.mcpHTTP(w, r, id)
+		case isPlugins:
+			m.pluginsHTTP(w, r, id)
+		case r.URL.Path == "/v1/host/plugins/runtime/restart":
+			m.restartPluginsHTTP(w, r, id)
 		case isHost:
 			m.hostHTTP(w, r, id)
 		case r.URL.Path == webSearchSettingsPath:
@@ -130,6 +160,7 @@ func (m *Manager) hostHTTP(w http.ResponseWriter, r *http.Request, id string) {
 	var err error
 	switch {
 	case (r.URL.Path == hostFilesPath && r.Method == http.MethodGet) ||
+		(r.URL.Path == "/v1/host/stream" && r.Method == http.MethodGet) ||
 		r.URL.Path == "/v1/host/schedules" || strings.HasPrefix(r.URL.Path, "/v1/host/schedules/"):
 		m.forward(w, r, id)
 		return
@@ -244,6 +275,11 @@ func (m *Manager) forward(w http.ResponseWriter, r *http.Request, id string) {
 		Rewrite: func(req *httputil.ProxyRequest) {
 			req.SetURL(target)
 			req.Out.Header.Del(UserHeader)
+			req.Out.Header.Del(mcpconfig.ControllerOriginHeader)
+			req.Out.Header.Del(mcpconfig.OAuthCallbackHeader)
+			if redirect := oauthCallbackFromContext(req.In.Context()); redirect != "" {
+				req.Out.Header.Set(mcpconfig.OAuthCallbackHeader, redirect)
+			}
 			req.Out.Header.Set("Authorization", "Bearer "+record.HostToken)
 		},
 		ModifyResponse: func(response *http.Response) error {

@@ -14,6 +14,7 @@ import (
 	"go-bot/internal/config"
 	"go-bot/internal/modelsettings"
 	"go-bot/internal/providersettings"
+	"go-bot/plugin"
 	"go-bot/runtime"
 )
 
@@ -47,7 +48,21 @@ func (s *memoryStore) Save(_ context.Context, id string, account Account) error 
 	saved := s.records[id]
 	account.WebSearch = saved.WebSearch
 	account.ImageGeneration = saved.ImageGeneration
+	account.Plugins = saved.Plugins
 	s.records[id] = account
+	return nil
+}
+
+func (s *memoryStore) SavePluginSettings(_ context.Context, id string, settings plugin.Settings) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.records[id]
+	if !ok {
+		return ErrAccountNotFound
+	}
+	settings = settings.Clone()
+	record.Plugins = &settings
+	s.records[id] = record
 	return nil
 }
 

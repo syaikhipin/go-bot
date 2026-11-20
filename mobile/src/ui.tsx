@@ -1,6 +1,6 @@
 import { useLocale } from './locale'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native'
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type AccessibilityState, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
@@ -60,8 +60,8 @@ export function useReducedMotion() {
   return reduced
 }
 
-export function IconButton({ label, children, onPress, disabled, style }: { label: string; children: ReactNode; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} disabled={disabled}
+export function IconButton({ label, children, onPress, disabled, style, accessibilityState }: { label: string; children: ReactNode; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle>; accessibilityState?: AccessibilityState }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ ...accessibilityState, disabled }} onPress={onPress} disabled={disabled}
     style={({ pressed }) => [s.icon, style, pressed && s.pressed, disabled && s.disabled]}>{children}</Pressable>
 }
 
@@ -82,6 +82,7 @@ export function Field({ label, style, ...props }: TextInputProps & { label: stri
 
 type AfterClose = (action: () => void) => void
 type SheetProps = {
+  beforeDismiss?: (proceed: () => void) => void
   title: string
   children: ReactNode | ((afterClose: AfterClose) => ReactNode)
   onClose: () => void
@@ -92,7 +93,7 @@ type SheetProps = {
   surfaceColors?: readonly [string, string, string]
 }
 
-export function Sheet({ title, children, onClose, drawer = false, raised = 0, headerAction, hideTitle = false, surfaceColors }: SheetProps) {
+export function Sheet({ title, children, onClose, drawer = false, raised = 0, headerAction, hideTitle = false, surfaceColors, beforeDismiss }: SheetProps) {
   const { t } = useLocale()
   const inset = useSafeAreaInsets()
   const [visible, setVisible] = useState(true)
@@ -127,20 +128,24 @@ export function Sheet({ title, children, onClose, drawer = false, raised = 0, he
         else finish()
       })
   }
+  function requestDismiss() {
+    if (beforeDismiss) beforeDismiss(() => dismiss())
+    else dismiss()
+  }
   const transform = drawer
     ? [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-Math.min(width, 390), 0] }) }]
     : [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [raised ? 24 : height * 0.87, 0] }) }]
 
-  return <Modal visible={visible} transparent animationType="none" onRequestClose={() => dismiss()} onDismiss={finish} supportedOrientations={['portrait', 'landscape']}>
+  return <Modal visible={visible} transparent animationType="none" onRequestClose={requestDismiss} onDismiss={finish} supportedOrientations={['portrait', 'landscape']}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[s.overlay, drawer && s.left]}>
       <Animated.View style={[StyleSheet.absoluteFill, s.backdrop, { opacity: motion }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('收起') + ' ' + title} style={StyleSheet.absoluteFill} onPress={() => dismiss()} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('收起') + ' ' + title} style={StyleSheet.absoluteFill} onPress={requestDismiss} />
       </Animated.View>
       <Animated.View accessibilityViewIsModal style={[s.sheet, drawer ? [s.drawer, { paddingTop: inset.top + 12, paddingBottom: inset.bottom + 12 }] : raised ? [s.raised, { marginBottom: Math.max(inset.bottom, 8) + raised }] : { paddingBottom: Math.max(16, inset.bottom), marginTop: inset.top + 18 }, { transform }, !!raised && { opacity: motion }]}>
         <LinearGradient pointerEvents="none" colors={surfaceColors ?? ['#fffdfc', '#faf8fc', '#f3eef9']} locations={[0, 0.68, 1]}
           style={[StyleSheet.absoluteFill, s.sheetTint, drawer && s.drawerTint, !!raised && s.raisedTint]} />
         {!drawer && <View style={s.handle} />}
-        <View style={s.sheetHead}>{!hideTitle && <Text accessibilityRole="header" style={s.sheetTitle}>{title}</Text>}<View style={[s.row, hideTitle && { marginLeft: 'auto' }]}>{headerAction}<IconButton label={t('关闭')} onPress={() => dismiss()}><X color={muted} size={20} /></IconButton></View></View>
+        <View style={s.sheetHead}>{!hideTitle && <Text accessibilityRole="header" style={s.sheetTitle}>{title}</Text>}<View style={[s.row, hideTitle && { marginLeft: 'auto' }]}>{headerAction}<IconButton label={t('关闭')} onPress={requestDismiss}><X color={muted} size={20} /></IconButton></View></View>
         {typeof children === 'function' ? children(dismiss) : children}
       </Animated.View>
     </KeyboardAvoidingView>

@@ -22,6 +22,7 @@ import (
 // the shared model and tool implementations while writing DeepSeek's native
 // Session events directly, including inbox, attachments and compaction.
 type NativeLoop struct {
+	*nativeTools
 	// mu orders inbox admission against the first-step claim checkpoint. A
 	// later message may be admitted while a model or tool call is running.
 	mu       sync.Mutex
@@ -34,45 +35,50 @@ type NativeLoop struct {
 	streamRevision       uint64
 	streamActive         *nativeActiveAssistantAttempt
 	// runMu permits only one driver to execute turns for this Agent.
-	runMu                 sync.Mutex
-	session               *sessionformat.LiveSession
-	model                 Model
-	resolveTurnModel      func(context.Context) (TurnModel, error)
-	provider              string
-	modelID               string
-	reasoningEffort       string
-	systemPrompt          string
-	tools                 map[string]Tool
-	toolSpecs             []ToolSpec
-	toolSchemas           map[string]*jsonschema.Schema
-	parallelSafe          map[string]bool
-	maxParallelToolCalls  int
-	maxSteps              int
-	maxToolCalls          int
-	maxModelCalls         int
-	modelCalls            int
-	repeatGuard           repeatToolReminder
-	repeatReminders       []map[string]any
-	contextWindowTokens   int
-	reservedOutputTokens  int
-	contextHeadroomTokens int
-	pressureMeter         *nativePressureMeter
-	requestLogged         bool
-	retryPolicy           nativeRetryPolicy
-	filePath              NativeFilePathResolver
-	goalClaim             func(json.RawMessage, sessionformat.InboxState) (bool, error)
-	runtimeContext        func() []RuntimeContextSection
-	preTool               func(context.Context, string, json.RawMessage) error
-	preStep               func(context.Context) (NativePreStepDecision, error)
-	promptForStep         func() (string, error)
-	instructionsForStep   func(context.Context, []string) (NativeInstructionSnapshot, error)
-	skillCatalogTool      Tool
-	skillCatalogForStep   func(context.Context) (NativeSkillCatalogSnapshot, error)
-	skillInvocationLoader func(context.Context, string) (string, bool, error)
-	timeContext           *nativeTimeContext
-	instructionScanned    int
-	instructionCalls      map[string]string
-	instructionTouched    []string
+	runMu                     sync.Mutex
+	session                   *sessionformat.LiveSession
+	model                     Model
+	resolveTurnModel          func(context.Context) (TurnModel, error)
+	resolveSelectedModel      ModelSelectionResolver
+	provider                  string
+	modelID                   string
+	reasoningEffort           string
+	configuredReasoningEffort string
+	systemPrompt              string
+	baseTools                 []Tool
+	toolSource                ToolSource
+	toolInvocationSource      ToolInvocationSource
+	toolSpecs                 []ToolSpec
+	maxSteps                  int
+	maxToolCalls              int
+	maxModelCalls             int
+	modelCalls                int
+	repeatGuard               repeatToolReminder
+	repeatReminders           []map[string]any
+	contextWindowTokens       int
+	reservedOutputTokens      int
+	contextHeadroomTokens     int
+	pressureMeter             *nativePressureMeter
+	requestLogged             bool
+	retryPolicy               nativeRetryPolicy
+	filePath                  NativeFilePathResolver
+	goalClaim                 func(json.RawMessage, sessionformat.InboxState) (bool, error)
+	runtimeContext            func() []RuntimeContextSection
+	runtimeContextSource      func(context.Context, string) ([]RuntimeContextSection, error)
+	systemContextSource       func(context.Context, string) ([]RuntimeContextSection, error)
+	promptAssembler           PromptAssemblySource
+	assembledContexts         []RuntimeContextSection
+	finishToolStep            func(context.Context, string) error
+	preStep                   func(context.Context) (NativePreStepDecision, error)
+	promptForStep             func() (string, error)
+	instructionsForStep       func(context.Context, []string) (NativeInstructionSnapshot, error)
+	skillCatalogTool          Tool
+	skillCatalogForStep       func(context.Context) (NativeSkillCatalogSnapshot, error)
+	skillInvocationLoader     func(context.Context, string) (string, bool, error)
+	timeContext               *nativeTimeContext
+	instructionScanned        int
+	instructionCalls          map[string]string
+	instructionTouched        []string
 }
 
 // NativeInstructionSnapshot is the current, bounded workspace-instruction
@@ -104,6 +110,17 @@ func (a *NativeLoop) SetTurnModelResolver(resolve func(context.Context) (TurnMod
 	a.resolveTurnModel = resolve
 }
 
+// SessionHeader and DurableSessionEventPage expose detached, read-only Host
+// capabilities. The existing Go Session remains the journal and lifecycle owner.
+func (a *NativeLoop) SessionHeader() sessionformat.Header { return a.session.Header() }
+
+// SessionRecord lends the existing Go owner to Host capability adapters; it
+// does not construct another session or transfer writer ownership.
+func (a *NativeLoop) SessionRecord() *sessionformat.LiveSession { return a.session }
+func (a *NativeLoop) DurableSessionEventPage(after *uint64, limit int) []sessionformat.Event {
+	return a.session.DurableEventPage(after, limit)
+}
+
 // pinTurnModel is called with runMu held, before claiming durable work.
 func (a *NativeLoop) pinTurnModel(ctx context.Context) (context.Context, error) {
 	if a.resolveTurnModel == nil {
@@ -121,6 +138,19 @@ func (a *NativeLoop) pinTurnModel(ctx context.Context) (context.Context, error) 
 		a.requestLogged = false
 	}
 	a.model, a.provider, a.modelID = model.Model, model.Route.Provider, model.Route.Model
+	if a.resolveSelectedModel != nil {
+		// The web/mobile model setting remains an explicit Host-owned input
+		// for these manually managed turns. Record that input before step
+		// preparation, so synchronous SDK reads agree with the real request.
+		effort := model.Route.ReasoningEffort
+		if effort == "" {
+			effort = a.configuredReasoningEffort
+		}
+		a.reasoningEffort = effort
+		if err := a.session.SelectModel(sessionformat.ModelSelection{Provider: model.Route.Provider, Model: model.Route.Model, ReasoningEffort: effort}); err != nil {
+			return ctx, err
+		}
+	}
 	ctx = context.WithValue(ctx, turnModelKey{}, model)
 	return WithModelRoute(ctx, model.Route), nil
 }
@@ -171,6 +201,7 @@ func (a *NativeLoop) SetParallelToolLimit(limit int) error {
 // and model. The effective value is part of the durable request header.
 func (a *NativeLoop) SetReasoningEffort(effort string) {
 	a.reasoningEffort = effort
+	a.configuredReasoningEffort = effort
 }
 
 // SetContextPressure enables DeepSeek-style pre-request pressure checks for a
@@ -215,11 +246,6 @@ func (a *NativeLoop) SetPreStepHook(hook func(context.Context) (NativePreStepDec
 
 func (a *NativeLoop) SetSystemPromptProvider(provider func() (string, error)) {
 	a.promptForStep = provider
-}
-
-// SetToolApproval installs a pre-dispatch policy for model tool calls.
-func (a *NativeLoop) SetToolApproval(policy func(context.Context, string, json.RawMessage) error) {
-	a.preTool = policy
 }
 
 func (a *NativeLoop) completeModel(ctx context.Context, messages []Message) (modeldata.AssistantMessage, error) {
@@ -306,26 +332,13 @@ func NewNativeLoop(s *sessionformat.LiveSession, model Model, provider, modelID,
 	if err != nil {
 		return nil, err
 	}
-	loop := &NativeLoop{session: s, model: model, provider: provider, modelID: modelID, systemPrompt: systemPrompt,
-		tools: make(map[string]Tool), toolSchemas: make(map[string]*jsonschema.Schema), parallelSafe: make(map[string]bool),
-		maxParallelToolCalls: 4, maxSteps: maxSteps, maxToolCalls: maxToolCalls, retryPolicy: defaultNativeRetryPolicy(), repeatGuard: repeatGuard}
-	for _, tool := range tools {
-		if tool == nil {
-			return nil, errors.New("native Agent tool is nil")
-		}
-		spec := tool.Spec()
-		if spec.Name == "" || loop.tools[spec.Name] != nil || !json.Valid(spec.Parameters) {
-			return nil, fmt.Errorf("invalid native Agent tool %q", spec.Name)
-		}
-		schema, err := compileToolParameters(spec.Parameters)
-		if err != nil {
-			return nil, fmt.Errorf("compile native Agent tool %q parameters: %w", spec.Name, err)
-		}
-		loop.tools[spec.Name] = tool
-		loop.toolSpecs = append(loop.toolSpecs, spec)
-		loop.toolSchemas[spec.Name] = schema
-		loop.parallelSafe[spec.Name] = spec.ParallelSafe
+	loop := &NativeLoop{nativeTools: &nativeTools{header: s.Header, tools: make(map[string]Tool), toolSchemas: make(map[string]*jsonschema.Schema), parallelSafe: make(map[string]bool), maxParallelToolCalls: 4}, session: s, model: model, provider: provider, modelID: modelID, systemPrompt: systemPrompt,
+		maxSteps: maxSteps, maxToolCalls: maxToolCalls, retryPolicy: defaultNativeRetryPolicy(), repeatGuard: repeatGuard}
+	loop.nativeTools.postResult = loop.observeRepeatedToolResult
+	if err := loop.installTools(tools); err != nil {
+		return nil, err
 	}
+	loop.baseTools = append([]Tool(nil), tools...)
 	return loop, nil
 }
 
@@ -533,6 +546,7 @@ func (a *NativeLoop) runClaimed(ctx context.Context, releaseAdmission func()) (a
 	maxTokensSeen := false
 	blocked := false
 	defer func() {
+		err = errors.Join(err, a.releaseToolStep(ctx))
 		if !claimLocked {
 			a.mu.Lock()
 			claimLocked = true
@@ -567,7 +581,9 @@ func (a *NativeLoop) runClaimed(ctx context.Context, releaseAdmission func()) (a
 		err = errors.Join(err, closeErr, a.session.Flush(settle))
 	}()
 	toolCount := 0
+	turnContext := ctx
 	for step := 1; step <= a.maxSteps; step++ {
+		ctx = turnContext
 		if err = ctx.Err(); err != nil {
 			return "", err
 		}
@@ -587,6 +603,10 @@ func (a *NativeLoop) runClaimed(ctx context.Context, releaseAdmission func()) (a
 				return "", err
 			}
 		}
+		ctx, err = a.captureStepModel(ctx)
+		if err != nil {
+			return "", err
+		}
 		if a.preStep != nil {
 			var decision NativePreStepDecision
 			if decision, err = a.preStep(ctx); err != nil {
@@ -600,11 +620,17 @@ func (a *NativeLoop) runClaimed(ctx context.Context, releaseAdmission func()) (a
 				return "", errors.New("invalid native pre-step decision")
 			}
 		}
+		if err = a.refreshTools(ctx); err != nil {
+			return "", err
+		}
+		if err = a.refreshToolInvocationSource(ctx); err != nil {
+			return "", err
+		}
 		if _, err = a.append("step/start", map[string]any{"turn": turn, "step": step}, nil, nil); err != nil {
 			return "", err
 		}
 		stepOpen = true
-		if err = a.ensureSystem(turn, step); err != nil {
+		if err = a.ensureSystem(ctx, turn, step); err != nil {
 			return "", err
 		}
 		if err = a.ensureSkillCatalog(ctx); err != nil {
@@ -628,7 +654,7 @@ func (a *NativeLoop) runClaimed(ctx context.Context, releaseAdmission func()) (a
 		if err = a.ensureInstructions(ctx); err != nil {
 			return "", err
 		}
-		if err = a.ensureRuntimeContext(); err != nil {
+		if err = a.ensureRuntimeContext(ctx); err != nil {
 			return "", err
 		}
 		if err = a.ensureTimeContext(ctx, turn, step); err != nil {
@@ -692,6 +718,7 @@ func (a *NativeLoop) runClaimed(ctx context.Context, releaseAdmission func()) (a
 			return latestToolQuestion(a.session)
 		}))
 		budgetExceeded, concluded, toolErr := a.executeNativeStepTools(toolCtx, turn, step, response.ToolCalls, &toolCount)
+		toolErr = errors.Join(toolErr, a.releaseToolStep(ctx))
 		if toolErr != nil {
 			a.repeatReminders = nil
 			return "", toolErr
@@ -778,7 +805,7 @@ func (a *NativeLoop) append(eventType string, data any, surfaceOp json.RawMessag
 	return a.session.Append(sessionformat.EventInput{Type: eventType, Data: encoded, SurfaceOp: surfaceOp, SourceEventSeqs: sources})
 }
 
-func (a *NativeLoop) ensureSystem(turn uint64, step int) error {
+func (a *NativeLoop) ensureSystem(ctx context.Context, turn uint64, step int) error {
 	prompt := a.systemPrompt
 	if a.promptForStep != nil {
 		var err error
@@ -786,6 +813,22 @@ func (a *NativeLoop) ensureSystem(turn uint64, step int) error {
 		if err != nil {
 			return err
 		}
+	}
+	if a.systemContextSource != nil {
+		sections, err := a.systemContextSource(ctx, a.session.Header().ID)
+		if err != nil {
+			return err
+		}
+		for _, section := range sections {
+			if section.Text != "" {
+				prompt += "\n\n" + section.Text
+			}
+		}
+	}
+	var assemblyErr error
+	prompt, assemblyErr = a.assemblePrompt(ctx, prompt)
+	if assemblyErr != nil {
+		return assemblyErr
 	}
 	surface, err := a.session.Surface()
 	if err != nil {
@@ -920,6 +963,9 @@ func (a *NativeLoop) logAssistant(turn uint64, step int, response modeldata.Assi
 		}
 	}
 	message := map[string]any{"id": uuid.NewString(), "role": "assistant", "source": map[string]any{"kind": "model", "provider": a.provider, "model": a.modelID}, "content": content}
+	if response.ProviderReplay != nil && !response.Interrupted && !response.MaxTokens {
+		message["providerReplay"] = response.ProviderReplay
+	}
 	stream := response.StreamRecords
 	streamed := stream != nil
 	stamp := time.Now().UnixMilli()
@@ -982,16 +1028,15 @@ func nativeUsage(usage *modeldata.ModelUsage) (map[string]any, error) {
 	return result, nil
 }
 
-func (a *NativeLoop) executeNativeTool(ctx context.Context, turn, step uint64, call modeldata.ToolRequest) (result modeldata.ToolResult) {
+func (a *nativeTools) executeNativeToolDirect(ctx context.Context, turn, step uint64, call modeldata.ToolRequest, tool Tool, schema *jsonschema.Schema) (result modeldata.ToolResult) {
 	result = modeldata.ToolResult{ID: call.ID, Name: call.Name}
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			result.IsError, result.Code, result.Content = true, modeldata.ToolOutcomeUnknown, fmt.Sprintf("Tool panicked; its outcome is unknown: %v", recovered)
 		}
 	}()
-	tool := a.tools[call.Name]
 	if tool == nil {
-		result.IsError, result.Code, result.Content = true, "TOOL_NOT_FOUND", "Unknown tool: "+call.Name
+		result.IsError, result.Code, result.ErrorName, result.Content = true, "UNKNOWN_TOOL", "ToolNotFoundError", fmt.Sprintf("Error: unknown tool %q", call.Name)
 		return result
 	}
 	presented, hasPresentation := tool.(PresentedTool)
@@ -1007,7 +1052,7 @@ func (a *NativeLoop) executeNativeTool(ctx context.Context, turn, step uint64, c
 		}
 		return result
 	}
-	if schema := a.toolSchemas[call.Name]; schema == nil {
+	if schema == nil {
 		result.IsError, result.Code, result.Content = true, "TOOL_ERROR", "Tool parameter schema was not compiled."
 		return result
 	} else if err := validateToolParameters(schema, arguments); err != nil {
@@ -1025,6 +1070,11 @@ func (a *NativeLoop) executeNativeTool(ctx context.Context, turn, step uint64, c
 		}
 		return result
 	}
+	if ctx.Err() != nil {
+		result.IsError, result.Code, result.ErrorName, result.Content = true, "ABORTED_BEFORE_DISPATCH", "AbortError", "tool call aborted before dispatch"
+		return result
+	}
+	markToolBodyStarted(ctx)
 	control := &toolControl{}
 	executionCtx := withToolPosition(ctx, turn, step)
 	executionCtx = withToolCallID(executionCtx, call.ID)
@@ -1032,19 +1082,30 @@ func (a *NativeLoop) executeNativeTool(ctx context.Context, turn, step uint64, c
 	cancel := func() {}
 	var toolTimeoutCause error
 	timeout := tool.Spec().Timeout
-	if timeout > 0 {
+	var content string
+	var blocks []agentcontent.ContentBlock
+	canonicalResult := false
+	var err error
+
+	// A tool request budget is not an ordinary user-approval timeout.
+	// Start it only after the pre-dispatch approval has settled.
+	if err == nil && timeout > 0 {
 		toolTimeoutCause = errors.New("Harness tool call deadline")
 		executionCtx, cancel = context.WithTimeoutCause(executionCtx, timeout, toolTimeoutCause)
 	}
 	defer cancel()
-	var content string
-	var blocks []agentcontent.ContentBlock
-	var err error
-	if a.preTool != nil {
-		err = a.preTool(executionCtx, call.Name, arguments)
-	}
 	if err != nil {
 		// Process policy denial as a normal tool failure.
+	} else if normalized, ok := tool.(ResultTool); ok {
+		var body modeldata.ToolResult
+		body, err = normalized.ExecuteResult(executionCtx, arguments)
+		content, blocks, result.Meta = body.Content, body.ContentBlocks, body.Meta
+		result.IsError, result.Code, result.ErrorName, result.ErrorReason = body.IsError, body.Code, body.ErrorName, body.ErrorReason
+		result.AdditionalContexts = body.AdditionalContexts
+		result.ConcludeTurn = body.ConcludeTurn
+		canonicalResult = true
+	} else if rich, ok := tool.(RichTool); ok {
+		content, blocks, result.Meta, err = rich.ExecuteRich(executionCtx, arguments)
 	} else if hasPresentation {
 		content, result.Meta, err = presented.ExecutePresented(executionCtx, arguments)
 	} else if structured, ok := tool.(ContentTool); ok {
@@ -1088,10 +1149,9 @@ func (a *NativeLoop) executeNativeTool(ctx context.Context, turn, step uint64, c
 	}
 	result.Content = content
 	result.ContentBlocks = agentcontent.CloneContentBlocks(blocks)
-	result.ConcludeTurn = control.concludeTurn
+	result.ConcludeTurn = !result.IsError && (result.ConcludeTurn || control.concludeTurn)
 	if hasPresentation {
-		result = boundedToolResult(result)
-		if result.IsError {
+		if result.IsError && !canonicalResult {
 			result.Meta = nil
 		}
 	}
@@ -1138,6 +1198,9 @@ func (a *NativeLoop) logToolResult(turn uint64, step int, callSeq uint64, result
 			}
 		}
 		data["error"] = map[string]any{"name": name, "code": result.Code}
+		if result.ErrorReason != nil {
+			data["error"].(map[string]any)["reason"] = *result.ErrorReason
+		}
 	}
 	_, err := a.append("tool/result", data, json.RawMessage(`"append"`), []uint64{callSeq})
 	return err
@@ -1189,9 +1252,11 @@ func nativeModelMessages(s *sessionformat.LiveSession, resolveFile NativeFilePat
 	messages := make([]Message, 0, len(surface.Messages))
 	for _, raw := range surface.Messages {
 		var value struct {
-			Role       string `json:"role"`
-			ToolCallID string `json:"toolCallId"`
-			Content    []struct {
+			ProviderReplay *modeldata.ProviderReplay `json:"providerReplay"`
+			IsError        bool                      `json:"isError"`
+			Role           string                    `json:"role"`
+			ToolCallID     string                    `json:"toolCallId"`
+			Content        []struct {
 				Type       string `json:"type"`
 				Text       string `json:"text"`
 				ID         string `json:"id"`
@@ -1212,7 +1277,7 @@ func nativeModelMessages(s *sessionformat.LiveSession, resolveFile NativeFilePat
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, err
 		}
-		message := Message{Role: value.Role, ToolCallID: value.ToolCallID}
+		message := Message{Role: value.Role, ToolCallID: value.ToolCallID, IsError: value.IsError, ProviderReplay: value.ProviderReplay}
 		var textParts []string
 		var orderedBlocks []agentcontent.ContentBlock
 		var assistantOrder []modeldata.AssistantOutputBlock

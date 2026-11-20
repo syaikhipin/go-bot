@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"strings"
 
 	"go-bot/internal/modeldata"
 )
@@ -21,16 +22,33 @@ const (
 // Success content is not silently truncated: the model receives an explicit
 // error telling it to save large output in the workspace and return a path.
 func boundedToolResult(result modeldata.ToolResult) modeldata.ToolResult {
-	if len(result.Content) <= maxDurableToolContentBytes {
+	size := len(result.Content)
+	for _, block := range result.ContentBlocks {
+		size += len(block.Text)
+	}
+	if size <= maxDurableToolContentBytes {
 		return result
 	}
 	if result.IsError {
-		result.Content = result.Content[:maxDurableToolErrorBytes] + fmt.Sprintf("\n[error detail truncated: %d bytes total]", len(result.Content))
+		var detail strings.Builder
+		appendDetail := func(text string) {
+			remaining := maxDurableToolErrorBytes - detail.Len()
+			if remaining > 0 {
+				detail.WriteString(text[:min(len(text), remaining)])
+			}
+		}
+		appendDetail(result.Content)
+		for _, block := range result.ContentBlocks {
+			appendDetail(block.Text)
+		}
+		result.Content = strings.ToValidUTF8(detail.String(), "") + fmt.Sprintf("\n[error detail truncated: %d bytes total]", size)
+		result.ContentBlocks = nil
 		return result
 	}
 	result.IsError = true
 	result.Code = "TOOL_OUTPUT_TOO_LARGE"
-	result.Content = fmt.Sprintf("Tool returned %d bytes, exceeding the %d-byte durable result limit. Save large output to the workspace and return a bounded summary or file path.", len(result.Content), maxDurableToolContentBytes)
+	result.Content = fmt.Sprintf("Tool returned %d bytes, exceeding the %d-byte durable result limit. Save large output to the workspace and return a bounded summary or file path.", size, maxDurableToolContentBytes)
+	result.ContentBlocks = nil
 	return result
 }
 

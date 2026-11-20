@@ -22,6 +22,10 @@ npm run android
 
 在 `android/` 运行 `./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a` 可生成 ARM64 Release APK。发布时用 Android SDK 的 `zipalign -P 16` 对齐、再用 `apksigner` 签名，最后验证签名和对齐。发布密钥保存在仓库外。
 
+`with-shared-source-inputs` 配置插件会把共用的 `frontend/src` 纳入 Android JavaScript 打包任务的输入，修改共享文案、会话投影或授权交互后，增量 Release 构建也会更新包。Metro 的 React 映射和 TypeScript 路径使用移动端自己的依赖，无需另外安装 Web 的 node_modules。
+
+TypeScript 中的 React 路径只指向类型声明；`experiments.tsconfigPaths=false` 避免 Metro 把声明文件当成运行时代码。运行时通过 `metro.config.js` 解析实际 React。
+
 在连接页填写 Controller 入口地址和账号名。可以连接已有账号，也可以在同一页面创建账号。新账号在「我的 → 模型」设置端点和默认模型后即可发送第一条消息。iOS 模拟器可直接填同机的 `http://127.0.0.1:8080`。
 
 ## 手机连接

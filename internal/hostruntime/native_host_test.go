@@ -11,6 +11,26 @@ import (
 	"go-bot/harness/interaction"
 )
 
+func TestHostStreamAudienceIncludesFutureSessionsAndMultipleClients(t *testing.T) {
+	host := &NativeHost{}
+	if host.hasChatStream("new-session") {
+		t.Fatal("offline Host has an audience")
+	}
+	first, second := host.AttachHostStream(), host.AttachHostStream()
+	if !host.hasChatStream("new-session") {
+		t.Fatal("Host client did not cover a future Session")
+	}
+	first()
+	first() // A teardown must never decrement twice.
+	if !host.hasChatStream("another-session") {
+		t.Fatal("one remaining client was ignored")
+	}
+	second()
+	if host.hasChatStream("new-session") {
+		t.Fatal("closed clients remained online")
+	}
+}
+
 func TestNativeHostOwnsMultipleIndependentSessions(t *testing.T) {
 	ctx := context.Background()
 	stores := map[string]*nativeRuntimeStore{

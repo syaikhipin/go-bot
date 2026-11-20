@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"go-bot/harness/assembly"
 	"go-bot/harness/schedule"
 	"go-bot/harness/session"
 )
@@ -45,54 +46,95 @@ type NativeHost struct {
 	Schedule             *schedule.Service
 	StartedAt            time.Time
 	ReserveScheduleModel func(string) error
+	PluginsChanges       func() (<-chan struct{}, <-chan struct{})
+	MCPChanges           func() (<-chan struct{}, <-chan struct{})
 
 	approvalMu      sync.Mutex
 	approvalStreams map[string]int
+	hostStreams     int
 	operationMu     sync.Mutex
-	historyMu       sync.RWMutex // Keeps cold history readers outside Session activation.
+	historyLocks    map[string]*hostHistoryGate
+	operations      map[string]*hostSessionOperation
 	scheduleClose   sync.Once
 	mu              sync.Mutex
 	sessions        map[string]*NativeRuntime
-	activating      bool
 	closed          bool
 	lastActivity    time.Time
 }
 
 func (h *NativeHost) Activate(ctx context.Context, sessionID string, resume bool) (*NativeRuntime, error) {
-	return h.activate(ctx, sessionID, resume, nil)
+	return h.activate(ctx, sessionID, resume, nil, nil, nil)
 }
 
 func (h *NativeHost) ActivateInWorkspace(ctx context.Context, sessionID string, create schedule.TargetCreate) (*NativeRuntime, error) {
-	return h.activate(ctx, sessionID, false, &create)
+	return h.activate(ctx, sessionID, false, &create, nil, nil)
 }
 
-func (h *NativeHost) activate(ctx context.Context, sessionID string, resume bool, create *schedule.TargetCreate) (*NativeRuntime, error) {
+func (h *NativeHost) ActivateWithSetup(ctx context.Context, sessionID string, resume bool, setup NativeSetup) (*NativeRuntime, error) {
+	return h.activate(ctx, sessionID, resume, nil, setup, nil)
+}
+
+func (h *NativeHost) ActivateInWorkspaceWithSetup(ctx context.Context, sessionID string, create schedule.TargetCreate, setup NativeSetup) (*NativeRuntime, error) {
+	return h.activate(ctx, sessionID, false, &create, setup, nil)
+}
+
+// ActivateWithSessionOptions uses the same Host admission, Go driver and
+// rollback path, while allowing programmatic metadata/seed independent of the
+// manual chat workspace convention. Setup still receives the actual Go Agent.
+func (h *NativeHost) ActivateWithSessionOptions(ctx context.Context, id string, options assembly.NativeSessionOptions, setup NativeSetup) (*NativeRuntime, error) {
+	detached, err := options.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	create := schedule.TargetCreate{}
+	if meta := detached.Meta; meta != nil {
+		if meta.CWD != nil {
+			create.CWD = *meta.CWD
+		}
+		if meta.AgentPreset != nil {
+			create.AgentPreset = *meta.AgentPreset
+		}
+	}
+	return h.activate(ctx, id, false, &create, setup, &detached)
+}
+
+func (h *NativeHost) activate(ctx context.Context, sessionID string, resume bool, create *schedule.TargetCreate, setup NativeSetup, options *assembly.NativeSessionOptions) (_ *NativeRuntime, resultErr error) {
 	if h.UserID == "" || h.Build == nil || !hostSessionID.MatchString(sessionID) {
 		return nil, errors.New("invalid native Host Session activation")
 	}
 	h.operationMu.Lock()
-	defer h.operationMu.Unlock()
 	if err := h.CheckScheduleTarget(ctx, sessionID); err != nil {
+		h.operationMu.Unlock()
 		return nil, err
 	}
 	h.mu.Lock()
 	if h.closed {
 		h.mu.Unlock()
+		h.operationMu.Unlock()
 		return nil, ErrHostClosed
 	}
-	if h.sessions[sessionID] != nil {
+	if h.sessions[sessionID] != nil || h.operations[sessionID] != nil {
 		h.mu.Unlock()
+		h.operationMu.Unlock()
 		return nil, ErrHostSessionActive
 	}
-	h.activating = true
+	ctx, cancel := context.WithCancel(ctx)
+	operation := &hostSessionOperation{done: make(chan struct{}), cancel: cancel}
+	if h.operations == nil {
+		h.operations = make(map[string]*hostSessionOperation)
+	}
+	h.operations[sessionID] = operation
 	h.mu.Unlock()
+	h.operationMu.Unlock()
 	defer func() {
-		h.mu.Lock()
-		h.activating = false
-		h.mu.Unlock()
+		cancel()
+		h.finishOperation(sessionID, operation, resultErr)
 	}()
-	h.historyMu.Lock()
-	defer h.historyMu.Unlock()
+	releaseHistory := h.historyGate(sessionID, true)
+	defer releaseHistory()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var runtime *NativeRuntime
 	var err error
 	if create != nil && h.BuildInWorkspace != nil {
@@ -107,10 +149,57 @@ func (h *NativeHost) activate(ctx context.Context, sessionID string, resume bool
 		return nil, errors.New("native Host builder returned a foreign Session")
 	}
 	runtime.approvalAudience = func() bool { return h.hasChatStream(sessionID) }
-	if err := runtime.Start(ctx, resume); err != nil {
+	runtime.sessionCreation = options
+	h.mu.Lock()
+	operation.runtime = runtime
+	h.mu.Unlock()
+	err = runtime.start(ctx, resume, func(s *sessionformat.LiveSession) {
+		h.mu.Lock()
+		operation.session = s
+		h.mu.Unlock()
+		releaseHistory()
+	}, func(live *assembly.NativeLive) {
+		h.mu.Lock()
+		operation.live = live
+		h.mu.Unlock()
+		releaseHistory()
+	}, setup)
+	if err != nil {
+		runtime.mu.Lock()
+		retained := runtime.live != nil
+		runtime.mu.Unlock()
+		if retained {
+			h.mu.Lock()
+			if h.sessions == nil {
+				h.sessions = make(map[string]*NativeRuntime)
+			}
+			h.sessions[sessionID] = runtime
+			h.mu.Unlock()
+			return runtime, fmt.Errorf("activate native Session %s: %w", sessionID, err)
+		}
 		return nil, fmt.Errorf("activate native Session %s: %w", sessionID, err)
 	}
 	h.mu.Lock()
+	publicationErr := ctx.Err()
+	if h.closed {
+		publicationErr = ErrHostClosed
+	}
+	if publicationErr != nil {
+		h.mu.Unlock()
+		runtime.Abort()
+		cleanup, stop := context.WithTimeout(context.Background(), 10*time.Second)
+		defer stop()
+		if err := runtime.Stop(cleanup); err != nil {
+			h.mu.Lock()
+			if h.sessions == nil {
+				h.sessions = make(map[string]*NativeRuntime)
+			}
+			h.sessions[sessionID] = runtime
+			h.mu.Unlock()
+			return runtime, errors.Join(publicationErr, err)
+		}
+		return nil, publicationErr
+	}
 	if h.sessions == nil {
 		h.sessions = make(map[string]*NativeRuntime)
 	}
@@ -151,7 +240,35 @@ func (h *NativeHost) AttachChatStream(sessionID string) func() {
 func (h *NativeHost) hasChatStream(sessionID string) bool {
 	h.approvalMu.Lock()
 	defer h.approvalMu.Unlock()
-	return h.approvalStreams[sessionID] > 0
+	return h.hostStreams > 0 || h.approvalStreams[sessionID] > 0
+}
+
+// AttachHostStream marks an interactive client for all current and future
+// Sessions. Detaching never cancels a question that has already been asked.
+func (h *NativeHost) AttachHostStream() func() {
+	h.approvalMu.Lock()
+	h.hostStreams++
+	h.approvalMu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			h.approvalMu.Lock()
+			h.hostStreams--
+			h.approvalMu.Unlock()
+		})
+	}
+}
+
+// StreamSessions returns handles without activating cold Sessions. Callers
+// must not hold the Host lock while reading or subscribing to a runtime.
+func (h *NativeHost) StreamSessions() (map[string]*NativeRuntime, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	result := make(map[string]*NativeRuntime, len(h.sessions))
+	for id, runtime := range h.sessions {
+		result[id] = runtime
+	}
+	return result, h.closed
 }
 
 func (h *NativeHost) Session(sessionID string) (*NativeRuntime, bool) {
@@ -164,11 +281,14 @@ func (h *NativeHost) Session(sessionID string) (*NativeRuntime, bool) {
 	return runtime, ok
 }
 
-// WithSessionHistory keeps a cold read outside the interval where a runtime
-// may be writing its journal but has not yet been published to Session().
-func (h *NativeHost) WithSessionHistory(read func() error) error {
-	h.historyMu.RLock()
-	defer h.historyMu.RUnlock()
+// WithSessionHistory protects cold initialization for one Session. Readers
+// use DurableSessionSuffix/SessionArtifact once a real Go Session is prepared.
+func (h *NativeHost) WithSessionHistory(ctx context.Context, id string, read func() error) error {
+	release := h.historyGate(id, false)
+	defer release()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return read()
 }
 
@@ -186,10 +306,7 @@ func (h *NativeHost) scheduleRuntime(ctx context.Context, sessionID string) (*Na
 		var err error
 		runtime, err = h.Activate(ctx, sessionID, true)
 		if errors.Is(err, ErrHostSessionActive) {
-			runtime, found = h.Session(sessionID)
-			if found {
-				err = nil
-			}
+			runtime, err = h.AwaitSession(ctx, sessionID)
 		}
 		if err != nil {
 			return nil, err
@@ -211,7 +328,11 @@ func (h *NativeHost) EnsureScheduleDestination(ctx context.Context, sessionID st
 				return err
 			}
 		}
-		if _, err := h.ActivateInWorkspace(ctx, sessionID, create); err != nil && !errors.Is(err, ErrHostSessionActive) {
+		_, err := h.ActivateInWorkspace(ctx, sessionID, create)
+		if errors.Is(err, ErrHostSessionActive) {
+			_, err = h.AwaitSession(ctx, sessionID)
+		}
+		if err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -242,23 +363,73 @@ func (h *NativeHost) DeliverSchedule(ctx context.Context, sessionID, text string
 // StopSession drains only this top-level Session and its own children/jobs.
 // Other Session runtimes remain live and continue accepting messages.
 func (h *NativeHost) StopSession(ctx context.Context, sessionID string) error {
+	return h.stopSession(ctx, sessionID, false)
+}
+
+func (h *NativeHost) stopSession(ctx context.Context, sessionID string, closing bool) (resultErr error) {
+	return h.stopOwnedSession(ctx, sessionID, closing, nil)
+}
+
+// StopRuntime releases an exact factory-owned live Agent. Reusing a Session ID
+// never transfers an old creator's ownership to its replacement. UI stop-by-ID
+// remains the separate StopSession operation.
+func (h *NativeHost) StopRuntime(ctx context.Context, runtime *NativeRuntime) error {
+	if runtime == nil || runtime.Identity.UserID != h.UserID || !hostSessionID.MatchString(runtime.Identity.SessionID) {
+		return errors.New("invalid owned native Agent")
+	}
+	return h.stopOwnedSession(ctx, runtime.Identity.SessionID, false, runtime)
+}
+
+func (h *NativeHost) stopOwnedSession(ctx context.Context, sessionID string, closing bool, expected *NativeRuntime) (resultErr error) {
 	h.operationMu.Lock()
-	defer h.operationMu.Unlock()
 	h.mu.Lock()
-	if h.closed {
+	if expected != nil && h.sessions[sessionID] != expected && (h.operations[sessionID] == nil || h.operations[sessionID].runtime != expected) {
 		h.mu.Unlock()
+		h.operationMu.Unlock()
+		return nil // This lifetime has already been withdrawn, even after Host close.
+	}
+	if h.closed && !closing && expected == nil {
+		h.mu.Unlock()
+		h.operationMu.Unlock()
 		return ErrHostClosed
+	}
+	if operation := h.operations[sessionID]; operation != nil {
+		h.mu.Unlock()
+		h.operationMu.Unlock()
+		if !operation.stopping {
+			return ErrHostSessionBusy
+		}
+		select {
+		case <-operation.done:
+			return operation.err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	runtime := h.sessions[sessionID]
 	if runtime == nil {
 		h.mu.Unlock()
+		h.operationMu.Unlock()
 		return ErrHostSessionAbsent
 	}
+	operation := &hostSessionOperation{done: make(chan struct{}), runtime: runtime, stopping: true}
+	if h.operations == nil {
+		h.operations = make(map[string]*hostSessionOperation)
+	}
+	h.operations[sessionID] = operation
 	h.mu.Unlock()
-	if err := runtime.Stop(ctx); err != nil {
+	h.operationMu.Unlock()
+	defer func() { h.finishOperation(sessionID, operation, resultErr) }()
+	var stopErr error
+	if expected != nil {
+		stopErr = runtime.Dispose(ctx)
+	} else {
+		stopErr = runtime.Stop(ctx)
+	}
+	if stopErr != nil {
 		// A timed-out stop may still be draining its turn or child Jobs. Keep
 		// the runtime visible so Host activity cannot report false idleness.
-		return err
+		return stopErr
 	}
 	h.mu.Lock()
 	delete(h.sessions, sessionID)
@@ -279,7 +450,7 @@ func (h *NativeHost) Activity() (sessionformat.ActivitySnapshot, error) {
 		return sessionformat.ActivitySnapshot{}, ErrHostClosed
 	}
 	runtimes := make([]*NativeRuntime, 0, len(h.sessions))
-	activating := h.activating
+	activating := len(h.operations) != 0
 	since := h.lastActivity
 	if h.StartedAt.After(since) {
 		since = h.StartedAt
@@ -314,7 +485,7 @@ func (h *NativeHost) Activity() (sessionformat.ActivitySnapshot, error) {
 		result.Since = h.lastActivity
 		result.Idle = false
 	}
-	if h.activating {
+	if len(h.operations) != 0 {
 		result.Idle = false
 	}
 	h.mu.Unlock()
@@ -328,8 +499,17 @@ func (h *NativeHost) Close(ctx context.Context) error {
 	h.operationMu.Lock()
 	h.mu.Lock()
 	h.closed = true
+	var cancel []context.CancelFunc
+	for _, operation := range h.operations {
+		if operation.cancel != nil {
+			cancel = append(cancel, operation.cancel)
+		}
+	}
 	h.mu.Unlock()
 	h.operationMu.Unlock()
+	for _, stop := range cancel {
+		stop()
+	}
 	// A due Schedule delivery may be waiting to activate a Session. Release
 	// operationMu before waiting for that dispatcher to stop; closed admission
 	// makes any late activation fail without constructing another runtime.
@@ -338,8 +518,39 @@ func (h *NativeHost) Close(ctx context.Context) error {
 			h.Schedule.Close()
 		}
 	})
-	h.operationMu.Lock()
-	defer h.operationMu.Unlock()
+	// Setup/disposal may reenter Host services. Wait for admitted operations
+	// without a Host mutex; a caller deadline leaves their ownership intact.
+	for {
+		h.mu.Lock()
+		var pending <-chan struct{}
+		for _, operation := range h.operations {
+			pending = operation.done
+			break
+		}
+		h.mu.Unlock()
+		if pending == nil {
+			break
+		}
+		select {
+		case <-pending:
+		case <-ctx.Done():
+			h.mu.Lock()
+			unfinished := make(map[*NativeRuntime]bool)
+			for _, runtime := range h.sessions {
+				unfinished[runtime] = true
+			}
+			for _, operation := range h.operations {
+				if operation.runtime != nil {
+					unfinished[operation.runtime] = true
+				}
+			}
+			h.mu.Unlock()
+			for runtime := range unfinished {
+				runtime.Abort()
+			}
+			return ctx.Err()
+		}
+	}
 	h.mu.Lock()
 	runtimes := make(map[string]*NativeRuntime, len(h.sessions))
 	for id, runtime := range h.sessions {
@@ -347,14 +558,10 @@ func (h *NativeHost) Close(ctx context.Context) error {
 	}
 	h.mu.Unlock()
 	var failures []error
-	for id, runtime := range runtimes {
-		if err := runtime.Stop(ctx); err != nil {
+	for id := range runtimes {
+		if err := h.stopSession(ctx, id, true); err != nil && !errors.Is(err, ErrHostSessionAbsent) {
 			failures = append(failures, fmt.Errorf("stop Session %s: %w", id, err))
-			continue
 		}
-		h.mu.Lock()
-		delete(h.sessions, id)
-		h.mu.Unlock()
 	}
 	return errors.Join(failures...)
 }

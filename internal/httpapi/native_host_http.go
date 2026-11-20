@@ -33,6 +33,10 @@ func NewNativeHostHTTP(host *hostruntime.NativeHost, options NativeWorkerHTTPOpt
 	var historyCache coldHistoryCache
 	publicHandlers := make(map[string]cached)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/v1/host/stream" {
+			streamHostEvents(w, r, host)
+			return
+		}
 		if r.Method == http.MethodGet && r.URL.Path == "/v1/host/files" {
 			serveHostFiles(w, r, options.HostFilesRoot)
 			return
@@ -136,7 +140,10 @@ func NewNativeHostHTTP(host *hostruntime.NativeHost, options NativeWorkerHTTPOpt
 						return
 					}
 				}
-				if err != nil && !errors.Is(err, hostruntime.ErrHostSessionActive) {
+				if errors.Is(err, hostruntime.ErrHostSessionActive) {
+					_, err = host.AwaitSession(r.Context(), request.SessionID)
+				}
+				if err != nil {
 					http.Error(w, "Session creation failed", http.StatusServiceUnavailable)
 					return
 				}
@@ -371,10 +378,7 @@ func NewNativeHostHTTP(host *hostruntime.NativeHost, options NativeWorkerHTTPOpt
 			var err error
 			runtime, err = host.Activate(r.Context(), id, true)
 			if errors.Is(err, hostruntime.ErrHostSessionActive) {
-				runtime, ok = host.Session(id)
-				if ok {
-					err = nil
-				}
+				runtime, err = host.AwaitSession(r.Context(), id)
 			}
 			if errors.Is(err, os.ErrNotExist) || errors.Is(err, hostruntime.ErrHostSessionArchived) {
 				http.NotFound(w, r)

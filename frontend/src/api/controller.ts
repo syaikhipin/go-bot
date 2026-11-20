@@ -1,3 +1,4 @@
+import type { ModelProtocol } from "../settings/modelProtocol"
 import type { PermissionMode, SessionPermission } from '../chat/permissions'
 import { messageRequest } from '../chat/attachments'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
@@ -23,14 +24,18 @@ export type TranscriptPage = {
   throughSeq: number | null
   queue: QueueItem[]
   questions: PendingQuestion[] | null
+  baseline?: { revision: number; activeAttempt?: unknown }
+  permission?: SessionPermission
 }
 
 export class APIError extends Error {
   status: number
+  details?: unknown
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, details?: unknown) {
     super(message)
     this.status = status
+    this.details = details
   }
 }
 
@@ -41,19 +46,25 @@ export function settingsApplyFailed(error: unknown) {
 async function requireSuccess(response: Response) {
   if (response.ok) return response
   const failure = await response.json().catch(() => null)
-  throw new APIError(response.status, typeof failure?.error === 'string' ? failure.error : '')
+  throw new APIError(response.status, typeof failure?.error === 'string' ? failure.error : '', failure)
 }
 
-async function request<T>(path: string, options?: RequestInit, userId?: string): Promise<T> {
-  const headers = new Headers(options?.headers)
+function controllerHeaders(input?: HeadersInit, userId?: string) {
+  const headers = new Headers(input)
   if (userId) headers.set('X-User-ID', userId)
+  if (typeof window !== 'undefined') headers.set('X-Go-Bot-Controller-Origin', window.location.origin)
+  return headers
+}
+
+export async function request<T>(path: string, options?: RequestInit, userId?: string): Promise<T> {
+  const headers = controllerHeaders(options?.headers, userId)
   const response = await requireSuccess(await fetch(path, { ...options, headers }))
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 
 export type ModelSelection = { endpointId: string; modelId: string }
-export type ModelEndpoint = { name: string; baseUrl: string; hasApiKey: boolean; models: string[] }
+export type ModelEndpoint = { protocol?: ModelProtocol; name: string; baseUrl: string; hasApiKey: boolean; models: string[] }
 export type ModelSettings = { defaultEndpointId: string; endpoints: Record<string, ModelEndpoint> }
 export type SessionModel = { selection: ModelSelection | null; status: 'ready' | 'unconfigured' | 'unavailable' }
 
@@ -201,18 +212,16 @@ export async function fetchChatFile(userId: string, id: string, file: FileRef, n
   return response.blob()
 }
 
-export async function readStream(
+export async function readHostStream(
   userId: string,
-  id: string,
-  after: number | null,
+  cursors: Record<string, number | null>,
   signal: AbortSignal,
   onOpen: () => void,
   onEvent: (event: string, data: unknown) => void,
 ) {
-  const query = new URLSearchParams({ view: 'chat' })
-  if (after !== null) query.set('after', String(after))
-  const response = await fetch(sessionPath(id) + '/stream?' + query, {
-    headers: { Accept: 'text/event-stream', 'X-User-ID': userId },
+  const query = new URLSearchParams({ cursors: JSON.stringify(cursors) })
+  const response = await fetch('/v1/host/stream?' + query, {
+    headers: controllerHeaders({ Accept: 'text/event-stream' }, userId),
     signal,
   })
   await requireSuccess(response)

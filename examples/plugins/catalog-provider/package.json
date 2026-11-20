@@ -1,0 +1,12 @@
+{
+  "name": "@go-bot-example/catalog-provider",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./index.mjs",
+  "license": "MIT",
+  "description": "Example of a Cordis service unknown to the Go core",
+  "goBot": {
+    "api": "1"
+  }
+}

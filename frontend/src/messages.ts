@@ -1,6 +1,28 @@
+import { extensionChinese } from './extensions/messages'
+
 export type Language = 'en' | 'zh-CN'
 
 const chinese: Readonly<Record<string, string>> = {
+  ...extensionChinese,
+  "Brave Search API key": "Brave 搜索 API 密钥", "Tavily API key": "Tavily API 密钥",
+  "Approve this plan and leave plan mode?": "确认方案后开始执行，或提出修改意见继续规划。",
+  "Approve": "按此方案执行", "Keep planning": "继续完善方案",
+  "Leave plan mode; the plan is carried out from the next step.": "退出规划模式，从下一步开始执行方案。",
+  "Stay in plan mode; feedback goes back to the model.": "保持规划模式，将修改意见交给助手。",
+  "Plan review": "方案审阅", "Review the plan": "审阅方案",
+  "Approval needed": "待审批", "Answer needed": "待回答",
+  "Model ID": "模型 ID", "Add model": "添加模型", "Remove model": "移除模型", "Move up": "上移", "Move down": "下移",
+  "The first model is the endpoint default.": "第一个模型是此端点的默认模型。",
+  "Discard unsaved changes?": "放弃未保存的修改？",
+
+  "Supports OpenAI Responses and Anthropic Messages compatible endpoints.": "支持 OpenAI Responses 和 Anthropic Messages 兼容接口。",
+  "API protocol": "接口协议",
+  "Choose the API format provided by your service, regardless of the model name.": "按服务商提供的接口格式选择，与模型名称无关。",
+  "Request URL": "请求地址",
+  "Choose a supported API protocol.": "请选择支持的接口协议。",
+  "Enter a base URL without /messages, /responses, or /chat/completions.": "请填写基础地址，不包含 /messages、/responses 或 /chat/completions。",
+  "This model will be used from the next turn.": "将在下一轮使用此模型。",
+
   "Language": "语言",
   "Go Bot Chat": "Go Bot 会话",
   "Create an account": "创建账号",

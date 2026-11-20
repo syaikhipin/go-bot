@@ -40,6 +40,16 @@ func (h *NativeHost) ArchiveSessionWithActivity(ctx context.Context, id string, 
 	commit := func() error {
 		h.operationMu.Lock()
 		defer h.operationMu.Unlock()
+		h.mu.Lock()
+		pending := h.operations[id] != nil
+		closed := h.closed
+		h.mu.Unlock()
+		if closed {
+			return ErrHostClosed
+		}
+		if pending {
+			return ErrHostSessionBusy
+		}
 		if err := h.CheckScheduleTarget(ctx, id); errors.Is(err, ErrHostSessionArchived) {
 			return nil
 		} else if err != nil {

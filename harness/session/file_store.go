@@ -21,7 +21,7 @@ import (
 type FileStore struct {
 	Root          string
 	ProjectCWD    string
-	RootSessionID string // Nonempty for a child Session.
+	RootSessionID string // Optional built-in coordinator ancestor; not a metadata classification.
 	Claim         OwnerClaim
 }
 
@@ -41,7 +41,7 @@ func (s FileStore) validateHeader(header Header) error {
 	if err := header.Validate(); err != nil {
 		return err
 	}
-	return validateSessionLineage(s.ProjectCWD, s.RootSessionID, header)
+	return validateSessionProject(s.ProjectCWD, header)
 }
 
 // ReadHeader inspects only the canonical first line. History listing must
@@ -114,6 +114,33 @@ func (s FileStore) claim(ctx context.Context, sessionID string) (func(), error) 
 }
 
 func (s FileStore) Create(ctx context.Context, header Header) (*FileJournal, error) {
+	return s.create(ctx, header, nil)
+}
+
+// CreatePrepared atomically publishes the header with the complete validated
+// constructor seed. Readers can never observe a seeded header without its cut.
+// This backend copies the entire prefix; it does not borrow a live parent file.
+func (s FileStore) CreatePrepared(ctx context.Context, header Header, events []Event) (*FileJournal, error) {
+	var cut uint64
+	if header.IsSeeded {
+		for _, event := range events {
+			if event.Type == "session/end-seed" {
+				var marker struct {
+					Inherited bool `json:"inherited"`
+				}
+				if json.Unmarshal(event.Data, &marker) == nil && marker.Inherited {
+					cut = event.Seq
+				}
+			}
+		}
+	}
+	if _, err := replaySession(PhysicalArtifact{Header: header, Events: events, InheritedEventCount: cut}, nil, 0); err != nil {
+		return nil, err
+	}
+	return s.create(ctx, header, events)
+}
+
+func (s FileStore) create(ctx context.Context, header Header, events []Event) (*FileJournal, error) {
 	if err := s.validateHeader(header); err != nil {
 		return nil, err
 	}
@@ -160,7 +187,18 @@ func (s FileStore) Create(ctx context.Context, header Header) (*FileJournal, err
 	if err := file.Chmod(0600); err != nil {
 		return nil, err
 	}
-	data := append(line, '\n')
+	var body bytes.Buffer
+	body.Write(line)
+	body.WriteByte('\n')
+	for index, event := range events {
+		row, err := EncodeEvent(event, uint64(index))
+		if err != nil {
+			return nil, err
+		}
+		body.Write(row)
+		body.WriteByte('\n')
+	}
+	data := body.Bytes()
 	n, err := file.Write(data)
 	if err == nil && n != len(data) {
 		err = io.ErrShortWrite
@@ -183,7 +221,7 @@ func (s FileStore) Create(ctx context.Context, header Header) (*FileJournal, err
 	// The canonical link is durable. Removing its redundant temporary link is
 	// best-effort and must not turn a successful Session creation into failure.
 	owned = true
-	return &FileJournal{file: file, filename: filename, release: release, repairAt: -1}, nil
+	return &FileJournal{file: file, filename: filename, release: release, nextSeq: uint64(len(events)), repairAt: -1}, nil
 }
 
 func (s FileStore) Open(ctx context.Context, sessionID string) (*FileJournal, PhysicalArtifact, error) {

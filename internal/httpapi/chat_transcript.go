@@ -16,6 +16,7 @@ import (
 	"go-bot/harness/attachments"
 	"go-bot/harness/content"
 	"go-bot/harness/interaction"
+	"go-bot/harness/permission"
 	"go-bot/harness/session"
 	"go-bot/internal/hostruntime"
 )
@@ -248,11 +249,13 @@ func publicChatEvent(event sessionformat.Event) (sessionformat.Event, bool) {
 }
 
 type chatTranscriptPage struct {
-	Events     []sessionformat.Event `json:"events"`
-	Before     *uint64               `json:"before"`
-	ThroughSeq *uint64               `json:"throughSeq"`
-	Queue      []chatQueueItem       `json:"queue"`
-	Questions  []interaction.Pending `json:"questions"`
+	Events     []sessionformat.Event                `json:"events"`
+	Before     *uint64                              `json:"before"`
+	ThroughSeq *uint64                              `json:"throughSeq"`
+	Queue      []chatQueueItem                      `json:"queue"`
+	Questions  []interaction.Pending                `json:"questions"`
+	Baseline   *agent.NativeAssistantStreamBaseline `json:"baseline,omitempty"`
+	Permission *permission.State                    `json:"permission,omitempty"`
 }
 
 func makeChatTranscript(events []sessionformat.Event, before *uint64, limit int) (chatTranscriptPage, error) {
@@ -330,7 +333,17 @@ func serveChatTranscript(w http.ResponseWriter, r *http.Request, events []sessio
 				writeSessionJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "agent_questions_unavailable"})
 				return
 			}
+			baseline, _, unsubscribe, snapshotErr := runtime.SubscribeAssistantStreamSnapshot()
+			if snapshotErr != nil {
+				writeSessionJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "assistant_stream_unavailable"})
+				return
+			}
+			unsubscribe()
+			baseline = publicNativeAssistantBaseline(baseline, true)
+			page.Baseline = &baseline
 		}
+		state := permission.Read(events)
+		page.Permission = &state
 		if len(page.Questions) == 0 {
 			page.Questions = nil
 		}

@@ -1,3 +1,4 @@
+import { modelProtocol, protocolNames } from '../../frontend/src/settings/modelProtocol'
 import { useLocale } from './locale'
 import { useEffect, useState } from 'react'
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -22,7 +23,7 @@ export function ModelSheet({ api, choice, close, choose, settingsOpen }: {
   return <Sheet title={t('选择模型')} onClose={close}>{afterClose => <SheetScroll>
     {data && !Object.keys(data.endpoints).length && <Hint>{t('请先添加端点并设置默认模型。')}</Hint>}
     {Object.entries(data?.endpoints ?? {}).map(([endpointId, endpoint]) => <View key={endpointId} style={{ gap: 6 }}>
-      <Text style={s.caption}>{endpoint.name}</Text>
+      <Text style={s.caption}>{endpoint.name} · {protocolNames[modelProtocol(endpoint.protocol)]}</Text>
       {endpoint.models.map(modelId => {
         const active = endpointId === selected.endpointId && modelId === selected.modelId
         return <Pressable key={modelId} accessibilityRole="button" accessibilityState={{ selected: active }} disabled={busy} onPress={async () => {
@@ -144,12 +145,12 @@ export function QuestionSheet({ pending, close, submit, cancel }: {
     catch (e) { setError(problem(e, '无法提交，请重试。')) }
     finally { setBusy(false) }
   }
-  return <Sheet title={t('助手需要你的确认')} onClose={close} raised={64}><SheetScroll>
+  return <Sheet title={t(pending.questions.some(question => question.id === 'plan-review') ? '审阅方案' : '助手需要你的确认')} onClose={close} raised={64}><SheetScroll>
     {pending.questions.map(question => {
       const a = answers[question.id] ?? { id: question.id, selected: [] }
       return <View key={question.id} style={{ gap: 8 }}>
         {!!question.header && <Text style={s.caption}>{question.header}</Text>}
-        <Text style={[s.body, { fontWeight: '600' }]}>{question.question}</Text>
+        <Text style={[s.body, { fontWeight: '600' }]}>{t(question.question)}</Text>
         <Hint>{question.detail}</Hint>
         {question.options?.map(option => {
           const active = a.selected.includes(option.label)
@@ -163,7 +164,7 @@ export function QuestionSheet({ pending, close, submit, cancel }: {
               {active && (question.multiSelect ? <Check size={12} color={accent} strokeWidth={2.4} />
                 : <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: accent }} />)}
             </View>
-            <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 15 }}>{option.label}</Text><Hint>{option.description}</Hint></View>
+            <View style={{ flex: 1 }}><Text style={{ color: ink, fontSize: 15 }}>{t(option.label)}</Text><Hint>{t(option.description ?? '')}</Hint></View>
           </Pressable>
         })}
         <Field label={t(question.options?.length ? '其他答案' : '你的回答')} multiline style={{ minHeight: 54 }} value={a.custom ?? ''} onChangeText={custom =>

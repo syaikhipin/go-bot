@@ -53,6 +53,9 @@ export function normalizeProfile(profile: Profile): Profile {
 
 export function problem(error: unknown, fallback = '操作未完成，请重试。') {
   if (error instanceof ApiError) {
+    if (error.code === 'invalid_model_protocol') return '请选择支持的接口协议。'
+    if (error.code === 'model_base_url_required') return '请填写基础地址，不包含 /messages、/responses 或 /chat/completions。'
+    if (error.code === 'api_key_required_for_new_origin') return '新地址需要重新填写 API key。'
     if (error.code === 'model_default_required') return '请先在「我的 → 模型」设置默认模型。'
     if (error.code === 'model_unavailable' || error.code === 'model_unconfigured') return '请为当前会话选择可用模型。'
     if (error.code === 'settings_saved_host_apply_failed') return '设置已保存，但 Host 暂未应用。可重试或重新连接。'
@@ -73,11 +76,12 @@ const scheduleURL = (id: string) => schedulePath + '/' + part(id)
 export class Controller {
   constructor(readonly profile: Profile) {}
 
-  get headers() { return { 'X-User-ID': this.profile.account } }
+  get headers() { return { 'X-User-ID': this.profile.account, 'X-Go-Bot-Controller-Origin': new URL(this.profile.server).origin } }
 
   async response(path: string, init?: RequestInit, timeout?: number) {
     const headers = new Headers(init?.headers)
     headers.set('X-User-ID', this.profile.account)
+    headers.set('X-Go-Bot-Controller-Origin', new URL(this.profile.server).origin)
     const deadline = timeout && !init?.signal ? new AbortController() : undefined
     const timer = deadline ? setTimeout(() => deadline.abort(), timeout) : undefined
     const response = await fetch(this.profile.server + path, {
@@ -141,8 +145,8 @@ export class Controller {
   transcript(id: string, before: number | null, signal?: AbortSignal) {
     return this.request<TranscriptPage>(session(id) + '/transcript?limit=20' + (before === null ? '' : '&before=' + before), { signal })
   }
-  async stream(id: string, after: number | null, signal: AbortSignal, onOpen: () => void, onEvent: (type: string, data: unknown) => void) {
-    const response = await this.response(session(id) + '/stream?view=chat' + (after === null ? '' : '&after=' + after),
+  async hostStream(cursors: Record<string, number | null>, signal: AbortSignal, onOpen: () => void, onEvent: (type: string, data: unknown) => void) {
+    const response = await this.response('/v1/host/stream?cursors=' + part(JSON.stringify(cursors)),
       { headers: { Accept: 'text/event-stream' }, signal })
     if (!response.body) throw new Error('服务器没有返回事件流。')
     const reader = response.body.getReader()
@@ -214,23 +218,6 @@ export class Controller {
   }
   deleteEndedSchedules() { return this.request<{ deleted: number }>(schedulePath + '/ended', { method: 'DELETE' }) }
   runSchedule(id: string) { return this.request<Schedule>(scheduleURL(id) + '/run', { method: 'POST' }) }
-  async scheduleChanges(signal: AbortSignal, onChange: () => void) {
-    const response = await this.response(schedulePath + '/stream', { headers: { Accept: 'text/event-stream' }, signal })
-    if (!response.body) return
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    const parser = createParser({ onEvent: event => { if (event.event === 'schedule/changed') onChange() } })
-    try {
-      for (;;) {
-        const { value, done } = await reader.read()
-        if (done) break
-        parser.feed(decoder.decode(value, { stream: true }))
-      }
-    } finally {
-      await reader.cancel().catch(() => {})
-      reader.releaseLock()
-    }
-  }
 
   fileURL(id: string, ref: FileRef, name?: string) {
     return this.profile.server + session(id) + (ref.source === 'presented'

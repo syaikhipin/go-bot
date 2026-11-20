@@ -1,12 +1,23 @@
 package agent
 
-import "context"
+import (
+	"context"
+	"go-bot/harness/interaction"
+)
 
 type toolPositionKey struct{}
 type turnSourceKey struct{}
 type toolCallIDKey struct{}
 type toolControlKey struct{}
 type toolQuestionKey struct{}
+type toolQuestionsKey struct{}
+
+// ToolQuestionsFromContext is available only inside a real Go tool body. The
+// channel belongs to the running Session and is never exported to plugins.
+func ToolQuestionsFromContext(ctx context.Context) *interaction.NativeQuestions {
+	value, _ := ctx.Value(toolQuestionsKey{}).(*interaction.NativeQuestions)
+	return value
+}
 
 type toolControl struct{ concludeTurn bool }
 
@@ -49,7 +60,8 @@ func ConcludeTurn(ctx context.Context) {
 	}
 }
 
-// ToolCallIDFromContext identifies the exact durable assistant tool call.
+// ToolCallIDFromContext identifies the current tool invocation. Model calls
+// have a durable assistant record.
 func ToolCallIDFromContext(ctx context.Context) (string, bool) {
 	callID, ok := ctx.Value(toolCallIDKey{}).(string)
 	return callID, ok && callID != ""
@@ -63,7 +75,7 @@ func TurnSourceFromContext(ctx context.Context) (MessageSource, bool) {
 }
 
 // ToolPositionFromContext identifies the step that admitted a tool call. It is
-// available only during AgentLoop tool execution, never in external requests.
+// available to tools bound to the AgentLoop's real open step.
 func ToolPositionFromContext(ctx context.Context) (turn, step uint64, ok bool) {
 	position, ok := ctx.Value(toolPositionKey{}).(toolPosition)
 	if !ok || position.turn == 0 || position.step == 0 {

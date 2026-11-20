@@ -13,7 +13,7 @@
 | 聊天输入框左下角 | 显示「端点名称 / 模型 ID」。打开后先选端点，再选该端点内的模型。同名模型按端点区分。保存后只更新当前会话，并显示从下一轮生效。 |
 | 新会话 | 点击 **New chat** 或从欢迎页直接发送时，由 Controller 读取账号默认模型。缺少可用默认模型时，页面显示「请先在模型设置中配置端点并选择默认模型」，提供 **打开模型设置** 入口，并保留已输入的内容。创建成功后，可通过输入框左下角的选择器切换当前会话。 |
 
-设置页标注 **仅支持 OpenAI 兼容的 Responses API**。Base URL 示例为 `https://api.example.com/v1`，Host 调用该地址下的 `POST /responses`。首版手填模型清单，保存时校验字段格式和引用，实际请求失败时在聊天中显示相应错误。OpenAI 兼容服务需要支持 Responses 接口及所用模型对应的工具调用能力。
+设置页支持通过下拉表单选择 **OpenAI Responses / Anthropic Messages**；协议属于端点。Base URL 示例为 `https://api.example.com/v1`，Host 根据协议调用 `POST /responses` 或 `POST /messages`。具体适配见 [Anthropic 协议方案](anthropic-model-protocol-plan.zh-CN.md)。首版手填模型清单，保存时校验字段格式和引用，实际请求失败时在聊天中显示相应错误。OpenAI 兼容服务需要支持 Responses 接口及所用模型对应的工具调用能力。
 
 ## Redis 数据
 

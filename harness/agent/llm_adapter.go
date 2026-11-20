@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -26,6 +27,7 @@ type LLMStreamTransport interface {
 }
 
 type LLMAdapter struct {
+	EndpointURL         string
 	Transport           LLMTransport
 	Protocol            llm.Protocol
 	Images              ImageAttachmentReader
@@ -130,7 +132,16 @@ func (a LLMAdapter) complete(ctx context.Context, messages []Message, specs []To
 	referenceIDs := slices.ContainsFunc(specs, func(spec ToolSpec) bool { return spec.Name == "generateimage" })
 	resolved := make(map[string]resolvedModelImage)
 	metadata := make(map[string]agentcontent.ImageAttachment)
+	route, _ := ModelRouteFromContext(ctx)
 	for _, message := range messages {
+		if replay := message.ProviderReplay; message.Role == "assistant" && a.Protocol == llm.AnthropicMessages && replay != nil && replay.Protocol == string(a.Protocol) && replay.EndpointID == route.Provider && replay.ModelID == route.Model && replay.EndpointURL == a.EndpointURL && ModelCallOptionsFromContext(ctx).Purpose != "compaction" {
+			raw, err := json.Marshal(replay.Content)
+			if err != nil {
+				return modeldata.AssistantMessage{}, err
+			}
+			input = append(input, llm.Item{Type: "anthropic_message", Role: "assistant", Raw: raw})
+			continue
+		}
 		if message.Role == "assistant" && len(message.OrderedAssistantBlocks) > 0 {
 			ordered, err := orderedAssistantRequestItems(message.OrderedAssistantBlocks)
 			if err != nil {
@@ -193,6 +204,13 @@ func (a LLMAdapter) complete(ctx context.Context, messages []Message, specs []To
 				return modeldata.AssistantMessage{}, fmt.Errorf("unsupported model content block %q", block.Type)
 			}
 		}
+		if message.Role == "tool" && a.Protocol == llm.AnthropicMessages {
+			input = append(input, llm.Item{Type: "tool_result", CallID: message.ToolCallID, Content: blocks, IsError: message.IsError})
+			for index := startImages; index < len(images); index++ {
+				images[index].itemIndex = len(input) - 1
+			}
+			continue
+		}
 		if message.Role == "tool" {
 			var resultText strings.Builder
 			for index, block := range blocks {
@@ -254,7 +272,6 @@ func (a LLMAdapter) complete(ctx context.Context, messages []Message, specs []To
 		protocol = llm.Responses
 	}
 	options := ModelCallOptionsFromContext(ctx)
-	route, _ := ModelRouteFromContext(ctx)
 	request := llm.Request{
 		Input: input, Tools: tools, Purpose: options.Purpose, MaxOutputTokens: options.MaxOutputTokens,
 		ReasoningEffort: route.ReasoningEffort,
@@ -316,6 +333,9 @@ func (a LLMAdapter) complete(ctx context.Context, messages []Message, specs []To
 		}
 	}
 	output.Content = content.String()
+	if protocol == llm.AnthropicMessages && !output.MaxTokens && options.Purpose != "compaction" && len(response.NativeContent) > 0 {
+		output.ProviderReplay = &modeldata.ProviderReplay{EndpointURL: a.EndpointURL, Protocol: string(protocol), EndpointID: route.Provider, ModelID: route.Model, Content: response.NativeContent}
+	}
 	return output, nil
 }
 
@@ -363,13 +383,13 @@ func transportUsage(response *llm.Response) *modeldata.ModelUsage {
 	}
 	usage := response.Usage
 	return &modeldata.ModelUsage{InputTokens: usage.InputTokens, OutputTokens: usage.OutputTokens, TotalTokens: usage.TotalTokens,
-		CachedInputTokens: usage.CachedTokens, ReasoningTokens: usage.ReasoningTokens}
+		CachedInputTokens: usage.CachedTokens, CacheCreationInputTokens: usage.CacheCreationTokens, ReasoningTokens: usage.ReasoningTokens}
 }
 
 func normalizeTransportError(err error, response *llm.Response) error {
 	result := llm.NormalizeModelError("endpoint", "", err)
 	result.OutputObserved = response != nil && len(response.Output) > 0
-	if response != nil && response.Status != "" && response.Status != "completed" {
+	if response != nil && response.Status != "" && response.Status != "completed" && result.Code == llm.ModelErrorUnknown {
 		result.Code = llm.ModelErrorResponseIncomplete
 	}
 	return result

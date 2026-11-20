@@ -674,3 +674,30 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 .permission-decisions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .permission-decisions button { padding: 7px 12px; border: 1px solid #d6dff8; border-radius: 9px; background: #fff; color: #334269; font-weight: 650; }
 .permission-decisions button:last-child { background: #455ca0; color: #fff; border-color: #455ca0; }
+
+.model-form select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line, #dddce8); border-radius: 12px; background: rgba(255,255,255,.8); color: inherit; font: inherit; }
+.model-protocol-badge { display: inline-block; font-size: 11px; line-height: 1.7; padding: 1px 7px; margin-right: 5px; border: 1px solid rgba(98,81,138,.14); border-radius: 6px; vertical-align: middle; }
+.model-request-url { overflow-wrap: anywhere; }
+
+.model-id-editor { display: grid; gap: 10px; }
+.model-id-row { display: flex; gap: 6px; align-items: center; }
+.model-id-row input { min-width: 0; flex: 1; }
+.model-id-row small { white-space: nowrap; color: #5c6072; }
+.model-row-action { display: grid; place-items: center; padding: 8px; border: none; border-radius: 8px; background: transparent; color: #5c6072; }
+.model-row-action:hover { background: #eeecf6; }
+.model-row-action:disabled { opacity: .3; }
+
+.chat-label .session-attention { display: flex; align-items: center; gap: 5px; padding-top: 4px; color: #8a6138; font-size: 11px; font-weight: 500; }
+.session-attention > span { width: 5px; height: 5px; border-radius: 50%; background: #bc8b55; flex: none; }
+
+.question-detail { max-height: 30vh; overflow: auto; padding: 6px 12px; margin: 10px 0; border: 1px solid rgba(112,122,163,.12); border-radius: 10px; background: rgba(255,255,255,.65); }
+.question-detail.markdown h1 { font-size: 18px; margin: 8px 0 12px; }
+.question-detail.markdown h2 { font-size: 15px; margin: 14px 0 6px; }
+.question-panel .question-option { padding: 7px 2px; gap: 8px; }
+
+.question-dock:has(.plan-review) { max-height: min(60vh, 480px); }
+.plan-review .question-detail { max-height: min(18vh, 160px); }
+
+.sidebar-footer { flex: none; margin-top: auto; padding-top: 12px; }
+.sidebar-destination { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 45px; padding: 11px 14px; border: 0; border-radius: 13px; background: transparent; color: #53617b; text-align: left; font: inherit; font-size: 14px; }
+.sidebar-destination:hover, .sidebar-destination[aria-current="page"] { background: #ffffff70; color: #35496f; }

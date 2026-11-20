@@ -1,0 +1,50 @@
+[
+  {
+    "pluginId": "agent-browser",
+    "package": "@go-bot/plugin-agent-browser",
+    "version": "0.1.0",
+    "source": {
+      "type": "bundled",
+      "spec": "agent-browser"
+    },
+    "builds": [
+      "@go-bot/plugin-agent-browser"
+    ]
+  },
+  {
+    "pluginId": "officecli",
+    "package": "@go-bot/plugin-officecli",
+    "version": "0.1.0",
+    "source": {
+      "type": "bundled",
+      "spec": "officecli"
+    },
+    "builds": [
+      "@go-bot/plugin-officecli"
+    ]
+  },
+  {
+    "pluginId": "x",
+    "package": "@go-bot/plugin-x",
+    "version": "0.1.0",
+    "source": {
+      "type": "bundled",
+      "spec": "x"
+    },
+    "builds": [
+      "@go-bot/plugin-x"
+    ]
+  },
+  {
+    "pluginId": "google-workspace",
+    "package": "@go-bot/plugin-google-workspace",
+    "version": "0.1.0",
+    "source": {
+      "type": "bundled",
+      "spec": "google-workspace"
+    },
+    "builds": [
+      "@go-bot/plugin-google-workspace"
+    ]
+  }
+]

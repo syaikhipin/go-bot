@@ -60,7 +60,9 @@ func NewClient(endpoint Endpoint, model string, httpClient *http.Client) (*Clien
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 5 * time.Minute}
 	}
-	return &Client{endpoint: Endpoint{BaseURL: base, APIKey: strings.TrimSpace(endpoint.APIKey)}, model: strings.TrimSpace(model), http: httpClient}, nil
+	safeHTTP := *httpClient
+	safeHTTP.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &Client{endpoint: Endpoint{BaseURL: base, APIKey: strings.TrimSpace(endpoint.APIKey)}, model: strings.TrimSpace(model), http: &safeHTTP}, nil
 }
 
 func (c *Client) Generate(ctx context.Context, request Request) (*Response, error) {
@@ -84,7 +86,7 @@ func (c *Client) GenerateWithProtocol(ctx context.Context, protocol Protocol, re
 		}()
 		pulse = func() { timer.Reset(c.nonStreamingIdleTimeout) }
 	}
-	res, err := c.post(requestCtx, path, body, false)
+	res, err := c.post(requestCtx, protocol, path, body, false)
 	if err != nil {
 		return nil, idleRequestError(requestCtx, errRequestIdle, err)
 	}
@@ -107,6 +109,8 @@ func (c *Client) GenerateWithProtocol(ctx context.Context, protocol Protocol, re
 		return nil, decodeAPIError(res.StatusCode, data)
 	}
 	switch protocol {
+	case AnthropicMessages:
+		return decodeAnthropic(data)
 	case Responses:
 		return decodeResponses(data)
 	case ChatCompletions:
@@ -136,13 +140,20 @@ func idleRequestError(ctx context.Context, idle, err error) error {
 	return err
 }
 
-func (c *Client) post(ctx context.Context, path string, body []byte, stream bool) (*http.Response, error) {
+func (c *Client) post(ctx context.Context, protocol Protocol, path string, body []byte, stream bool) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint.BaseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	if c.endpoint.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.endpoint.APIKey)
+		if protocol == AnthropicMessages {
+			req.Header.Set("x-api-key", c.endpoint.APIKey)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+c.endpoint.APIKey)
+		}
+	}
+	if protocol == AnthropicMessages {
+		req.Header.Set("anthropic-version", "2023-06-01")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if stream {
@@ -163,6 +174,9 @@ func (c *Client) requestBody(protocol Protocol, request Request, stream bool) (s
 		return "", nil, fmt.Errorf("negative maximum output tokens")
 	}
 	switch protocol {
+	case AnthropicMessages:
+		body, err := encodeAnthropic(c.model, request, stream)
+		return "/messages", body, err
 	case Responses:
 		input, err := encodeResponsesInput(request.Input)
 		if err != nil {
@@ -214,10 +228,14 @@ func decodeAPIError(status int, data []byte) error {
 	var payload struct {
 		Error struct {
 			Code    string `json:"code"`
+			Type    string `json:"type"`
 			Message string `json:"message"`
 		} `json:"error"`
 	}
 	_ = json.Unmarshal(data, &payload)
+	if payload.Error.Code == "" {
+		payload.Error.Code = payload.Error.Type
+	}
 	message := payload.Error.Message
 	if message == "" {
 		message = fmt.Sprintf("LLM API returned HTTP %d", status)

@@ -92,7 +92,7 @@ func sessionAttachmentReference(ctx context.Context, host *hostruntime.NativeHos
 	if host.ReadSession == nil {
 		return sessionAttachment{}, false, nil
 	}
-	artifact, err := host.ReadSession(ctx, sessionID)
+	artifact, err := host.SessionArtifact(ctx, sessionID)
 	if errors.Is(err, os.ErrNotExist) {
 		return sessionAttachment{}, false, nil
 	}

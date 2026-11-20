@@ -3,7 +3,6 @@ package executor
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 type Builder struct {
 	RuntimeMode      string
 	verifiedMode     string
-	browserAvailable bool
 	Skills           *skills.Registry
 	WebFetcher       tools.WebFetcher
 	WebSearcher      tools.WebSearcher
@@ -40,11 +38,7 @@ func NewVerifiedBuilder(mode string) (Builder, error) {
 		return Builder{}, err
 	}
 	registry := &skills.Registry{DSHHome: skills.UserDSHHome, AgentsHome: skills.UserAgentsHome}
-	_, err := os.Stat(browserCLI)
-	if err != nil && !os.IsNotExist(err) {
-		return Builder{}, err
-	}
-	return Builder{RuntimeMode: mode, verifiedMode: mode, browserAvailable: err == nil, Skills: registry}, nil
+	return Builder{RuntimeMode: mode, verifiedMode: mode, Skills: registry}, nil
 }
 
 func (b Builder) BuildNative(ctx context.Context, identity assembly.NativeRuntimeIdentity, reason string) (assembly.Resources, error) {
@@ -75,13 +69,10 @@ func (b Builder) build(ctx context.Context, userID, cwd string) (assembly.Resour
 	if err != nil {
 		return assembly.Resources{}, err
 	}
-	var browser browserSession
-	if b.browserAvailable {
-		browser, err = newBrowserSession()
-		if err != nil {
-			_ = jobRegistry.Close(ctx)
-			return assembly.Resources{}, err
-		}
+	browser, err := newBrowserSession()
+	if err != nil {
+		_ = jobRegistry.Close(ctx)
+		return assembly.Resources{}, err
 	}
 	resources := assembly.Resources{
 		Files:           agentfs.ContainerView{DefaultWorkdir: cwd},

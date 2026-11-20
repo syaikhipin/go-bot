@@ -1,12 +1,14 @@
 import { useLocale } from './locale'
 import { useEffect, useRef, useState, type ComponentRef } from 'react'
 import { ActivityIndicator, Alert, Animated, Easing, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { ArrowUp, ChevronDown, FileText, Folder, ImagePlus, Images, ListFilter, MessageCircle, MessageCircleQuestion, Plus, Shield, ShieldAlert, Square, X } from 'lucide-react-native'
+import { ArrowUp, ChevronDown, FileText, ImagePlus, Images, ListFilter, MessageCircle, MessageCircleQuestion, Plus, Shield, ShieldAlert, Square, X } from 'lucide-react-native'
 import { attemptMessage, groupAssistantReplies, messageText, visibleQueue, type Message } from '../../frontend/src/chat/transcript'
 import type { TranscriptCache } from '../../frontend/src/chat/transcriptCache'
 import { ApiError, Controller, problem, type ModelSelection, type SessionRow } from './api'
 import { LibrarySheet, ModelSheet, QuestionSheet } from './ChatSheets'
 import { FileIcon } from './FileIcon'
+import { ChatMenu } from './ChatMenu'
+import { PluginSheet } from './extensions/PluginSheet'
 import { HostFilesSheet } from './HostFilesSheet'
 import { ImageViewer } from './ImageViewer'
 import { addAttachments, pickPhotos, readLibrary, type LibraryEntry } from './library'
@@ -21,11 +23,14 @@ type Props = {
   resolving: boolean; lookupError: boolean; retryLookup: () => void
   selectSession: (id: string) => void; onUnavailable: (id: string) => void; openModelSettings: () => void
 }
-type Overlay = 'chats' | 'files' | 'model' | 'permission' | 'tools' | 'image' | 'file' | ''
+type Overlay = 'plugins' | 'chats' | 'files' | 'model' | 'permission' | 'tools' | 'image' | 'file' | ''
 
 export function Chat({ api, cache, id, active, resolving, lookupError, retryLookup, selectSession, onUnavailable, openModelSettings }: Props) {
   const { t } = useLocale()
   const [rows, setRows] = useState<SessionRow[]>([])
+  const [, updateSummaries] = useState(0)
+  useEffect(() => cache.subscribe('@summaries', () => updateSummaries(value => value + 1)), [cache])
+
   async function archiveChat(row: SessionRow, stopActivity = false) {
     try {
       await api.archive(row.sessionId, stopActivity)
@@ -53,6 +58,15 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
   const [defaultModel, setDefaultModel] = useState('')
   const [permission, setPermission] = useState<{ id: string; mode: PermissionMode }>()
   const [overlay, show] = useState<Overlay>('')
+  useEffect(() => {
+    if (overlay !== 'chats') return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const unsubscribe = cache.subscribe('@sessions', () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => void refreshChats(), 150)
+    })
+    return () => { unsubscribe(); clearTimeout(timer) }
+  }, [cache, overlay, api])
   const [sending, setSending] = useState(false)
   const [creating, setCreating] = useState(false)
   const createInFlight = useRef(false)
@@ -88,7 +102,7 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
   async function choose(model: ModelSelection) {
     if (!id) return
     await api.selectModel(id, model)
-    if (scopedId.current === id) setSelectedModel(model)
+    if (scopedId.current === id) { setSelectedModel(model); if (cache.get(id)?.transcript.activeTurn != null) setNotice('将在下一轮使用此模型。') }
   }
   function switchChat(next?: string) {
     Keyboard.dismiss()
@@ -146,14 +160,14 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
         <ListFilter size={21} color={ink} strokeWidth={1.75} />
       </IconButton>
       <View style={{ flex: 1 }} />
-      <IconButton label={t('文件系统')} onPress={() => { Keyboard.dismiss(); show('files') }}><Folder size={20} color={ink} strokeWidth={1.75} /></IconButton>
+      <ChatMenu onFiles={() => show('files')} onPlugins={() => show('plugins')} />
     </View>
     {!id ? <View style={styles.emptyChat}>
       <Image source={logo} accessibilityLabel="Go Bot" resizeMode="contain" style={styles.emptyLogo} />
       {resolving && !lookupError ? <ActivityIndicator color={accent} accessibilityLabel={t('正在读取会话…')} />
         : <Button label={t('创建新会话')} primary busy={creating} onPress={createChat}><Plus size={18} color="white" /></Button>}
       {resolving && lookupError && <Button label={t('重新加载')} onPress={retryLookup} />}
-      {!overlay && !!notice && <View style={styles.createError}><Hint error>{t(notice)}</Hint>
+      {!overlay && !!notice && <View style={styles.createError}><Hint error={notice !== '将在下一轮使用此模型。'}>{t(notice)}</Hint>
         {notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={openModelSettings} />}
       </View>}
     </View> : <Conversation key={id} api={api} cache={cache} id={id} active={active && !overlay} onUnavailable={onUnavailable}
@@ -193,7 +207,7 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
             </IconButton>
           </View>
         </View>
-        {!!notice && <View><Hint error>{t(notice)}</Hint>{notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={openModelSettings} />}</View>}
+        {!!notice && <View><Hint error={notice !== '将在下一轮使用此模型。'}>{t(notice)}</Hint>{notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={openModelSettings} />}</View>}
       </View>}
     />}
     {overlay === 'permission' && permission?.id === id && <PermissionSheet mode={permission.mode} close={() => show('')}
@@ -202,7 +216,10 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       <Button label={t('新会话')} primary disabled={sending} busy={creating} onPress={createChat}><Plus size={20} color="white" /></Button>
       {rows.map(row => <View key={row.sessionId} style={[s.row, { borderRadius: 13, backgroundColor: row.sessionId === id ? wash : glass, paddingLeft: 11 }]}>
         <Pressable accessibilityRole="button" onPress={() => switchChat(row.sessionId)} disabled={sending || creating} style={[s.row, { flex: 1, minHeight: 44 }]}>
-          <MessageCircle size={17} color={accent} /><Text style={[s.body, { flex: 1 }]} numberOfLines={2}>{row.title || t('未命名会话')}</Text>
+          <MessageCircle size={17} color={accent} /><View style={{ flex: 1, gap: 3 }}>
+            <Text style={s.body} numberOfLines={2}>{row.title || t('未命名会话')}</Text>
+            {cache.summary(row.sessionId)?.pending && <Text style={[s.caption, { color: '#936433' }]}>{t(cache.summary(row.sessionId)?.pending === 'approval' ? '待审批' : '待回答')}</Text>}
+          </View>
         </Pressable>
         <IconButton label={t('归档会话')} disabled={sending} onPress={() => Alert.alert(t('归档此会话？'), t('会话将从列表隐藏。'), [
           { text: t('返回'), style: 'cancel' }, { text: t('归档'), style: 'destructive', onPress: () => void archiveChat(row) },
@@ -212,9 +229,10 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       {loadingRows && !rows.length && <Hint>{t('正在读取会话…')}</Hint>}
       {!loadingRows && !rows.length && !listError && <Hint>{t('还没有会话。')}</Hint>}
       <Hint error>{t(listError)}</Hint>
-      <Hint error>{t(notice)}</Hint>
+      <Hint error={notice !== '将在下一轮使用此模型。'}>{t(notice)}</Hint>
       {notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={() => { show(''); openModelSettings() }} />}
     </SheetScroll></Sheet>}
+    {overlay === 'plugins' && <PluginSheet api={api} cache={cache} close={() => show('')} />}
     {overlay === 'files' && <HostFilesSheet api={api} close={() => show('')} />}
     {overlay === 'model' && <ModelSheet api={api} choice={selectedModel} choose={choose} close={() => show('')} settingsOpen={openModelSettings} />}
     {overlay === 'tools' && <Sheet title={t('工具栏')} raised={122} onClose={() => show('')}>{afterClose => <SheetScroll>

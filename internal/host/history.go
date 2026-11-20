@@ -10,7 +10,7 @@ import (
 
 func historySnapshot(host *hostruntime.NativeHost) func(context.Context, string, sessionsearch.Cursor) (sessionsearch.Snapshot, error) {
 	return func(ctx context.Context, id string, cursor sessionsearch.Cursor) (snapshot sessionsearch.Snapshot, err error) {
-		err = host.WithSessionHistory(func() error {
+		err = host.WithSessionHistory(ctx, id, func() error {
 			snapshot, err = readHistorySnapshot(ctx, host, id, cursor)
 			return err
 		})
@@ -26,8 +26,7 @@ func readHistorySnapshot(ctx context.Context, host *hostruntime.NativeHost, id s
 	if archived {
 		return sessionsearch.Snapshot{}, os.ErrNotExist
 	}
-	if live, ok := host.Session(id); ok {
-		events, reset, err := live.DurableSessionSuffix(cursor.Next)
+	if events, reset, found, err := host.DurableSessionSuffix(id, cursor.Next); found {
 		if err == nil {
 			next := cursor.Next + len(events)
 			if reset {

@@ -14,9 +14,11 @@ const NativeStructuredOutputInstruction = "When you have your final answer, you 
 // NativeStructuredOutput is scoped to one workflow child activation. It is
 // never installed on a resumed child or shared across sibling Sessions.
 type NativeStructuredOutput struct {
-	schema json.RawMessage
-	mu     sync.Mutex
-	value  json.RawMessage
+	schema  json.RawMessage
+	mu      sync.Mutex
+	value   json.RawMessage
+	pending json.RawMessage
+	callID  string
 }
 
 func NewNativeStructuredOutput(schema map[string]any) (*NativeStructuredOutput, error) {
@@ -43,12 +45,27 @@ func (*NativeStructuredOutput) Validate(json.RawMessage) error { return nil }
 func (t *NativeStructuredOutput) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.value != nil {
+	if t.value != nil || t.pending != nil {
 		return "", errors.New("structured output was already recorded")
 	}
-	t.value = append(json.RawMessage(nil), raw...)
+	t.pending = append(json.RawMessage(nil), raw...)
+	t.callID, _ = agent.ToolCallIDFromContext(ctx)
 	agent.ConcludeTurn(ctx)
 	return "Structured output recorded.", nil
+}
+
+// SettleResult runs in Go's Result phase, after the ordered journal flush.
+// Rejected output or a failed commit must not become a workflow result.
+func (t *NativeStructuredOutput) SettleResult(callID string, success bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.pending == nil || t.callID != callID {
+		return
+	}
+	if success {
+		t.value = t.pending
+	}
+	t.pending, t.callID = nil, ""
 }
 
 func (t *NativeStructuredOutput) Captured() (any, bool) {

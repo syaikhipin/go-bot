@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"go-bot/internal/config"
+	mcpconfig "go-bot/mcp"
 )
 
 type WebOptions struct {
@@ -50,7 +51,7 @@ func controllerBrowserOrigin(w http.ResponseWriter, r *http.Request, devOrigin s
 	}
 	if devOrigin != "" && origin == devOrigin && config.IsLoopbackHost((&url.URL{Host: r.Host}).Hostname()) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Client-Time-Zone, X-User-ID")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID, X-Client-Time-Zone, X-User-ID, "+mcpconfig.ControllerOriginHeader)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		if r.URL.Path == hostFilesPath {
 			w.Header().Set("Access-Control-Expose-Headers", hostStorageHeader+", "+hostStorageSourceHeader)
@@ -80,7 +81,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request, files fs.FS) bool {
 		http.FileServerFS(files).ServeHTTP(w, r)
 		return true
 	}
-	if r.URL.Path != "/" && r.URL.Path != "/settings/models" && r.URL.Path != "/settings/web-search" && r.URL.Path != "/settings/image-generation" {
+	if r.URL.Path != "/" && r.URL.Path != "/settings/models" && r.URL.Path != "/settings/web-search" && r.URL.Path != "/settings/image-generation" && r.URL.Path != "/plugins" {
 		id, chat := strings.CutPrefix(r.URL.Path, "/chat/")
 		if !chat || len(id) != 36 || uuid.Validate(id) != nil {
 			return false

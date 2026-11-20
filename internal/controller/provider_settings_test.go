@@ -136,6 +136,46 @@ func TestAdditionalProviderUsesTheSameSettingsContract(t *testing.T) {
 	}
 }
 
+func TestInternationalSearchSettingsSaveSelectAndRestore(t *testing.T) {
+	store := &memoryStore{records: map[string]Account{"alice": {}, "bob": {}}}
+	m := New(config.Default(), nil, store)
+	call := func(user, method, body string) string {
+		t.Helper()
+		r := httptest.NewRequest(method, webSearchSettingsPath, strings.NewReader(body))
+		w := httptest.NewRecorder()
+		m.providerSettingsHTTP(w, r, user, searchSettings)
+		if w.Code != 200 || strings.Contains(w.Body.String(), "fixture-secret") {
+			t.Fatalf("provider settings status=%d body=%s", w.Code, w.Body)
+		}
+		return w.Body.String()
+	}
+	catalog := call("alice", "GET", "")
+	if !strings.Contains(catalog, `"id":"brave"`) || !strings.Contains(catalog, `"id":"tavily"`) {
+		t.Fatal("new providers missing from client catalog")
+	}
+	for _, id := range []string{"tavily", "brave"} {
+		got := call("alice", "PUT", `{"provider":"`+id+`","apiKey":"`+id+`-fixture-secret","activate":false}`)
+		if !strings.Contains(got, `"provider":"deepseek"`) {
+			t.Fatal("saving an inactive key changed the chosen provider")
+		}
+	}
+	for _, id := range []string{"brave", "tavily"} {
+		call("alice", "PUT", `{"provider":"`+id+`","activate":true}`)
+		saved, err := store.Get(t.Context(), "alice")
+		if err != nil || saved.WebSearch.Provider != id || len(saved.WebSearch.Entries) != 2 || saved.WebSearch.Entries[id].APIKey != id+"-fixture-secret" {
+			t.Fatalf("selection/credentials not persisted: %v", err)
+		}
+		// Reopening a Controller reads the same selected provider and only key presence.
+		m = New(config.Default(), nil, store)
+		if got := call("alice", "GET", ""); !strings.Contains(got, `"provider":"`+id+`"`) || !strings.Contains(got, `"hasApiKey":true`) {
+			t.Fatal("saved settings were not restored")
+		}
+	}
+	if got := call("bob", "GET", ""); strings.Contains(got, `"hasApiKey":true`) {
+		t.Fatal("credentials crossed accounts")
+	}
+}
+
 func TestSearchProviderSaveAndSelectAreSeparate(t *testing.T) {
 	var applied []providersettings.Selection
 	host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

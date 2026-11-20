@@ -130,11 +130,13 @@ go-bot 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Person
 
 1. 打开 [http://127.0.0.1:8080](http://127.0.0.1:8080)，输入账号名创建账号。
    打开账号时，Controller 会启动独立的 Docker Host 容器。
-2. 在 **Model settings** 添加 OpenAI 兼容的 Responses 端点、API Key 和至少一个模型 ID，
+2. 在 **Model settings** 通过协议下拉框选择 **OpenAI Responses** 或 **Anthropic Messages**，填写端点地址、API Key 和至少一个模型 ID，
    然后点击 **New chat** 发消息。
-3. 在 **Settings → Web search** 可配置 DeepSeek、智谱或豆包搜索。在 **Settings → Image generation** 可配置 Seedream、OpenAI Images 或 Google Nano Banana。保存凭证后点击 **Use provider** 选用。 [供应商配置](docs/providers.md)
+3. 在 **Settings → Web search** 可配置 DeepSeek、智谱、豆包、Tavily 或 Brave Search。在 **Settings → Image generation** 可配置 Seedream、OpenAI Images 或 Google Nano Banana。保存凭证后点击 **Use provider** 选用。 [供应商配置](docs/providers.md)
 
 可在账号页或「设置」选择简体中文或 English。浏览器会记住语言偏好。
+
+需要浏览器和 Office 能力时，从侧栏「插件市场」安装并启用 **agent-browser** 和 **OfficeCLI**；安装会准备官方 CLI 和原始 Skills。
 
 ### 手机通过 Tailscale 连接
 
@@ -167,9 +169,12 @@ Tailscale 会让手机和运行 Controller 的电脑加入同一个私有网络
 Host 状态。**Host** 运行 Go Agent 并直接访问模型服务，管理工具、v4 会话日志、记忆、定时任务、
 附件和工作区。每个账号有自己的 Host，打开账号时按需启动。
 
-Host 预装 OfficeCLI、agent-browser、Chromium、Python 和 Node.js。首次使用某个数据目录时，
-Host 将 OfficeCLI 和 agent-browser 的 Skill 安装到 `/root/harness/.dsh/skills/`，
-之后可以像普通 Skill 一样修改或删除。模型先看到 Skill 名称和简介，选中后再加载正文。
+Host 预装 Chromium、Python、Node.js 与通用文档处理环境。
+在「插件市场」安装 **agent-browser** 和 **OfficeCLI** 后启用即可使用，无需 API Key。
+安装时准备固定版本的官方 CLI 和原始 Skills，启用只加载能力。
+OfficeCLI 提供 11 个原始 Skills，agent-browser 提供官方发现 Skill；资源保存在
+`/root/harness/.dsh/plugins/profile/node_modules/` 的对应包内，不再复制到用户 Skill 目录。
+停用会撤销 Skills，保留已安装的 CLI。模型先看到名称和摘要，再按需加载正文。
 
 | 运行模式 | Host 数据存在哪里 | 点击 **Stop Host** 后 |
 | --- | --- | --- |
@@ -264,9 +269,11 @@ go run ./cmd/controller doctor --env-file .env.eci
 | 用 `buildeci.sh` 制作 ECI 缓存 | Go 1.26 或更高版本、Bash。使用 `prepare` 构建和推送镜像时还需要带 Buildx 的 Docker。 |
 | 在 Docker 外开发 | 后端需要 Go 1.26 或更高版本，原生 Controller 需要 Redis，前端开发需要 Node.js 22.12+ 和 npm。 |
 
-Compose 负责启动 Redis 并构建前端。Agent 使用的 Python、Node.js、Chromium 和 OfficeCLI 已包含在 Host 镜像中。
+Compose 负责启动 Redis 并构建前端。Agent 使用的 Python、Node.js、Chromium 和通用文档环境已包含在 Host 镜像中；OfficeCLI 与 agent-browser 从插件市场安装。
 
 ## 开发与扩展
+
+业务插件使用原生 Cordis 和异步 `ctx.host` 接口，可贡献工具、Skills、附加提示及接入凭证、授权和 MCP；Harness 核心仍由 Go 内置实现。[插件 SDK](extensions/sdk/README.md) · [示例](examples/plugins/README.md)
 
 可以用 Host 已有工具组合工作流，也可以接入第三方服务。例如，旅行助手可以查询火车票和机票、
 对比酒店价格及取消条款，再整理成行程。若要实现预订，可接入供应商 API，并在下单前单独展示日期、

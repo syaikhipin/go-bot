@@ -18,6 +18,14 @@ type NativeFileStorage struct {
 
 var _ assembly.NativeStorage = NativeFileStorage{}
 var _ assembly.NativeChildStorageFactory = NativeFileStorage{}
+var _ assembly.NativePreparedStorage = NativeFileStorage{}
+
+func (s NativeFileStorage) CreatePreparedNative(ctx context.Context, header sessionformat.Header, events []sessionformat.Event) (sessionformat.EventJournal, error) {
+	if header.ID != s.SessionID {
+		return nil, errors.New("local Session storage ID mismatch")
+	}
+	return s.Store.CreatePrepared(ctx, header, events)
+}
 
 func (s NativeFileStorage) CreateNative(ctx context.Context, header sessionformat.Header) (sessionformat.EventJournal, error) {
 	if header.ID != s.SessionID {

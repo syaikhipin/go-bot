@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocale } from '../locale'
-import { ChevronDown, Ellipsis, FolderTree, MessageSquare, MessageSquarePlus, Power, Settings, Trash2, X } from 'lucide-react'
+import { ChevronDown, Ellipsis, FolderTree, MessageSquare, MessageSquarePlus, Power, Puzzle, Settings, Trash2, X } from 'lucide-react'
 import { HarnessAvatar } from '../HarnessAvatar'
 import type { SessionRow } from '../api/controller'
+import type { TranscriptCache } from '../chat/transcriptCache'
 
 type Props = {
+  cache: TranscriptCache
   userId: string
   rows: SessionRow[]
   selected?: string
@@ -14,6 +16,8 @@ type Props = {
   error: string
   needsModel: boolean
   onSettings: () => void
+  onPlugins: () => void
+  pluginsOpen: boolean
   filesOpen: boolean
   filesAvailable: boolean
   filesOverlay: boolean
@@ -129,6 +133,7 @@ export function Sidebar(props: Props) {
                 }}>
                 <MessageSquare size={16} strokeWidth={1.65} />
                 <span className="chat-label">{rowTitle(row)}
+                  {props.cache.summary(row.sessionId)?.pending && <small className="session-attention"><span aria-hidden="true" />{t(props.cache.summary(row.sessionId)?.pending === 'approval' ? 'Approval needed' : 'Answer needed')}</small>}
                   {!row.title && <small>{new Date(row.createdAt).toLocaleString(language, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
                 </span>
               </button>
@@ -143,6 +148,8 @@ export function Sidebar(props: Props) {
           ))}
           {props.hasMore && <button type="button" className="text-button more" disabled={props.isLoading} onClick={props.onMore}>{t('Load more')}</button>}
         </div>
+        <div className="sidebar-footer">
+        <button id="plugin-market-link" type="button" className="sidebar-destination" aria-current={props.pluginsOpen ? 'page' : undefined} onClick={props.onPlugins}><Puzzle size={19} strokeWidth={1.7} /><span>{t('Plugin market')}</span></button>
         <div className="account-dock" ref={accountDock} onBlur={event => {
           if (!event.currentTarget.contains(event.relatedTarget)) setAccountOpen(false)
         }} onKeyDown={event => {
@@ -174,6 +181,7 @@ export function Sidebar(props: Props) {
             </button>
           </div>}
           {props.stopHostError && <p className="sidebar-feedback" role="alert">{t(props.stopHostError)}</p>}
+        </div>
         </div>
       </aside>
       {menu && (

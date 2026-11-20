@@ -46,52 +46,80 @@ type NativeChildStorageFactory interface {
 	ChildNativeStorage(string) (NativeStorage, error)
 }
 
+type NativePreparedStorage interface {
+	CreatePreparedNative(context.Context, sessionformat.Header, []sessionformat.Event) (sessionformat.EventJournal, error)
+}
+
 type NativeBuilder interface {
 	BuildNative(context.Context, NativeRuntimeIdentity, string) (Resources, error)
 }
 
+// NativeExtensionScope is owned by one live Agent, including a fork or
+// restored Agent. It is not persisted or shared by session ID.
+type NativeExtensionScope interface {
+	Tools(context.Context, string) ([]agent.Tool, error)
+	Context(context.Context, string) ([]agent.RuntimeContextSection, error)
+	Close()
+}
+
 // NativeFactory assembles one v4 Session and Agent inside the user Host.
 type NativeFactory struct {
-	Storage          NativeStorage
-	Builder          NativeBuilder
-	Model            agent.Model
-	ResolveTurnModel func(context.Context) (agent.TurnModel, error)
-	Provider         string
-	ModelID          string
-	ReasoningEffort  string
-	SystemPrompt     string
-	Limits           agent.Limits
-	Children         tools.ChildCoordinator
-	Schedule         *schedule.Service
-	FileAttachments  attachments.FileStore
-	Memory           *memory.Store
-	SessionSearch    *sessionsearch.Index
+	Storage              NativeStorage
+	Builder              NativeBuilder
+	Model                agent.Model
+	ResolveTurnModel     func(context.Context) (agent.TurnModel, error)
+	ResolveSelectedModel agent.ModelSelectionResolver
+	ToolSource           agent.ToolSource
+	ToolInvocationSource agent.ToolInvocationSource
+	ContextSource        func(context.Context, string) ([]agent.RuntimeContextSection, error)
+	SystemContextSource  func(context.Context, string) ([]agent.RuntimeContextSection, error)
+	ExtensionScope       func() NativeExtensionScope
+	PromptSource         agent.PromptAssemblySource
+	// BeforePublish composes the real, unpublished Go Agent. It runs before
+	// extension binding and before any driver starts; a failure closes the
+	// prepared resources while retaining already committed Session facts.
+	SessionReady    func(*sessionformat.LiveSession)
+	BeforePublish   func(context.Context, *NativeLive) error
+	Provider        string
+	ModelID         string
+	ReasoningEffort string
+	SystemPrompt    string
+	Limits          agent.Limits
+	Children        tools.ChildCoordinator
+	Schedule        *schedule.Service
+	FileAttachments attachments.FileStore
+	Memory          *memory.Store
+	SessionSearch   *sessionsearch.Index
 	// WorkflowSchema is an activation-only child contract. It is not persisted
 	// and must not leak into ordinary or resumed child Sessions.
 	WorkflowSchema map[string]any
-	// ToolApproval may request an explicit pre-dispatch decision for a tool.
-	// An empty request lets normal execution proceed.
-	ToolApproval func(context.Context, string, json.RawMessage) *permission.Request
+	// ToolPreExecutePolicy is the Go-owned execution policy. Business plugins
+	// cannot wrap it or register global execution middleware.
+	ToolPreExecutePolicy agent.NativePreToolPolicy
 }
 
 type NativeLive struct {
-	Agent      *agent.NativeLoop
-	Session    *sessionformat.LiveSession
-	Goals      *goal.NativeService
-	Plan       *plan.NativeService
-	Questions  *interaction.NativeQuestions
-	Resource   Resources
-	Structured *tools.NativeStructuredOutput
-	closeMu    sync.Once
-	closeErr   error
+	Agent          *agent.NativeLoop
+	Session        *sessionformat.LiveSession
+	Goals          *goal.NativeService
+	Plan           *plan.NativeService
+	Questions      *interaction.NativeQuestions
+	Resource       Resources
+	Structured     *tools.NativeStructuredOutput
+	closeMu        sync.Once
+	closeErr       error
+	extensionScope NativeExtensionScope
 }
 
 func (l *NativeLive) Close() error {
 	l.closeMu.Do(func() {
+		if l.extensionScope != nil {
+			l.extensionScope.Close()
+		}
 		if l.Questions != nil {
 			l.Questions.Close()
 		}
-		l.closeErr = errors.Join(l.Session.Close(), l.Resource.close())
+		l.closeErr = errors.Join(l.closeErr, l.Session.Close(), l.Resource.close())
 	})
 	return l.closeErr
 }
@@ -123,27 +151,7 @@ func nativeCWD(identity NativeRuntimeIdentity) string {
 }
 
 func (f NativeFactory) Activate(ctx context.Context, identity NativeRuntimeIdentity) (*NativeLive, error) {
-	if err := f.validate(identity); err != nil {
-		return nil, err
-	}
-	header := sessionformat.Header{
-		Type: "session", Version: sessionformat.Version,
-		ID: identity.SessionID, CreatedAt: time.Now().UTC().UnixMilli(), CWD: nativeCWD(identity), AgentPreset: identity.AgentPreset,
-	}
-	journal, err := f.Storage.CreateNative(ctx, header)
-	if err != nil {
-		return nil, err
-	}
-	s, err := sessionformat.NewLiveSession(header, journal)
-	if err != nil {
-		_ = journal.Close()
-		return nil, err
-	}
-	if err := permission.Save(ctx, s, permission.FullAccess, false, true); err != nil {
-		_ = s.Close()
-		return nil, err
-	}
-	return f.publish(ctx, identity, s, "activation", nil)
+	return f.ActivateWithSessionOptions(ctx, identity, NativeSessionOptions{})
 }
 
 func (f NativeFactory) Resume(ctx context.Context, identity NativeRuntimeIdentity) (*NativeLive, error) {
@@ -154,7 +162,7 @@ func (f NativeFactory) Resume(ctx context.Context, identity NativeRuntimeIdentit
 	if err != nil {
 		return nil, err
 	}
-	if artifact.Header.ID != identity.SessionID || artifact.Header.CWD != nativeCWD(identity) || artifact.Header.Origin == "subagent" {
+	if artifact.Header.ID != identity.SessionID || artifact.Header.CWD != nativeCWD(identity) {
 		_ = journal.Close()
 		return nil, errors.New("native Session header differs from its worker identity")
 	}
@@ -167,7 +175,7 @@ func (f NativeFactory) Resume(ctx context.Context, identity NativeRuntimeIdentit
 		_ = s.Close()
 		return nil, err
 	}
-	return f.publish(ctx, identity, s, "resume", nil)
+	return f.publishSession(ctx, identity, s, "resume", nil, nil)
 }
 
 // ActivateChild creates a separate child Session inside the same Host. It has
@@ -263,26 +271,25 @@ func (f NativeFactory) activateChild(ctx context.Context, root NativeRuntimeIden
 		_ = journal.Close()
 		return nil, err
 	}
-	if err := permission.Save(ctx, s, permission.Read(parent.Session.Events()).Mode, true, true); err != nil {
-		_ = s.Close()
-		return nil, err
-	}
-	if identity.CWD != header.CWD {
-		data, err := json.Marshal(struct {
-			CWD string `json:"cwd"`
-		}{CWD: identity.CWD})
-		if err != nil {
-			_ = s.Close()
-			return nil, err
+	initialize := func() error {
+		if err := permission.Save(ctx, s, permission.Read(parent.Session.Events()).Mode, true, true); err != nil {
+			return err
 		}
-		if _, err := s.Append(sessionformat.EventInput{Type: "working-directory/change", Data: data}); err != nil {
-			_ = s.Close()
-			return nil, err
+		if identity.CWD != header.CWD {
+			data, err := json.Marshal(struct {
+				CWD string `json:"cwd"`
+			}{CWD: identity.CWD})
+			if err != nil {
+				return err
+			}
+			if _, err := s.Append(sessionformat.EventInput{Type: "working-directory/change", Data: data}); err != nil {
+				return err
+			}
+			if err := s.Flush(ctx); err != nil {
+				return err
+			}
 		}
-		if err := s.Flush(ctx); err != nil {
-			_ = s.Close()
-			return nil, err
-		}
+		return nil
 	}
 	descriptor := &sessionformat.SubagentDescriptor{
 		Version: 3, Mode: "continuable", Provider: "native", Label: &label,
@@ -291,7 +298,7 @@ func (f NativeFactory) activateChild(ctx context.Context, root NativeRuntimeIden
 	if f.ReasoningEffort != "" {
 		descriptor.AgentReasoningEffort = &f.ReasoningEffort
 	}
-	return childFactory.publish(ctx, identity, s, "activation", descriptor)
+	return childFactory.publishSession(ctx, identity, s, "activation", descriptor, initialize)
 }
 
 // ResumeChild reopens only a v4 child already cataloged by its live direct
@@ -352,7 +359,23 @@ func (f NativeFactory) ResumeChild(ctx context.Context, root NativeRuntimeIdenti
 		_ = s.Close()
 		return nil, err
 	}
-	return childFactory.publish(ctx, identity, s, "resume", nil)
+	return childFactory.publishSession(ctx, identity, s, "resume", nil, nil)
+}
+
+func (f NativeFactory) publishSession(ctx context.Context, identity NativeRuntimeIdentity, s *sessionformat.LiveSession, reason string, descriptor *sessionformat.SubagentDescriptor, initialize func() error) (_ *NativeLive, resultErr error) {
+	if f.SessionReady != nil {
+		f.SessionReady(s)
+	}
+	if initialize != nil {
+		if err := initialize(); err != nil {
+			return nil, errors.Join(err, s.Close())
+		}
+	}
+	live, err := f.publish(ctx, identity, s, reason, descriptor)
+	if err != nil {
+		return nil, err
+	}
+	return live, nil
 }
 
 // DeepSeek keeps the original project cwd in the immutable Session header;
@@ -391,7 +414,7 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 		return nil, err
 	}
 	skillLookup := func() skills.Lookup {
-		return skills.Lookup{CWD: nativeSessionCWD(s.Header().CWD, s.Events()), Workspace: identity.Workspace}
+		return skills.Lookup{CWD: nativeSessionCWD(s.Header().CWD, s.Events()), Workspace: identity.Workspace, SessionID: s.Header().ID}
 	}
 	skillTool := &tools.Skill{Registry: resource.Skills, Lookup: skillLookup}
 	toolset = append(toolset, skillTool, tools.Present{
@@ -506,7 +529,14 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 		return nil, fmt.Errorf("assemble native Agent loop: %w", err)
 	}
 	loop.SetReasoningEffort(f.ReasoningEffort)
+	loop.SetSandboxModeSource(func() string { return string(permissionState().Mode) })
 	loop.SetTurnModelResolver(f.ResolveTurnModel)
+	loop.SetModelSelectionResolver(f.ResolveSelectedModel)
+	loop.SetToolSource(f.ToolSource)
+	loop.SetToolInvocationSource(f.ToolInvocationSource)
+	loop.SetToolQuestions(questions)
+	loop.SetRuntimeContextSource(f.ContextSource)
+	loop.SetPromptAssembler(f.PromptSource)
 	// The clock is standard-preset context for every Agent, including a child;
 	// only the four Schedule management tools are root-only.
 	if f.Schedule != nil {
@@ -558,17 +588,17 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 		})
 	}
 
-	if f.ToolApproval != nil {
-		loop.SetToolApproval(func(ctx context.Context, name string, args json.RawMessage) error {
-			request := f.ToolApproval(ctx, name, args)
-			if request == nil {
-				return nil
-			}
-			action := *request
-			action.Tool = name
-			return approval.Request(ctx, action)
-		})
-	}
+	loop.SetToolPolicyApprover(func(ctx context.Context, execution agent.ToolExecution, ask agent.ToolPolicyAsk) error {
+		reason := ask.Reason
+		if reason == "" {
+			reason = ask.DisplayReason["en"]
+		}
+		if reason == "" {
+			reason = "This tool requires approval before executing."
+		}
+		return approval.Request(ctx, permission.Request{Tool: execution.Name, Reason: reason, Detail: string(execution.Arguments)})
+	})
+	loop.SetToolPreExecutePolicy(f.ToolPreExecutePolicy)
 
 	loop.SetSkillCatalogProvider(skillTool, func(stepCtx context.Context) (agent.NativeSkillCatalogSnapshot, error) {
 		discovery, err := resource.Skills.Snapshot(stepCtx, skillLookup())
@@ -645,5 +675,47 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 	loop.SetFilePathResolver(func(ref agent.NativeFileAttachmentRef) string {
 		return f.FileAttachments.Path(attachments.FileRef{ID: ref.ID, Name: ref.Name, Bytes: ref.Bytes})
 	})
-	return &NativeLive{Agent: loop, Session: s, Goals: goals, Plan: plans, Questions: questions, Resource: resource, Structured: structured}, nil
+	var scope NativeExtensionScope
+	if f.ExtensionScope != nil {
+		scope = f.ExtensionScope()
+	}
+	loop.SetSystemContextSource(func(ctx context.Context, sid string) ([]agent.RuntimeContextSection, error) {
+		var sections []agent.RuntimeContextSection
+		if f.SystemContextSource != nil {
+			rows, err := f.SystemContextSource(ctx, sid)
+			if err != nil {
+				return nil, err
+			}
+			sections = append(sections, rows...)
+		}
+		if scope != nil {
+			rows, err := scope.Context(ctx, sid)
+			if err != nil {
+				return nil, err
+			}
+			sections = append(sections, rows...)
+		}
+		return sections, nil
+	})
+	if scope != nil {
+		loop.SetToolSource(func(ctx context.Context, sid string) ([]agent.Tool, error) {
+			var tools []agent.Tool
+			if f.ToolSource != nil {
+				rows, err := f.ToolSource(ctx, sid)
+				if err != nil {
+					return nil, err
+				}
+				tools = append(tools, rows...)
+			}
+			rows, err := scope.Tools(ctx, sid)
+			return append(tools, rows...), err
+		})
+	}
+	live := &NativeLive{Agent: loop, Session: s, Goals: goals, Plan: plans, Questions: questions, Resource: resource, Structured: structured, extensionScope: scope}
+	if f.BeforePublish != nil {
+		if err := f.BeforePublish(ctx, live); err != nil {
+			return nil, errors.Join(err, live.Close())
+		}
+	}
+	return live, nil
 }

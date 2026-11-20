@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -11,51 +10,71 @@ import (
 	"go-bot/internal/modeldata"
 )
 
-// executeNativeStepTools overlaps only consecutive calls whose static tool
-// specs declare parallel-safe execution. An exclusive call waits for the pool
-// to drain. Dispatch can overlap, while intent and result commits stay in
-// model order and each intent is flushed before its tool can have effects.
-func (a *NativeLoop) executeNativeStepTools(
-	ctx context.Context, turn uint64, step int, calls []modeldata.ToolRequest, toolCount *int,
-) (budgetExceeded, concluded bool, err error) {
-	for index := 0; index < len(calls); {
-		if a.maxParallelToolCalls > 1 && a.parallelSafe[calls[index].Name] && ctx.Err() == nil {
-			end := index + 1
-			for end < len(calls) && a.parallelSafe[calls[end].Name] {
-				end++
+// executeNativeStepTools owns the upstream ordered prepare / overlapping
+// dispatch / ordered complete contract. Completing in order includes policy
+// callbacks and final observers, not merely the journal append.
+func (a *NativeLoop) executeNativeStepTools(ctx context.Context, turn uint64, step int, calls []modeldata.ToolRequest, toolCount *int) (budgetExceeded, concluded bool, err error) {
+	sequences := make([]uint64, len(calls))
+	err = runToolBatch(calls, a.maxParallelToolCalls, batchCallbacks{
+		parallel: func(call modeldata.ToolRequest) bool { return a.nativeToolParallel(ctx, call) },
+		start: func(index int, call modeldata.ToolRequest) (*modeldata.ToolResult, error) {
+			*toolCount++
+			seq, err := a.appendNativeToolIntent(context.WithoutCancel(ctx), turn, step, call)
+			if err != nil {
+				return nil, err
 			}
-			over, done, groupErr := a.executeNativeParallelGroup(ctx, turn, step, calls[index:end], toolCount)
-			budgetExceeded = budgetExceeded || over
-			concluded = concluded || done
-			if groupErr != nil {
-				return budgetExceeded, concluded, groupErr
+			sequences[index] = seq
+			if ctx.Err() != nil {
+				result := nativeSkippedToolResult(call)
+				return &result, nil
 			}
-			index = end
-			continue
+			if *toolCount > a.maxToolCalls {
+				budgetExceeded = true
+				result := nativeBudgetToolResult(call)
+				return &result, nil
+			}
+			return nil, nil
+		},
+		prepare: func(call modeldata.ToolRequest) *nativePreparedTool {
+			return a.prepareNativeTool(ctx, turn, uint64(step), call)
+		},
+		commit: func(index int, result modeldata.ToolResult, _ *ToolPipelineResult) error {
+			if err := a.commitNativeToolResult(turn, step, sequences[index], calls[index], result); err != nil {
+				return err
+			}
+			concluded = concluded || result.ConcludeTurn
+			return nil
+		},
+	})
+	return budgetExceeded, concluded, err
+}
+
+func (a *nativeTools) nativeToolParallel(ctx context.Context, call modeldata.ToolRequest) (safe bool) {
+	defer func() {
+		if recover() != nil {
+			safe = false
 		}
-		call := calls[index]
-		index++
-		*toolCount++
-		callSeq, appendErr := a.appendNativeToolIntent(ctx, turn, step, call)
-		if appendErr != nil {
-			return budgetExceeded, concluded, appendErr
-		}
-		var result modeldata.ToolResult
-		switch {
-		case ctx.Err() != nil:
-			result = nativeSkippedToolResult(call)
-		case *toolCount > a.maxToolCalls:
-			budgetExceeded = true
-			result = nativeBudgetToolResult(call)
-		default:
-			result = a.executeNativeTool(ctx, turn, uint64(step), call)
-		}
-		concluded = concluded || result.ConcludeTurn
-		if commitErr := a.commitNativeToolResult(turn, step, callSeq, call, result); commitErr != nil {
-			return budgetExceeded, concluded, commitErr
-		}
+	}()
+	if ctx.Err() != nil {
+		return false
 	}
-	return budgetExceeded, concluded, nil
+	tool, schema, err := a.lookupTool(ctx, call.Name)
+	if err != nil || tool == nil {
+		return false
+	}
+	classifier, ok := tool.(ConcurrencyTool)
+	if !ok {
+		return tool.Spec().ParallelSafe
+	}
+	args := json.RawMessage(call.Arguments)
+	if len(args) == 0 {
+		args = json.RawMessage(`{}`)
+	}
+	if schema == nil || !json.Valid(args) || validateToolParameters(schema, args) != nil || classifier.Validate(args) != nil {
+		return false
+	}
+	safe, err = classifier.IsConcurrencySafe(ctx, args)
+	return safe && err == nil
 }
 
 func (a *NativeLoop) appendNativeToolIntent(ctx context.Context, turn uint64, step int, call modeldata.ToolRequest) (uint64, error) {
@@ -75,7 +94,9 @@ func (a *NativeLoop) appendNativeToolIntent(ctx context.Context, turn uint64, st
 	return event.Seq, nil
 }
 
-func (a *NativeLoop) commitNativeToolResult(turn uint64, step int, callSeq uint64, call modeldata.ToolRequest, result modeldata.ToolResult) error {
+// logNativeToolOutcome commits the frozen result and applicable built-in
+// presentation facts. Output processing and repeat reminders are already settled.
+func (a *NativeLoop) logNativeToolOutcome(turn uint64, step int, callSeq uint64, call modeldata.ToolRequest, result modeldata.ToolResult) error {
 	var delivery sessionformat.PresentedFiles
 	if call.Name == "present" && !result.IsError && len(result.Meta) > 0 {
 		if err := json.Unmarshal(result.Meta, &delivery); err != nil {
@@ -91,23 +112,50 @@ func (a *NativeLoop) commitNativeToolResult(turn uint64, step int, callSeq uint6
 			return err
 		}
 	}
+	return nil
+}
+
+func (a *NativeLoop) commitNativeToolResult(turn uint64, step int, callSeq uint64, call modeldata.ToolRequest, result modeldata.ToolResult) error {
+	if err := a.logNativeToolOutcome(turn, step, callSeq, call, result); err != nil {
+		return err
+	}
+	// Match the upstream batch FIFO: contexts follow the batch's tool results
+	// and retain call order even when tool bodies overlap.
+	contexts := make([]map[string]any, 0, len(result.AdditionalContexts))
+	for _, message := range result.AdditionalContexts {
+		var value map[string]any
+		if err := json.Unmarshal(message, &value); err != nil {
+			return err
+		}
+		contexts = append(contexts, value)
+	}
 	if err := a.session.Flush(context.Background()); err != nil {
 		return err
 	}
+	a.repeatReminders = append(a.repeatReminders, contexts...)
+	if a.instructionsForStep != nil {
+		return a.scanInstructionFileTouches()
+	}
+	return nil
+}
+
+// observeRepeatedToolResult is an ordered PostExecute processor. Result only
+// commits its already formed contexts; it never updates the repeat counter.
+func (a *NativeLoop) observeRepeatedToolResult(call modeldata.ToolRequest, result *modeldata.ToolResult) {
 	// These two results are synthesized by the loop before entering the tool
 	// runtime. DeepSeek's guard observes post-execute attempts, including tool
 	// denials, but not calls skipped by turn cancellation or our local budget.
 	if result.Code == "TOOL_ABORTED_BEFORE_DISPATCH" || result.Code == "TOOL_BUDGET_EXCEEDED" {
-		return nil
+		return
 	}
 	if reminder := a.repeatGuard.observe(call); reminder != nil {
-		a.repeatReminders = append(a.repeatReminders, nativeTextMessage(
+		message, _ := json.Marshal(nativeTextMessage(
 			uuid.NewString(), "user", map[string]any{
 				"kind": "repeat-tool-reminder", "form": "notice",
 				"summary": call.Name + " × " + fmt.Sprint(a.repeatGuard.count),
 			}, reminder.Content))
+		result.AdditionalContexts = append(result.AdditionalContexts, message)
 	}
-	return nil
 }
 
 func nativeSkippedToolResult(call modeldata.ToolRequest) modeldata.ToolResult {
@@ -118,104 +166,4 @@ func nativeSkippedToolResult(call modeldata.ToolRequest) modeldata.ToolResult {
 func nativeBudgetToolResult(call modeldata.ToolRequest) modeldata.ToolResult {
 	return modeldata.ToolResult{ID: call.ID, Name: call.Name, IsError: true,
 		Code: "TOOL_BUDGET_EXCEEDED", Content: "Tool call budget exceeded."}
-}
-
-func (a *NativeLoop) executeNativeParallelGroup(
-	ctx context.Context, turn uint64, step int, calls []modeldata.ToolRequest, toolCount *int,
-) (budgetExceeded, concluded bool, err error) {
-	type completion struct {
-		index  int
-		result modeldata.ToolResult
-	}
-	completed := make(chan completion, len(calls))
-	results := make([]modeldata.ToolResult, len(calls))
-	sequences := make([]uint64, len(calls))
-	ready := make([]bool, len(calls))
-	nextStart, nextCommit, running := 0, 0, 0
-	// Even a persistence failure must not let the turn close while dispatched
-	// tools are still changing the world. Reopen repairs any unpaired intents.
-	defer func() {
-		for running > 0 {
-			<-completed
-			running--
-		}
-	}()
-	commitReady := func() error {
-		for nextCommit < len(calls) && ready[nextCommit] {
-			if err := a.commitNativeToolResult(turn, step, sequences[nextCommit], calls[nextCommit], results[nextCommit]); err != nil {
-				return err
-			}
-			concluded = concluded || results[nextCommit].ConcludeTurn
-			nextCommit++
-		}
-		return nil
-	}
-	startReady := func() error {
-		for nextStart < len(calls) && running < a.maxParallelToolCalls && ctx.Err() == nil {
-			index := nextStart
-			call := calls[index]
-			*toolCount++
-			callSeq, err := a.appendNativeToolIntent(ctx, turn, step, call)
-			if err != nil {
-				return err
-			}
-			sequences[index] = callSeq
-			nextStart++
-			switch {
-			case ctx.Err() != nil:
-				results[index] = nativeSkippedToolResult(call)
-				ready[index] = true
-			case *toolCount > a.maxToolCalls:
-				budgetExceeded = true
-				results[index] = nativeBudgetToolResult(call)
-				ready[index] = true
-			default:
-				running++
-				go func() {
-					completed <- completion{index: index, result: a.executeNativeTool(ctx, turn, uint64(step), call)}
-				}()
-			}
-			if err := commitReady(); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := startReady(); err != nil {
-		return budgetExceeded, concluded, err
-	}
-	for running > 0 {
-		outcome := <-completed
-		running--
-		results[outcome.index] = outcome.result
-		ready[outcome.index] = true
-		if err := commitReady(); err != nil {
-			return budgetExceeded, concluded, err
-		}
-		if err := startReady(); err != nil {
-			return budgetExceeded, concluded, err
-		}
-	}
-	if ctx.Err() != nil {
-		for nextStart < len(calls) {
-			index := nextStart
-			call := calls[index]
-			*toolCount++
-			callSeq, err := a.appendNativeToolIntent(context.Background(), turn, step, call)
-			if err != nil {
-				return budgetExceeded, concluded, err
-			}
-			sequences[index] = callSeq
-			results[index] = nativeSkippedToolResult(call)
-			ready[index] = true
-			nextStart++
-			if err := commitReady(); err != nil {
-				return budgetExceeded, concluded, err
-			}
-		}
-	}
-	if nextCommit != len(calls) {
-		return budgetExceeded, concluded, errors.New("native parallel scheduler left uncommitted results")
-	}
-	return budgetExceeded, concluded, nil
 }

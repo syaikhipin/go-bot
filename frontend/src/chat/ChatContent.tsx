@@ -38,7 +38,7 @@ export function MessageBubble({ message, tools, ...address }: SessionAddress & {
   )
 }
 
-function MarkdownText({ text }: { text: string }) {
+export function MarkdownText({ text }: { text: string }) {
   const { t } = useLocale()
   return <div>
     <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{
@@ -58,6 +58,7 @@ function MarkdownText({ text }: { text: string }) {
 }
 
 const toolLabels: Record<string, string> = {
+  exit_plan_mode: 'Review the plan',
   read_file: 'Read file', write_file: 'Write file', edit_file: 'Edit file',
   readimage: 'Read image', generateimage: 'Generate image',
   bash: 'Run command', shell: 'Run command', shellexecute: 'Run command',

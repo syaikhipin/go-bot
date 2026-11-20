@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"go-bot/harness/agent"
 	"go-bot/harness/interaction"
@@ -47,11 +46,9 @@ func (s ApprovalService) Request(ctx context.Context, request Request) error {
 	}
 	outcome := "rejected"
 	if Read(s.Session.Events()).Approval == "ask" {
-		decisionCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		answer, err := s.Questions.AskApproval(decisionCtx, turn, step, id,
+		answer, err := s.Questions.AskApproval(ctx, turn, step, id,
 			interaction.Approval{Tool: request.Tool, Reason: request.Reason, Detail: request.Detail, Target: string(request.Target), ToolCallID: callID},
 			[]interaction.Question{{ID: "approval", Question: "Allow this operation?", Options: []interaction.Option{{Label: Approve}, {Label: Reject}}}})
-		cancel()
 		switch {
 		case errors.Is(err, interaction.ErrUnavailable):
 			outcome = "unavailable"

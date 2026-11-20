@@ -3,6 +3,7 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, Clock3, FileText, FolderOpen, MessageSquare, Plus, Send, type LucideIcon } from 'lucide-react-native'
 import { Controller, problem, type Schedule, type ScheduleState } from './api'
 import { useLocale, type Language } from './locale'
+import type { TranscriptCache } from '../../frontend/src/chat/transcriptCache'
 import { ScheduleEditor, WeekdayLabels, scheduleError, targetLabels, timingLabels } from './ScheduleEditor'
 import { accent, Button, Hint, IconButton, ink, muted, Panel, s, SectionTitle, Sheet, SheetScroll, TintIcon } from './ui'
 
@@ -63,7 +64,7 @@ function taskIcon(kind: Schedule['record']['kind']) {
   }
 }
 
-export function Tasks({ api, active, openChat }: { api: Controller; active: boolean; openChat: (id: string) => void }) {
+export function Tasks({ api, cache, active, openChat }: { api: Controller; cache: TranscriptCache; active: boolean; openChat: (id: string) => void }) {
   const { t, language } = useLocale()
   const [tasks, setTasks] = useState<Schedule[]>([])
   const [tab, setTab] = useState<TaskTab>('upcoming')
@@ -92,29 +93,21 @@ export function Tasks({ api, active, openChat }: { api: Controller; active: bool
 
   useEffect(() => {
     if (!active) return
-    const controller = new AbortController()
-    let reconnect: ReturnType<typeof setTimeout> | undefined
     let coalesce: ReturnType<typeof setTimeout> | undefined
     const changed = () => {
       clearTimeout(coalesce)
       coalesce = setTimeout(() => void refresh(), 100)
     }
-    const listen = () => {
-      void api.scheduleChanges(controller.signal, changed).catch(() => {}).finally(() => {
-        if (!controller.signal.aborted) reconnect = setTimeout(() => { void refresh(); listen() }, 5000)
-      })
-    }
+    const unsubscribe = cache.subscribe('@schedule', changed)
     void refresh()
-    listen()
     const timer = setInterval(() => setClock(Date.now()), 1000)
     return () => {
       ++requestID.current
-      controller.abort()
+      unsubscribe()
       clearInterval(timer)
-      clearTimeout(reconnect)
       clearTimeout(coalesce)
     }
-  }, [api, active])
+  }, [api, active, cache])
 
   const selected = screen?.mode === 'detail' ? screen.id : ''
   const task = tasks.find(item => item.record.id === selected)

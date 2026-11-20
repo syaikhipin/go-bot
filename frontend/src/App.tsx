@@ -1,21 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LanguagePicker, useLocale } from './locale'
 import { ArrowLeft, Globe, Image, Menu, SlidersHorizontal } from 'lucide-react'
-import { APIError, archiveSession, createSession, listSessions, openAccount, stopHost, type ProviderPage, type SessionRow } from './api/controller'
+import { APIError, archiveSession, createSession, listSessions, openAccount, readHostStream, stopHost, type ProviderPage, type SessionRow } from './api/controller'
 import { AccountEntry } from './AccountEntry'
 import { Chat } from './chat/Chat'
 import { TranscriptCache } from './chat/transcriptCache'
+import { HostConnection } from './chat/hostConnection'
 import { Sidebar } from './sessions/Sidebar'
 import { Models } from './settings/Models'
 import { ToolProviders } from './settings/ToolProviders'
 import { HostFiles } from './files/HostFiles'
+import { Plugins } from './extensions/Plugins'
+import { ExtensionDialogs } from './extensions/Dialogs'
 
-type SettingsPage = 'models' | ProviderPage
+type SettingsPage = 'models' | ProviderPage | 'plugins'
 
 function currentSettings(): SettingsPage | undefined {
   if (window.location.pathname === '/settings/models') return 'models'
   if (window.location.pathname === '/settings/web-search') return 'web-search'
   if (window.location.pathname === '/settings/image-generation') return 'image-generation'
+  if (window.location.pathname === '/plugins') return 'plugins'
+}
+
+function settingsNavigationAllowed(resume: () => void) {
+  return window.dispatchEvent(new CustomEvent('go-bot:settings-navigation', { cancelable: true, detail: { resume } }))
 }
 
 function currentSession() {
@@ -30,16 +38,18 @@ function errorDeleting(error: unknown) {
 
 export function App() {
   const [userId, setUserID] = useState<string>()
-  return userId ? <AccountChat userId={userId} onExit={() => setUserID(undefined)} /> : <AccountEntry onOpen={(id, created) => {
+  return <ExtensionDialogs>{userId ? <AccountChat userId={userId} onExit={() => setUserID(undefined)} /> : <AccountEntry onOpen={(id, created) => {
     if (created) window.history.pushState({ returnTo: '/' }, '', '/settings/models')
     setUserID(id)
-  }} />
+  }} />}</ExtensionDialogs>
 }
 
 function AccountChat({ userId, onExit }: { userId: string; onExit: () => void }) {
-  const { t } = useLocale()
+  const { t, language } = useLocale()
   const [transcriptCache] = useState(() => new TranscriptCache())
+  const [, updateSummaries] = useState(0)
   const [settingsPage, setSettingsPage] = useState(currentSettings)
+  const [selectedPlugin, setSelectedPlugin] = useState<string>()
   const settingsOpen = settingsPage !== undefined
   const [settingsVersion, setSettingsVersion] = useState(0)
   const [hostReady, setHostReady] = useState(false)
@@ -62,6 +72,23 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   const createInFlight = useRef(false)
   const listRequest = useRef<AbortController | null>(null)
   const removed = useRef(new Set<string>())
+  const settingsNav = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const nav = settingsNav.current
+    if (!nav) return
+    const revealCurrent = () => {
+      const current = nav.querySelector<HTMLElement>('[aria-current="page"]')
+      if (!current) return
+      const row = nav.getBoundingClientRect(), tab = current.getBoundingClientRect()
+      const left = tab.left < row.left ? tab.left - row.left : tab.right > row.right ? tab.right - row.right : 0
+      if (left) nav.scrollBy({ left, behavior: 'auto' })
+    }
+    revealCurrent()
+    const resize = new ResizeObserver(revealCurrent)
+    resize.observe(nav)
+    return () => resize.disconnect()
+  }, [settingsPage, language])
 
   async function exitHost() {
     setStoppingHost(true)
@@ -88,7 +115,7 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
       if (!loadedMore.current || after) setCursor(page.nextCursor ?? '')
       if (after) loadedMore.current = true
       setRows(previous => {
-        const merged = new Map(previous.map(row => [row.sessionId, row]))
+        const merged = new Map(previous.filter(row => !transcriptCache.isUnavailable(row.sessionId)).map(row => [row.sessionId, row]))
         for (const row of page.sessions) if (!removed.current.has(row.sessionId)) merged.set(row.sessionId, row)
         return [...merged.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.sessionId.localeCompare(b.sessionId))
       })
@@ -100,10 +127,24 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
         setLoading(false)
       }
     }
-  }, [userId])
+  }, [userId, transcriptCache])
 
   useEffect(() => {
-    if (settingsOpen || hostReady) return
+    if (!hostReady) return
+    const connection = new HostConnection(transcriptCache, (cursors, signal, opened, receive) =>
+      readHostStream(userId, cursors, signal, opened, receive))
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const unsubscribe = transcriptCache.subscribe('@sessions', () => {
+      clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => void refresh(), 150)
+    })
+    const unsubscribeSummaries = transcriptCache.subscribe('@summaries', () => updateSummaries(version => version + 1))
+    connection.start()
+    return () => { connection.stop(); unsubscribe(); unsubscribeSummaries(); clearTimeout(refreshTimer) }
+  }, [hostReady, userId, transcriptCache, refresh])
+
+  useEffect(() => {
+    if (hostReady) return
     let active = true
     void openAccount(userId).then(() => {
       if (active) {
@@ -117,7 +158,7 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
       }
     })
     return () => { active = false }
-  }, [settingsOpen, hostReady, hostAttempt, userId])
+  }, [hostReady, hostAttempt, userId])
 
   useEffect(() => {
     if (hostReady) void refresh()
@@ -172,14 +213,17 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   }
 
   function choose(id?: string) {
-    const path = id ? '/chat/' + id : '/'
-    if (window.location.pathname !== path) window.history.pushState(null, '', path)
-    setSelected(id)
-    setDrawerOpen(false)
-    if (settingsOpen) {
-      setSettingsPage(undefined)
-      setSettingsVersion(value => value + 1)
+    const complete = () => {
+      const path = id ? '/chat/' + id : '/'
+      if (window.location.pathname !== path) window.history.pushState(null, '', path)
+      setSelected(id)
+      setDrawerOpen(false)
+      if (settingsOpen) {
+        setSettingsPage(undefined)
+        setSettingsVersion(value => value + 1)
+      }
     }
+    if (!settingsOpen || settingsNavigationAllowed(complete)) complete()
   }
 
   function unavailable(id: string) {
@@ -195,6 +239,7 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   }
 
   function showSettings() {
+    if (settingsPage === 'plugins') { selectSettings('models'); setDrawerOpen(false); return }
     if (settingsOpen) {
       setDrawerOpen(false)
       return
@@ -204,17 +249,37 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
     setSettingsPage('models')
   }
 
+  function showPlugins() {
+    const complete = () => {
+      const returnTo = settingsOpen ? window.history.state?.returnTo || '/' : window.location.pathname
+      window.history.pushState({ returnTo }, '', '/plugins')
+      setSettingsPage('plugins')
+      setDrawerOpen(false)
+    }
+    if (settingsPage === 'plugins') { setSelectedPlugin(undefined); setDrawerOpen(false); return }
+    if (settingsNavigationAllowed(complete)) complete()
+  }
+
   function selectSettings(page: SettingsPage) {
-    window.history.replaceState(window.history.state, '', '/settings/' + page)
-    setSettingsPage(page)
+    if (page === settingsPage) return
+    const complete = () => {
+      window.history.replaceState(window.history.state, '', page === 'plugins' ? '/plugins' : '/settings/' + page)
+      setSettingsPage(page)
+    }
+    if (settingsNavigationAllowed(complete)) complete()
   }
 
   function closeSettings() {
-    const target = typeof window.history.state?.returnTo === 'string' ? window.history.state.returnTo : '/'
-    window.history.replaceState(null, '', target)
-    setNeedsModel(false)
-    setSettingsPage(undefined)
-    setSettingsVersion(value => value + 1)
+    if (settingsPage === 'plugins' && selectedPlugin) { setSelectedPlugin(undefined); return }
+    const complete = () => {
+      const target = typeof window.history.state?.returnTo === 'string' ? window.history.state.returnTo : '/'
+      window.history.replaceState(null, '', target)
+      setNeedsModel(false)
+      setSettingsPage(undefined)
+      setSettingsVersion(value => value + 1)
+      requestAnimationFrame(() => document.getElementById('account-menu-toggle')?.focus())
+    }
+    if (settingsNavigationAllowed(complete)) complete()
   }
 
   function markTitle(id: string, text: string) {
@@ -285,10 +350,10 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
 
   return (
     <div className={filesOpen ? 'app app-files-open' : 'app'}>
-      <Sidebar userId={userId} rows={rows} selected={selected} hasMore={Boolean(cursor)} isLoading={loading} creating={creating || !hostReady}
+      <Sidebar userId={userId} cache={transcriptCache} rows={rows} selected={selected} hasMore={Boolean(cursor)} isLoading={loading} creating={creating || !hostReady}
         filesOpen={filesOpen} filesAvailable={hostReady} filesOverlay={filesOverlay} onFiles={toggleFiles}
         hostReady={hostReady} stoppingHost={stoppingHost} stopHostError={stopHostError} onStopHost={exitHost}
-        error={error} needsModel={needsModel} drawerOpen={drawerOpen} onSettings={showSettings} onCreate={() => { void start().catch(() => {}) }} onChoose={choose}
+        error={error} needsModel={needsModel} drawerOpen={drawerOpen} onSettings={showSettings} onPlugins={showPlugins} pluginsOpen={settingsPage === 'plugins'} onCreate={() => { void start().catch(() => {}) }} onChoose={choose}
         onDelete={remove} onMore={() => { void refresh(cursor) }} onClose={closeDrawer}
         onRetry={() => { setError(''); if (hostReady) void refresh(); else setHostAttempt(attempt => attempt + 1) }} />
       {settingsPage && <main className="model-settings" inert={drawerOpen || filesOverlay}>
@@ -296,24 +361,25 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
           <button type="button" className="icon-button drawer-toggle" onClick={() => setDrawerOpen(true)}
             aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label={t('Open chats')}><Menu size={22} /></button>
         </div>
-        <div className="model-settings-panel">
+        <div className={settingsPage === 'plugins' ? 'model-settings-panel plugin-settings-panel' : 'model-settings-panel'}>
           <header className="settings-header">
             <div className="settings-header-actions">
-              <button type="button" className="settings-back" onClick={closeSettings}><ArrowLeft size={17} /> {t('Back to chats')}</button>
+              <button type="button" className="settings-back" onClick={closeSettings}><ArrowLeft size={17} /> {t(settingsPage === 'plugins' && selectedPlugin ? 'Plugin market' : 'Back to chats')}</button>
               <LanguagePicker />
             </div>
-            <h1>{t('Settings')}</h1>
+            {!(settingsPage === 'plugins' && selectedPlugin) && <h1>{t(settingsPage === 'plugins' ? 'Plugin market' : 'Settings')}</h1>}
           </header>
-          <nav className="settings-nav" aria-label={t('Settings')}>
+          {settingsPage !== 'plugins' && <nav ref={settingsNav} className="settings-nav" aria-label={t('Settings')}>
             <button type="button" aria-current={settingsPage === 'models' ? 'page' : undefined}
               onClick={() => selectSettings('models')}><SlidersHorizontal size={16} /> {t('Models')}</button>
             <button type="button" aria-current={settingsPage === 'web-search' ? 'page' : undefined}
               onClick={() => selectSettings('web-search')}><Globe size={16} /> {t('Web search')}</button>
             <button type="button" aria-current={settingsPage === 'image-generation' ? 'page' : undefined}
               onClick={() => selectSettings('image-generation')}><Image size={16} /> {t('Image generation')}</button>
-          </nav>
+          </nav>}
           <div className="settings-content">
-            {settingsPage === 'models' ? <Models userId={userId} /> : <ToolProviders key={settingsPage} userId={userId} page={settingsPage} />}
+            {settingsPage === 'models' ? <Models userId={userId} /> : settingsPage === 'plugins' ? <Plugins userId={userId} cache={transcriptCache} selected={selectedPlugin} onSelect={setSelectedPlugin} />
+              : <ToolProviders key={settingsPage} userId={userId} page={settingsPage} />}
           </div>
         </div>
       </main>}

@@ -31,7 +31,7 @@ func (h *NativeHost) ValidateScheduleDestination(ctx context.Context, id string)
 		}
 		return nil
 	}
-	artifact, err := h.ReadSession(ctx, id)
+	artifact, err := h.SessionArtifact(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (h *NativeHost) ObserveScheduleExecution(ctx context.Context, receipt sched
 	} else if err != nil {
 		return false, err
 	}
-	artifact, err := h.ReadSession(ctx, receipt.TargetSessionID)
+	artifact, err := h.SessionArtifact(ctx, receipt.TargetSessionID)
 	if err != nil {
 		return false, err
 	}
