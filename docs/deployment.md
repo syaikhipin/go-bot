@@ -124,29 +124,31 @@ existing mount target hostname. Create `/go-bot/<userId>` on NAS and allow
 the Host to write to it before opening that account. The driver mounts it at
 `/root/harness`. Session journals live at
 `<nasPath>/.dsh/sessions/<project-key>/<session-id>/session.v4.jsonl`.
-Schedules, attachments and user skills share that account's NAS directory. On
-first use, the Host copies the image's OfficeCLI and agent-browser skill bundles
-to `<nasPath>/.dsh/skills/`. The `<nasPath>/.dsh/.skills-seeded` marker keeps
-later Host instances from resetting edits or restoring deleted skills.
+Schedules, attachments and user skills share that account's NAS directory.
+OfficeCLI and agent-browser are optional plugins installed from the plugin market.
+Their original Skills are contributed from the installed plugin packages; the Host
+no longer copies a first-start skill seed into user directories.
 ECI container storage uses the writable layer for the lifetime of the instance.
 
 See [validation](validation.md) for real Docker coverage and the remaining
 cloud checks.
 
-## Image dependency updates
+## Plugin and image dependencies
 
-During the build, the verified OfficeCLI release binary generates its skill
-bundles and the official Skills CLI fetches the upstream agent-browser bundle.
-The image stores both sets under `/usr/share/go-bot/skill-seed`. The Host
-installs them into `/root/harness/.dsh/skills` on first use of each data root. Both user
-skill roots persist across instance replacement in the account's Docker volume
-or ECI NAS mount.
-To use the official specialized installer inside a running Host, direct its
-Codex installation to the mounted shared root with
-`HOME=/root/harness officecli skills install pptx codex`. A same-named bundle
-already installed in `$DSH_HOME/skills` has higher precedence.
+The base Host supplies Go, Node/npm/pnpm, Python, Chromium, LibreOffice and general
+file-processing libraries. OfficeCLI and agent-browser CLIs are installed when the
+user installs their plugins, rather than being preinstalled in the runtime image.
 
-Version and SHA256 locks are in `build/dependencies.lock.yaml`, `build/officecli.sha256` and
-the Dockerfile. Use `scripts/update-officecli.py` to propose an update from the
-official stable release, review its diff, rebuild and run image smokes before
-publishing. No third-party binary or SDK source is committed.
+A disposable build stage exports the upstream Skills using official installers and
+includes their complete resources in each wrapper package. Enabling a plugin
+registers its Skills from the package; disabling it withdraws that contribution.
+User-created Skills remain in the existing user Skill roots.
+
+OfficeCLI installation runs `npm install -g @officecli/officecli`, without an added
+version/checksum lock or an automatic-update override. Plugin package updates are
+separate from CLI version selection. Installation policy belongs to the plugin;
+the Host only coordinates package installation and reports the result.
+
+Other build dependency versions are recorded in `build/dependencies.lock.yaml`
+and the respective package lockfiles. No third-party binary or SDK source is
+committed.

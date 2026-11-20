@@ -1,3 +1,5 @@
+import { ProtocolDropdown } from './ProtocolDropdown'
+import { changeProtocolURL, modelProtocol, modelRequestURL, protocolNames, protocolURLs, type ModelProtocol } from '../../frontend/src/settings/modelProtocol'
 import { languages, useLocale } from './locale'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -8,7 +10,7 @@ import { LanguageSheet } from './LanguageSheet'
 import { accent, Button, Field, Hint, IconButton, edge, glass, ink, muted, Panel, s, Sheet, SheetScroll, wash } from './ui'
 
 const providerLabels = { 'web-search': '网页搜索', 'image-generation': '图片生成' }
-type Section = 'models' | ProviderPage
+export type Section = 'models' | ProviderPage
 
 export function Me({ api, section, open, close, exitAccount }: {
   api: Controller; section: Section | null; open: (section: Section) => void; close: () => void; exitAccount: () => void
@@ -20,6 +22,7 @@ export function Me({ api, section, open, close, exitAccount }: {
   const [languageOpen, setLanguageOpen] = useState(false)
   const [serverOpen, setServerOpen] = useState(false)
   const [stopping, setStopping] = useState(false)
+  const [modelDirty, setModelDirty] = useState(false)
   const [error, setError] = useState('')
   async function changeAvatar(camera: boolean) {
     setError('')
@@ -93,17 +96,22 @@ export function Me({ api, section, open, close, exitAccount }: {
       <Button label={t('从图库选择')} onPress={() => afterClose(() => changeAvatar(false))}><Images size={19} color={accent} /></Button>
       <Button label={t('拍照')} onPress={() => afterClose(() => changeAvatar(true))}><Camera size={19} color={accent} /></Button>
     </SheetScroll>}</Sheet>}
-    {section === 'models' && <Sheet title={t('模型')} onClose={close}><Models api={api} /></Sheet>}
+    {section === 'models' && <Sheet title={t('模型')} onClose={() => { setModelDirty(false); close() }} beforeDismiss={proceed => {
+      if (!modelDirty) { proceed(); return }
+      Alert.alert(t('放弃未保存的修改？'), undefined, [{ text: t('取消'), style: 'cancel' }, { text: t('放弃修改'), style: 'destructive', onPress: proceed }])
+    }}><Models api={api} onDirtyChange={setModelDirty} /></Sheet>}
     {section && section !== 'models' && <Sheet title={t(providerLabels[section])} onClose={close}><Providers key={section} api={api} page={section} /></Sheet>}
+
   </>
 }
 
-function Models({ api }: { api: Controller }) {
+function Models({ api, onDirtyChange }: { api: Controller; onDirtyChange: (dirty: boolean) => void }) {
   const { t } = useLocale()
   const [settings, setSettings] = useState<ModelSettings>()
   const [editing, setEditing] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [baseUrl, setURL] = useState('')
+  const [protocol, setProtocol] = useState<ModelProtocol>('responses')
   const [models, setModels] = useState('')
   const [apiKey, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -115,7 +123,8 @@ function Models({ api }: { api: Controller }) {
     const endpoint = settings?.endpoints[id]
     setEditing(id)
     setName(endpoint?.name ?? '')
-    setURL(endpoint?.baseUrl ?? '')
+    setProtocol(modelProtocol(endpoint?.protocol))
+    setURL(endpoint?.baseUrl ?? protocolURLs.responses)
     setModels(endpoint?.models.join('\n') ?? '')
     setKey('')
     setError('')
@@ -128,24 +137,33 @@ function Models({ api }: { api: Controller }) {
     finally { setBusy(false) }
   }
   const list = models.split(/[\n,]/).map(model => model.trim()).filter(Boolean)
+  useEffect(() => {
+    const initial = editing === null ? undefined : settings?.endpoints[editing]
+    onDirtyChange(editing !== null && (name !== (initial?.name ?? '') || baseUrl !== (initial?.baseUrl ?? protocolURLs.responses) || protocol !== modelProtocol(initial?.protocol) || apiKey !== '' || models !== (initial?.models.join('\n') ?? '')))
+  }, [editing, settings, name, baseUrl, protocol, apiKey, models, onDirtyChange])
+
 
   return <SheetScroll>
-    <Hint>{t('支持 OpenAI 兼容的 Responses 接口。默认端点列表中的第一个模型用于新会话。')}</Hint>
+    <Hint>{t('支持 OpenAI Responses 和 Anthropic Messages 兼容接口。默认端点的第一个模型用于新会话。')}</Hint>
     {Object.entries(settings?.endpoints ?? {}).map(([id, endpoint]) => <Pressable key={id} accessibilityRole="button" onPress={() => edit(id)}>
       <Panel style={{ backgroundColor: id === editing ? wash : glass }}>
         <View style={s.row}><Text style={[s.body, { flex: 1, fontWeight: '600' }]}>{endpoint.name}</Text>
           {settings?.defaultEndpointId === id && <Text style={s.caption}>{t('默认')}</Text>}<ChevronRight size={16} color={muted} /></View>
-        <Hint>{endpoint.models.join(' · ')}</Hint>
+        <Hint>{protocolNames[modelProtocol(endpoint.protocol)]} · {endpoint.models.join(' · ')}</Hint>
       </Panel>
     </Pressable>)}
     {editing === null ? <Button label={t('添加端点')} onPress={() => edit('')} /> : <>
       <Field label={t('名称')} value={name} onChangeText={setName} />
-      <Field label={t('端点地址')} keyboardType="url" autoCorrect={false} placeholder="https://api.example.com/v1" value={baseUrl} onChangeText={setURL} />
+      <ProtocolDropdown value={protocol} disabled={busy} onChange={next => { setURL(changeProtocolURL(baseUrl, protocol, next)); setProtocol(next) }} />
+      <Hint>{t('按服务商提供的接口格式选择，与模型名称无关。')}</Hint>
+      <Field label={t('端点地址')} keyboardType="url" autoCorrect={false} placeholder={protocolURLs[protocol]} value={baseUrl} onChangeText={setURL} />
+      <Hint>{t('请求地址')}: {modelRequestURL(baseUrl, protocol)}</Hint>
       <Field label="API key" autoCorrect={false} secureTextEntry value={apiKey} onChangeText={setKey}
         placeholder={settings?.endpoints[editing]?.hasApiKey ? t('已保存，留空保留当前密钥') : t('输入 API key')} />
       <Field label={t('模型名（每行一个）')} autoCorrect={false} multiline value={models} onChangeText={setModels} />
-      <Button primary label={t('保存端点')} busy={busy} disabled={!name.trim() || !baseUrl.trim() || !list.length}
-        onPress={() => update(() => api.saveEndpoint(editing || undefined, { name: name.trim(), baseUrl: baseUrl.trim(), models: list, ...(apiKey.trim() && { apiKey: apiKey.trim() }) }))} />
+      <Button primary label={t('保存端点')} busy={busy} disabled={!name.trim() || !baseUrl.trim() || !list.length || (!apiKey.trim() && !settings?.endpoints[editing]?.hasApiKey)}
+        onPress={() => update(() => api.saveEndpoint(editing || undefined, { protocol, name: name.trim(), baseUrl: baseUrl.trim(), models: list, ...(apiKey.trim() && { apiKey: apiKey.trim() }) }))} />
+      <Button label={t('取消')} disabled={busy} onPress={() => setEditing(null)} />
       {!!editing && settings?.defaultEndpointId !== editing && <Button label={t('设为默认端点')} disabled={busy} onPress={() => update(() => api.setDefaultEndpoint(editing))} />}
       {!!editing && <Button label={t('删除端点')} dangerTone disabled={busy} onPress={() => Alert.alert(t('删除端点？'), name, [{ text: t('返回'), style: 'cancel' }, { text: t('删除'), style: 'destructive', onPress: () => update(() => api.removeEndpoint(editing)) }])} />}
     </>}

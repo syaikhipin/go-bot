@@ -42,6 +42,8 @@ func (WebFetch) Validate(raw json.RawMessage) error {
 	return err
 }
 
+func (WebFetch) RetainsOutput() bool { return true }
+
 func (t WebFetch) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	value, err := t.ExecuteValue(ctx, raw)
 	if err != nil {

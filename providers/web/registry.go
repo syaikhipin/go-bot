@@ -6,8 +6,10 @@ import (
 	"sort"
 
 	"go-bot/internal/providersettings"
+	"go-bot/providers/web/brave"
 	"go-bot/providers/web/deepseek"
 	"go-bot/providers/web/doubao"
+	"go-bot/providers/web/tavily"
 	"go-bot/providers/web/zhipu"
 	"go-bot/web"
 )
@@ -18,9 +20,11 @@ type adapter struct {
 }
 
 var registry = map[string]adapter{
+	brave.ID:    {name: "Brave Search", newProvider: brave.New},
 	deepseek.ID: {name: "DeepSeek", newProvider: deepseek.New},
 	doubao.ID:   {name: "Doubao Search", newProvider: doubao.New},
 	zhipu.ID:    {name: "Zhipu Search", newProvider: zhipu.New},
+	tavily.ID:   {name: "Tavily", newProvider: tavily.New},
 }
 
 const Default = deepseek.ID

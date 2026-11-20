@@ -17,18 +17,12 @@ var ErrV4WriteRolledBack = errors.New("Session v4 append was rolled back; retry 
 
 var v4KeyComponent = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
-func validateSessionLineage(projectCWD, rootSessionID string, header Header) error {
+func validateSessionProject(projectCWD string, header Header) error {
 	if projectCWD != "" && header.CWD != projectCWD {
 		return errors.New("Session v4 header cwd differs from its project directory")
 	}
-	if rootSessionID == "" {
-		if header.ParentSession != "" || header.Origin == "subagent" || header.DelegationDepth != 0 {
-			return errors.New("top-level Session v4 header declares child lineage")
-		}
-		return nil
-	}
-	if header.ParentSession == "" || header.Origin != "subagent" || header.DelegationDepth < 1 {
-		return errors.New("child Session v4 header lacks lineage")
-	}
+	// Lineage is Session metadata, not a filesystem mode. Programmatic creates
+	// may seed/fork or name a parent independently of the built-in subagent
+	// coordinator. UI listing and coordinator admission own their own checks.
 	return nil
 }

@@ -16,7 +16,7 @@ image:
 test:
 	go test ./...
 race:
-	go test -race ./harness/agent ./harness/session ./harness/schedule ./internal/hostruntime ./internal/controller ./internal/config
+	go test -race ./harness/agent ./harness/session ./harness/schedule ./internal/hostruntime ./internal/controller ./internal/config ./internal/plugins ./internal/mcpclient ./internal/credentials ./internal/authorization
 vet:
 	go vet ./...
 run:

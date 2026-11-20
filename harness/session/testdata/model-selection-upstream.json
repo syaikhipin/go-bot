@@ -1,0 +1,309 @@
+[
+  {
+    "current": null,
+    "state": {
+      "lastUsed": null,
+      "pending": null
+    },
+    "seq": 2,
+    "selectionEvents": 0
+  },
+  {
+    "current": null,
+    "state": {
+      "lastUsed": null,
+      "pending": null
+    },
+    "seq": 2,
+    "selectionEvents": 0
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": null,
+      "pending": null
+    },
+    "seq": 2,
+    "selectionEvents": 0
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": null,
+      "pending": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      }
+    },
+    "seq": 3,
+    "selectionEvents": 1
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": null,
+      "pending": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      }
+    },
+    "seq": 3,
+    "selectionEvents": 1
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": null,
+      "pending": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      }
+    },
+    "seq": 3,
+    "selectionEvents": 1
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "a"
+      },
+      "pending": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      }
+    },
+    "seq": 4,
+    "selectionEvents": 1
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "a",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      },
+      "pending": null
+    },
+    "seq": 5,
+    "selectionEvents": 1
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "high"
+      },
+      "pending": {
+        "provider": "p",
+        "model": "b"
+      }
+    },
+    "seq": 6,
+    "selectionEvents": 2
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "a",
+        "reasoningEffort": "medium"
+      },
+      "pending": {
+        "provider": "p",
+        "model": "b"
+      }
+    },
+    "seq": 7,
+    "selectionEvents": 2
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b"
+      },
+      "pending": null
+    },
+    "seq": 8,
+    "selectionEvents": 2
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b"
+      },
+      "pending": null
+    },
+    "seq": 9,
+    "selectionEvents": 3
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b"
+      },
+      "pending": null
+    },
+    "seq": 9,
+    "selectionEvents": 3
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b"
+      },
+      "pending": null
+    },
+    "seq": 9,
+    "selectionEvents": 3
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b"
+      },
+      "pending": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "high"
+      }
+    },
+    "seq": 10,
+    "selectionEvents": 4
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "high"
+      },
+      "pending": null
+    },
+    "seq": 11,
+    "selectionEvents": 4
+  },
+  {
+    "current": {
+      "provider": "new",
+      "model": "b"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "high"
+      },
+      "pending": {
+        "provider": "new",
+        "model": "b"
+      }
+    },
+    "seq": 12,
+    "selectionEvents": 5
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "high"
+      },
+      "pending": null
+    },
+    "seq": 13,
+    "selectionEvents": 6
+  },
+  {
+    "current": {
+      "provider": "p",
+      "model": "b",
+      "reasoningEffort": "high"
+    },
+    "state": {
+      "lastUsed": {
+        "provider": "p",
+        "model": "b",
+        "reasoningEffort": "high"
+      },
+      "pending": null
+    },
+    "seq": 13,
+    "selectionEvents": 6
+  }
+]

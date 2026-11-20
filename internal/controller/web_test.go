@@ -21,6 +21,9 @@ func TestControllerServesWebRoutesAndLeavesAPIRoutesDistinct(t *testing.T) {
 		status                    int
 	}{
 		{"/", "GET", "text/html", "no-cache", 200},
+		{"/plugins", "GET", "text/html", "no-cache", 200},
+		{"/plugins/not-a-page", "GET", "text/plain", "", 404},
+		{"/settings/plugins", "GET", "text/plain", "", 404},
 		{"/chat/6c265cac-35e2-471a-80e1-45e066a909be", "GET", "text/html", "no-cache", 200},
 		{"/", "HEAD", "text/html", "no-cache", 200},
 		{"/assets/main.js", "GET", "javascript", "immutable", 200},

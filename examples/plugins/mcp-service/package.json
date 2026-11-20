@@ -1,0 +1,12 @@
+{
+  "name": "@go-bot-example/mcp-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./index.mjs",
+  "license": "MIT",
+  "description": "Example plugin contributing an HTTP server to Go Bot's built-in MCP manager",
+  "goBot": {
+    "api": "1"
+  }
+}

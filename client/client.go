@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	mcpconfig "go-bot/mcp"
 )
 
 type HTTPError struct {
@@ -48,6 +50,7 @@ func (c Client) Do(ctx context.Context, method, path string, body any) (*http.Re
 	}
 	if c.UserID != "" {
 		request.Header.Set("X-User-ID", c.UserID)
+		request.Header.Set(mcpconfig.ControllerOriginHeader, request.URL.Scheme+"://"+request.URL.Host)
 	}
 	transport := c.HTTP
 	if transport == nil {
@@ -99,6 +102,21 @@ func (c Client) Stream(ctx context.Context, sessionID string, after *uint64) (io
 		path += fmt.Sprintf("?after=%d", *after)
 	}
 	res, err := c.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	return res.Body, nil
+}
+
+// HostStream multiplexes all of the account's Sessions and Schedule changes.
+// Decode event: host records by sessionId/type/data. Cursors belong only to
+// cached transcripts; the caller owns closing and reconnecting the stream.
+func (c Client) HostStream(ctx context.Context, cursors map[string]*uint64) (io.ReadCloser, error) {
+	data, err := json.Marshal(cursors)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.Do(ctx, http.MethodGet, "/v1/host/stream?cursors="+url.QueryEscape(string(data)), nil)
 	if err != nil {
 		return nil, err
 	}

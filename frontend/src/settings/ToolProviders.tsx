@@ -6,6 +6,8 @@ import { APIError, getProviderSettings, removeProviderKey, saveProviderSettings,
 import providerDocs from '../../../docs/providers.md?url&no-inline'
 
 const keyHelp: Record<string, { label: string; url: string }> = {
+  brave: { label: 'Brave Search API key', url: 'https://api-dashboard.search.brave.com/' },
+  tavily: { label: 'Tavily API key', url: 'https://app.tavily.com/' },
   deepseek: { label: 'DeepSeek Search API', url: 'https://platform.deepseek.com/' },
   zhipu: { label: 'BigModel API key', url: 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys' },
   doubao: { label: 'Doubao Search Custom API key', url: 'https://docs.volcengine.com/docs/networked-search/networked-search?lang=zh' },

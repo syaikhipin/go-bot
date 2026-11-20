@@ -1,4 +1,13 @@
 {
   "extends": "expo/tsconfig.base",
-  "compilerOptions": { "strict": true, "noEmit": true, "allowImportingTsExtensions": true }
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "eventsource-parser/stream": ["./node_modules/eventsource-parser/dist/stream"]
+    }
+  }
 }

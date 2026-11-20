@@ -100,10 +100,10 @@ func DecodePhysicalJSONL(input io.Reader) (PhysicalArtifact, error) {
 	if row == 0 {
 		return PhysicalArtifact{}, errors.New("Session v4 log has no complete header")
 	}
-	if artifact.Header.IsSeeded != (inheritedMarker != nil) {
+	if artifact.Header.IsSeeded && inheritedMarker == nil {
 		return PhysicalArtifact{}, errors.New("Session v4 seeded header disagrees with inherited end-seed marker")
 	}
-	if inheritedMarker != nil {
+	if artifact.Header.IsSeeded && inheritedMarker != nil {
 		artifact.InheritedEventCount = *inheritedMarker
 	}
 	return artifact, nil

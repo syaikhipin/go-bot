@@ -19,6 +19,7 @@ import (
 const settingsPath = "/v1/settings/models"
 
 type publicEndpoint struct {
+	Protocol  string   `json:"protocol"`
 	Name      string   `json:"name"`
 	BaseURL   string   `json:"baseUrl"`
 	HasAPIKey bool     `json:"hasApiKey"`
@@ -86,7 +87,13 @@ func (m *Manager) syncAccountSettings(ctx context.Context, id string, record Acc
 	if err := m.syncModels(ctx, record, state); err != nil {
 		return err
 	}
-	return errors.Join(m.syncProviderSettings(ctx, record, searchSettings), m.syncProviderSettings(ctx, record, imageSettings))
+	if err := errors.Join(m.syncProviderSettings(ctx, record, searchSettings), m.syncProviderSettings(ctx, record, imageSettings)); err != nil {
+		return err
+	}
+	// A failed optional plugin is visible in its actual Host status. Keep the
+	// personal computer available for ordinary built-in chat and configuration.
+	_ = m.syncPlugins(ctx, id, record)
+	return nil
 }
 
 func (m *Manager) hostHasModelRevision(ctx context.Context, record Account, revision int64) bool {
@@ -121,13 +128,21 @@ func (m *Manager) sessionModelSelection(ctx context.Context, record Account, sta
 }
 
 type endpointPatch struct {
-	Name    *string   `json:"name"`
-	BaseURL *string   `json:"baseUrl"`
-	APIKey  *string   `json:"apiKey"`
-	Models  *[]string `json:"models"`
+	Protocol *string   `json:"protocol"`
+	Name     *string   `json:"name"`
+	BaseURL  *string   `json:"baseUrl"`
+	APIKey   *string   `json:"apiKey"`
+	Models   *[]string `json:"models"`
 }
 
 func (p endpointPatch) apply(endpoint modelsettings.Endpoint) (modelsettings.Endpoint, error) {
+	if p.Protocol != nil {
+		endpoint.Protocol = *p.Protocol
+	}
+	endpoint.Protocol = modelsettings.NormalizeProtocol(endpoint.Protocol)
+	if !modelsettings.ValidProtocol(endpoint.Protocol) {
+		return endpoint, errors.New("invalid_model_protocol")
+	}
 	if p.Name != nil {
 		endpoint.Name = strings.TrimSpace(*p.Name)
 	}
@@ -146,6 +161,10 @@ func (p endpointPatch) apply(endpoint modelsettings.Endpoint) (modelsettings.End
 	}
 	if p.Models != nil {
 		endpoint.Models = *p.Models
+	}
+	parsed, parseErr := url.Parse(endpoint.BaseURL)
+	if parseErr != nil || parsed == nil || strings.HasSuffix(parsed.Path, "/messages") || strings.HasSuffix(parsed.Path, "/responses") || strings.HasSuffix(parsed.Path, "/chat/completions") {
+		return endpoint, errors.New("model_base_url_required")
 	}
 	if endpoint.Name == "" || len(endpoint.Name) > 128 || len(endpoint.BaseURL) > 2048 ||
 		len(endpoint.APIKey) > 4096 || strings.ContainsAny(endpoint.APIKey, "\r\n\x00") ||
@@ -189,7 +208,7 @@ func (m *Manager) modelSettingsHTTP(w http.ResponseWriter, r *http.Request, id s
 	case path == "" && r.Method == http.MethodGet:
 		endpoints := make(map[string]publicEndpoint, len(catalog.Endpoints))
 		for key, endpoint := range catalog.Endpoints {
-			endpoints[key] = publicEndpoint{endpoint.Name, endpoint.BaseURL, endpoint.APIKey != "", endpoint.Models}
+			endpoints[key] = publicEndpoint{Protocol: modelsettings.NormalizeProtocol(endpoint.Protocol), Name: endpoint.Name, BaseURL: endpoint.BaseURL, HasAPIKey: endpoint.APIKey != "", Models: endpoint.Models}
 		}
 		writeJSON(w, http.StatusOK, struct {
 			DefaultEndpointID string                    `json:"defaultEndpointId"`

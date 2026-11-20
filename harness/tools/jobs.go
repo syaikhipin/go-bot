@@ -6,15 +6,51 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"go-bot/harness/agent"
 	"go-bot/harness/jobs"
+	"go-bot/harness/output"
+	"go-bot/internal/modeldata"
 )
 
 type JobOutput struct{ Registry *jobs.Registry }
 type JobList struct{ Registry *jobs.Registry }
 type JobKill struct{ Registry *jobs.Registry }
+
+func (JobOutput) RetainsOutput() bool { return true }
+func (JobKill) RetainsOutput() bool   { return true }
+
+func (t JobOutput) PrepareOutput(raw json.RawMessage) func(modeldata.ToolResult) modeldata.ToolResult {
+	return prepareJobOutput(t.Registry, raw, true)
+}
+func (t JobKill) PrepareOutput(raw json.RawMessage) func(modeldata.ToolResult) modeldata.ToolResult {
+	return prepareJobOutput(t.Registry, raw, false)
+}
+func prepareJobOutput(registry *jobs.Registry, raw json.RawMessage, hasStatusSuffix bool) func(modeldata.ToolResult) modeldata.ToolResult {
+	var args struct {
+		JobID string `json:"job_id"`
+	}
+	if registry == nil || json.Unmarshal(raw, &args) != nil {
+		return nil
+	}
+	limit, exists := registry.OutputLimit(args.JobID)
+	if !exists {
+		return nil
+	}
+	return func(result modeldata.ToolResult) modeldata.ToolResult {
+		suffix := ""
+		text := result.Content
+		if hasStatusSuffix && !result.IsError {
+			if index := strings.LastIndex(text, "\njob_id="); index >= 0 {
+				text, suffix = text[:index], text[index:]
+			}
+		}
+		result.Content = output.FitTail(text, suffix, limit)
+		return result
+	}
+}
 
 type jobOutputArgs struct {
 	JobID     string   `json:"job_id"`
@@ -69,7 +105,7 @@ func (t JobOutput) Execute(ctx context.Context, raw json.RawMessage) (string, er
 	if output.Job.Status == jobs.Completed || output.Job.Status == jobs.Failed || output.Job.Status == jobs.Killed {
 		t.Registry.SuppressNotice(args.JobID)
 	}
-	return fmt.Sprintf("job_id=%s status=%s exit_code=%d lossy=%t next_cursor=%d\n%s", output.Job.ID, output.Job.Status, output.Job.ExitCode, output.Lossy, output.Cursor, output.Text), nil
+	return fmt.Sprintf("%s\njob_id=%s status=%s exit_code=%d lossy=%t next_cursor=%d", output.Text, output.Job.ID, output.Job.Status, output.Job.ExitCode, output.Lossy, output.Cursor), nil
 }
 
 func (JobList) Spec() agent.ToolSpec {

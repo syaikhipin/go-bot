@@ -31,20 +31,23 @@ type EventInput struct {
 // Append does not perform I/O; Flush persists its accepted suffix, matching
 // the separation between DeepSeek's live Session and checkpoint policy.
 type LiveSession struct {
-	mu             sync.Mutex
-	flushMu        sync.Mutex
-	header         Header
-	events         []Event
-	surface        *SurfaceState
-	inbox          InboxState
-	durable        int
-	inheritedCount uint64
-	journal        EventJournal
-	poison         bool
-	closing        bool
-	closed         bool
-	closeOnce      sync.Once
-	closeErr       error
+	appendMu             sync.Mutex
+	mu                   sync.Mutex
+	flushMu              sync.Mutex
+	header               Header
+	events               []Event
+	surface              *SurfaceState
+	inbox                InboxState
+	modelSelection       ModelSelectionState
+	modelSelectionCursor int
+	durable              int
+	inheritedCount       uint64
+	journal              EventJournal
+	poison               bool
+	closing              bool
+	closed               bool
+	closeOnce            sync.Once
+	closeErr             error
 }
 
 func NewLiveSession(header Header, journal EventJournal) (*LiveSession, error) {
@@ -67,6 +70,29 @@ func NewLiveSession(header Header, journal EventJournal) (*LiveSession, error) {
 // lifecycle starts with an untagged end-seed marker. A stored end-seed marker
 // is retained without adding another.
 func RestoreLiveSession(artifact PhysicalArtifact, journal EventJournal) (*LiveSession, error) {
+	if journal == nil {
+		return nil, errors.New("Session v4 journal is required")
+	}
+	s, err := replaySession(artifact, journal, len(artifact.Events))
+	if err != nil {
+		return nil, err
+	}
+	// Repair belongs to resume, never to fresh constructor seed preparation.
+	if _, err := appendInterruptedTurnClosers(s); err != nil {
+		return nil, err
+	}
+	if len(s.events) == 0 || s.events[len(s.events)-1].Type != "session/end-seed" {
+		if _, err := s.Append(EventInput{Type: "session/end-seed", Data: json.RawMessage(`{}`)}); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+func replaySession(artifact PhysicalArtifact, journal EventJournal, durable int) (*LiveSession, error) {
+	if err := artifact.Header.Validate(); err != nil {
+		return nil, err
+	}
 	if err := validateLiveSeedBoundary(artifact); err != nil {
 		return nil, err
 	}
@@ -96,31 +122,15 @@ func RestoreLiveSession(artifact PhysicalArtifact, journal EventJournal) (*LiveS
 	if _, err := FoldSubagentDescriptor(artifact.Events); err != nil {
 		return nil, err
 	}
-	s, err := NewLiveSession(artifact.Header, journal)
-	if err != nil {
-		return nil, err
-	}
-	s.surface = surface
-	s.inbox = inbox
-	s.events = make([]Event, len(artifact.Events))
+	s := &LiveSession{header: artifact.Header, journal: journal, surface: surface, inbox: inbox, events: make([]Event, len(artifact.Events))}
 	for index, event := range artifact.Events {
 		if event.Seq != uint64(index) || !knownV4EventTypes[event.Type] && !event.Ignorable {
 			return nil, fmt.Errorf("invalid Session v4 event %d", index)
 		}
 		s.events[index] = cloneV4Event(event)
 	}
-	s.durable = len(s.events)
+	s.durable = durable
 	s.inheritedCount = artifact.InheritedEventCount
-	// The interrupted turn belongs to the stored lifecycle. Close it before
-	// appending this resumed lifecycle's end-seed marker, as upstream does.
-	if _, err := appendInterruptedTurnClosers(s); err != nil {
-		return nil, err
-	}
-	if len(s.events) == 0 || s.events[len(s.events)-1].Type != "session/end-seed" {
-		if _, err := s.Append(EventInput{Type: "session/end-seed", Data: json.RawMessage(`{}`)}); err != nil {
-			return nil, err
-		}
-	}
 	return s, nil
 }
 
@@ -146,7 +156,7 @@ func validateLiveSeedBoundary(artifact PhysicalArtifact) error {
 		if lastTagged == nil || *lastTagged != artifact.InheritedEventCount {
 			return errors.New("seeded Session v4 has no marker at its inherited cut")
 		}
-	} else if artifact.InheritedEventCount != 0 || lastTagged != nil {
+	} else if artifact.InheritedEventCount != 0 {
 		return errors.New("unseeded Session v4 has inherited events")
 	}
 	return nil
@@ -160,10 +170,35 @@ func (s *LiveSession) InheritedEventCount() uint64 {
 	return s.inheritedCount
 }
 
+type Position struct {
+	Seq                 uint64 `json:"seq"`
+	InheritedEventCount uint64 `json:"inheritedEventCount"`
+}
+
+// Position reads the live log, including accepted events not yet flushed. It
+// neither clones history nor performs I/O or observer dispatch. A borrowed
+// Session remains readable after it has left the loaded-session registry.
+func (s *LiveSession) Position() Position {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return Position{Seq: uint64(len(s.events)), InheritedEventCount: s.inheritedCount}
+}
+
 func (s *LiveSession) Events() []Event {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return cloneV4Events(s.events)
+}
+
+// EventRange returns a detached immutable-prefix read, including accepted facts
+// not yet flushed. An exact upper bound stays valid while later appends occur.
+func (s *LiveSession) EventRange(from, to uint64) ([]Event, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if from > to || to > uint64(len(s.events)) {
+		return nil, errors.New("Session event range is out of bounds")
+	}
+	return cloneV4Events(s.events[from:to]), nil
 }
 
 func (s *LiveSession) DurableEvents() []Event {
@@ -234,8 +269,14 @@ func (s *LiveSession) Append(input EventInput) (Event, error) {
 // appendAt is reserved for deterministic synthetic repair events. Ordinary
 // producers use Append, which stamps the current time at acceptance.
 func (s *LiveSession) appendAt(input EventInput, timestamp int64) (Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	events, err := s.appendInputs([]EventInput{input}, timestamp)
+	if err != nil {
+		return Event{}, err
+	}
+	return events[0], nil
+}
+
+func (s *LiveSession) appendLocked(input EventInput, timestamp int64) (Event, error) {
 	if s.closed || s.closing || s.poison {
 		return Event{}, ErrV4UncertainWrite
 	}
@@ -319,6 +360,8 @@ func (s *LiveSession) flushLocked(ctx context.Context) error {
 
 func (s *LiveSession) Close() error {
 	s.closeOnce.Do(func() {
+		s.appendMu.Lock()
+		defer s.appendMu.Unlock()
 		s.mu.Lock()
 		s.closing = true
 		s.mu.Unlock()

@@ -294,36 +294,31 @@ func TestFileStoreKeepsChildSiblingAndRejectsOverwrite(t *testing.T) {
 	}
 }
 
-func TestFileStoreDoesNotPromoteParentLinkedHeaderToTopLevel(t *testing.T) {
+func TestFileStorePersistsParentMetadataIndependentlyOfSubagentCoordinator(t *testing.T) {
 	ctx := context.Background()
 	cwd := "/root/harness/workspaces/not-a-root"
 	store := FileStore{Root: filepath.Join(t.TempDir(), "sessions"), ProjectCWD: cwd, Claim: v4Claim}
 	header := v4TestHeader("not-a-root")
 	header.CWD = cwd
 	header.ParentSession = "another-session"
-	if _, err := store.Create(ctx, header); err == nil {
-		t.Fatal("top-level storage created a header linked to a parent")
+	journal, err := store.Create(ctx, header)
+	if err != nil {
+		t.Fatal("independent parent metadata was treated as a subagent-only path", err)
 	}
-	filename, err := store.Path(header.ID)
+	if err := journal.Close(); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := store.ReadHeader(ctx, header.ID)
+	if err != nil || stored != header {
+		t.Fatal("header metadata changed across storage", stored, err)
+	}
+	opened, artifact, err := store.Open(ctx, header.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	line, err := EncodeHeader(header)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filename, append(line, '\n'), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.ReadHeader(ctx, header.ID); err == nil {
-		t.Fatal("top-level history listed a parent-linked header")
-	}
-	if journal, _, err := store.Open(ctx, header.ID); err == nil {
-		_ = journal.Close()
-		t.Fatal("top-level resume opened a parent-linked header")
+	defer opened.Close()
+	if artifact.Header != header {
+		t.Fatal("opening a journal reclassified its lineage", artifact.Header)
 	}
 }
 

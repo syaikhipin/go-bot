@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useLocale } from '../locale'
-import { Plus } from 'lucide-react'
+import { changeProtocolURL, modelProtocol, modelRequestURL, protocolNames, protocolURLs, type ModelProtocol } from './modelProtocol'
+import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
 import { APIError, deleteEndpoint, getModelSettings, saveDefaultEndpoint, saveEndpoint, settingsApplyFailed, type ModelEndpoint, type ModelSettings } from '../api/controller'
 
 export function Models({ userId }: { userId: string }) {
@@ -35,6 +36,10 @@ export function Models({ userId }: { userId: string }) {
         setError('Settings were saved, but the Host could not apply them. Reopen the account to load the saved settings.')
       } else if (error instanceof APIError && error.message === 'api_key_required_for_new_origin') {
         setError('Enter an API key for the new endpoint address.')
+      } else if (error instanceof APIError && error.message === 'invalid_model_protocol') {
+        setError('Choose a supported API protocol.')
+      } else if (error instanceof APIError && error.message === 'model_base_url_required') {
+        setError('Enter a base URL without /messages, /responses, or /chat/completions.')
       } else if (error instanceof APIError && error.message === 'invalid_model_endpoint') {
         setError('Check the endpoint URL, API key, and model IDs. Model IDs must be unique.')
       } else {
@@ -48,7 +53,7 @@ export function Models({ userId }: { userId: string }) {
   return (
     <>
       <h2 className="settings-section-title">{t('Models')}</h2>
-      <p className="model-muted">{t('Only OpenAI-compatible Responses API endpoints are supported.')}</p>
+      <p className="model-muted">{t('Supports OpenAI Responses and Anthropic Messages compatible endpoints.')}</p>
       {error && <p role="alert" className="account-error">{t(error)}</p>}
       {notice && <p role="status">{t(notice)}</p>}
       {!settings && !error && <p role="status">{t('Loading model settings…')}</p>}
@@ -59,7 +64,7 @@ export function Models({ userId }: { userId: string }) {
             {editing === id ? <EndpointForm endpoint={endpoint} busy={busy} onCancel={() => setEditing(undefined)}
               onSave={value => { void update(() => saveEndpoint(userId, id, value), 'Endpoint saved.') }} /> : <>
               <h2>{endpoint.name} {settings.defaultEndpointId === id && <span className="model-default">{t('Default endpoint')}</span>}</h2>
-              <p className="model-muted">{endpoint.baseUrl} · {endpoint.hasApiKey ? t('API key saved') : t('API key missing')}</p>
+              <p className="model-muted"><span className="model-protocol-badge">{protocolNames[modelProtocol(endpoint.protocol)]}</span> {endpoint.baseUrl} · {endpoint.hasApiKey ? t('API key saved') : t('API key missing')}</p>
               <ul className="model-list">{endpoint.models.map((model, index) => <li key={model}>{model}{index === 0 && <span> · {t('Default model')}</span>}</li>)}</ul>
               <div className="model-settings-actions">
                 <button type="button" disabled={busy} className="model-secondary" onClick={() => setEditing(id)}>{t('Edit')}</button>
@@ -92,13 +97,22 @@ function EndpointForm({ endpoint, busy, onSave, onCancel }: {
 }) {
   const { t } = useLocale()
   const [name, setName] = useState(endpoint?.name ?? '')
-  const [baseUrl, setBaseURL] = useState(endpoint?.baseUrl ?? '')
+  const [protocol, setProtocol] = useState<ModelProtocol>(modelProtocol(endpoint?.protocol))
+  const [baseUrl, setBaseURL] = useState(endpoint?.baseUrl ?? protocolURLs.responses)
   const [key, setKey] = useState('')
-  const [models, setModels] = useState(endpoint?.models.join('\n') ?? '')
+  const [models, setModels] = useState<string[]>(endpoint?.models ?? [''])
+
+  function moveModel(index: number, direction: number) {
+    const next = [...models]; [next[index], next[index + direction]] = [next[index + direction], next[index]]; setModels(next)
+  }
+  function cancel() {
+    const changed = name !== (endpoint?.name ?? '') || protocol !== modelProtocol(endpoint?.protocol) || baseUrl !== (endpoint?.baseUrl ?? protocolURLs.responses) || key !== '' || JSON.stringify(models) !== JSON.stringify(endpoint?.models ?? [''])
+    if (!changed || window.confirm(t('Discard unsaved changes?'))) onCancel()
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onSave({ name: name.trim(), baseUrl: baseUrl.trim(), models: models.split('\n').map(model => model.trim()).filter(Boolean),
+    onSave({ protocol, name: name.trim(), baseUrl: baseUrl.trim(), models: models.map(model => model.trim()).filter(Boolean),
       ...(key.trim() ? { apiKey: key.trim() } : {}) })
   }
 
@@ -106,14 +120,29 @@ function EndpointForm({ endpoint, busy, onSave, onCancel }: {
     <h2>{endpoint ? t('Edit endpoint') : t('Add endpoint')}</h2>
     <fieldset disabled={busy}>
       <label>{t('Name')}<input value={name} required maxLength={128} onChange={event => setName(event.target.value)} /></label>
-      <label>{t('Base URL')}<input type="url" value={baseUrl} required placeholder="https://api.example.com/v1" onChange={event => setBaseURL(event.target.value)} /></label>
+      <label>{t('API protocol')}<select value={protocol} onChange={event => {
+        const next = event.target.value as ModelProtocol
+        setBaseURL(changeProtocolURL(baseUrl, protocol, next)); setProtocol(next)
+      }}><option value="responses">OpenAI Responses</option><option value="anthropic_messages">Anthropic Messages</option></select></label>
+      <small>{t('Choose the API format provided by your service, regardless of the model name.')}</small>
+      <label>{t('Base URL')}<input type="url" value={baseUrl} required placeholder={protocolURLs[protocol]} onChange={event => setBaseURL(event.target.value)} /></label>
+      <small className="model-request-url">{t('Request URL')}: {modelRequestURL(baseUrl, protocol)}</small>
       <label>{t('API key')}<input type="password" value={key} required={!endpoint?.hasApiKey} autoComplete="new-password"
         placeholder={endpoint?.hasApiKey ? t('Leave blank to keep saved key') : undefined} onChange={event => setKey(event.target.value)} /></label>
-      <label>{t('Model IDs')}<textarea rows={4} value={models} required onChange={event => setModels(event.target.value)}
-        aria-describedby="model-order" /><small id="model-order">{t('One model per line. The first model is the endpoint default.')}</small></label>
+      <div className="model-id-editor"><span>{t('Model IDs')}</span>
+        {models.map((model, index) => <div className="model-id-row" key={index}>
+          <input aria-label={t('Model ID') + ' ' + (index + 1)} value={model} required maxLength={256} onChange={event => setModels(models.map((value, i) => i === index ? event.target.value : value))} placeholder="model-id" />
+          {index === 0 && <small>{t('Default model')}</small>}
+          <button type="button" className="model-row-action" title={t('Move up')} aria-label={t('Move up')} disabled={index === 0} onClick={() => moveModel(index, -1)}><ArrowUp size={15} /></button>
+          <button type="button" className="model-row-action" title={t('Move down')} aria-label={t('Move down')} disabled={index === models.length - 1} onClick={() => moveModel(index, 1)}><ArrowDown size={15} /></button>
+          <button type="button" className="model-row-action" title={t('Remove model')} aria-label={t('Remove model')} disabled={models.length === 1} onClick={() => setModels(models.filter((_, i) => i !== index))}><X size={15} /></button>
+        </div>)}
+        <button type="button" className="model-secondary settings-add" onClick={() => setModels([...models, ''])}><Plus size={15} />{t('Add model')}</button>
+        <small>{t('The first model is the endpoint default.')}</small>
+      </div>
       <div className="model-settings-actions">
         <button type="submit" className="account-submit">{busy ? t('Saving…') : t('Save endpoint')}</button>
-        <button type="button" className="model-secondary" onClick={onCancel}>{t('Cancel')}</button>
+        <button type="button" className="model-secondary" onClick={cancel}>{t('Cancel')}</button>
       </div>
     </fieldset>
   </form>

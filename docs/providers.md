@@ -33,6 +33,37 @@ For providers with a separate image preparation step, add a command under
 `cmd/build<provider>`. It can reuse `internal/imagebuild` for image publication.
 The runtime driver consumes the prepared artifact through its own configuration.
 
+## Language models
+
+Model settings supports **OpenAI Responses** (`responses`) and **Anthropic
+Messages** (`anthropic_messages`). Choose the API protocol in the endpoint form's
+dropdown, then enter its base URL, API key and ordered model IDs. The first model
+is the endpoint default. The account default endpoint applies to new chats;
+existing chats keep their selection and can switch endpoints/models independently.
+A switch during generation applies to the next turn.
+
+For Anthropic, use `https://api.anthropic.com/v1` or your provider's compatible
+base URL; do not append `/messages`. The Host appends `/messages`, sends
+`x-api-key` and `anthropic-version: 2023-06-01`, and normalizes text, tool use,
+images and SSE into the existing Harness contracts. Model IDs are entered as
+provided by the service; a Claude model name alone does not determine its API
+format. The adapter targets API-key-based Messages endpoints, not Bedrock,
+Vertex or Claude subscription login.
+
+Keys stay in the account's Redis `llm` field and are synchronized to the Host.
+Public settings return `hasApiKey`, not the key. Saving validates configuration
+and applies it to the Host without issuing a billable model request. Missing
+protocol on existing endpoints defaults to Responses. Chat Completions remains
+an internal adapter and is not offered by this settings form.
+
+Extend `thirdparty/llm` for wire encoding, decoding and streaming, and
+`providers/model/mainmodel` for model routing. Keep credentials out of Session
+logs. Signed native Anthropic blocks are stored as replay metadata on assistant
+messages, separate from visible content, and only replayed to the same endpoint
+address and model. Cross-protocol history uses portable content; compaction stays
+in the Harness. General model context defaults do not guarantee that a custom
+model accepts that context length. [Anthropic Messages reference](https://platform.claude.com/docs/en/api/messages/create?version=2023-06-01)
+
 ## Search
 
 Add `providers/web/<engine>` implementing web.SearchProvider and use thirdparty
@@ -44,6 +75,31 @@ Host uses that registry to resolve the provider.
 | `deepseek` (default) | DeepSeek Search | DeepSeek search key |
 | `zhipu` | BigModel Web Search API, using `search_std` | BigModel platform key authorized for Web Search. [Official docs](https://docs.bigmodel.cn/cn/guide/tools/web-search) |
 | `doubao` | Doubao Search Custom, text-to-web | Dedicated Doubao Search Custom key. [Official docs](https://docs.volcengine.com/docs/networked-search/networked-search?lang=zh) |
+| `tavily` | Tavily Search, Basic depth | Tavily API key from [Tavily dashboard](https://app.tavily.com/). [Official API](https://docs.tavily.com/documentation/api-reference/endpoint/search) |
+| `brave` | Brave Search, LLM Context endpoint | Search API key with LLM Context access from [Brave dashboard](https://api-dashboard.search.brave.com/). [Official API](https://api-dashboard.search.brave.com/documentation/services/llm-context) |
+
+In **Settings → Web search**, set up a service, save its API key, then choose
+**Use provider**. Mobile uses **Me → Web search**, with **Save settings** and
+**Save and use**. Saving does not make a search request. The same account catalog
+supplies both clients; no extra environment variables or model names are needed.
+The default provider remains DeepSeek until another saved provider is selected.
+
+Tavily calls `POST https://api.tavily.com/search` with Bearer authentication,
+`search_depth: basic`, `topic: general`, publication dates enabled and at most
+20 results. Automatic parameter selection, generated answers and raw page content
+are disabled. Relevant `content` passages become source summaries. Publication
+dates are provider estimates and may be absent. HTTP 432/433 map to quota errors;
+434 maps to temporary rate/capacity limiting.
+
+Brave calls `POST https://api.search.brave.com/res/v1/llm/context` with
+`X-Subscription-Token`. It returns source-linked excerpts rather than a generated
+answer. The adapter defaults to an 8,192-token context budget and a 1,024-token
+per-URL budget, with URL/result counts capped at 50. These are internal defaults,
+not extra user settings. Queries must fit 600 characters and 75 words. Source
+metadata supplies optional titles, descriptions and absolute dates; relative
+ages and content-fetch timestamps are not used as publication dates. The API's
+default country/language preferences apply; the adapter does not infer a locale
+from UI language or rewrite the Agent's query.
 
 Search and extraction remain distinct:
 search-only providers are not forced to fetch pages. Results use URL/title,

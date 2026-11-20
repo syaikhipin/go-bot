@@ -9,7 +9,7 @@ import (
 	"go-bot/thirdparty/llm"
 )
 
-// llmStreamProjection translates OpenAI-compatible SSE events into the block
+// llmStreamProjection translates model-provider SSE events into the block
 // vocabulary used by DeepSeek's AssistantStreamAttempt. It emits only deltas
 // actually observed on the wire; a provider's completed item may close a
 // block, but it never retroactively invents token deltas.
@@ -165,7 +165,7 @@ func (p *llmStreamProjection) finish(response *llm.Response) error {
 		usage, err := nativeUsage(&modeldata.ModelUsage{
 			InputTokens: response.Usage.InputTokens, OutputTokens: response.Usage.OutputTokens,
 			TotalTokens: response.Usage.TotalTokens, CachedInputTokens: response.Usage.CachedTokens,
-			ReasoningTokens: response.Usage.ReasoningTokens,
+			ReasoningTokens: response.Usage.ReasoningTokens, CacheCreationInputTokens: response.Usage.CacheCreationTokens,
 		})
 		if err != nil {
 			return err
@@ -215,6 +215,24 @@ func (p *llmStreamProjection) push(event llm.StreamEvent) error {
 	}
 	key := llmStreamKey{event.OutputIndex, event.ContentIndex}
 	switch event.Type {
+	case "anthropic.block.start":
+		if event.Item != nil {
+			switch event.Item.Type {
+			case "message", "reasoning":
+				if len(event.Item.Content) > 0 {
+					kind := "text"
+					if event.Item.Type == "reasoning" {
+						kind = "reasoning"
+					}
+					_, err := p.begin(key, kind)
+					return err
+				}
+			case "tool_call":
+				_, err := p.begin(key, "tool-call")
+				return err
+			}
+		}
+		return nil
 	case "response.output_item.added":
 		if event.Item != nil && event.Item.Type == "tool_call" {
 			_, err := p.begin(llmStreamKey{event.OutputIndex, 0}, "tool-call")
@@ -233,7 +251,7 @@ func (p *llmStreamProjection) push(event llm.StreamEvent) error {
 			return err
 		}
 		return p.toolDelta(llmStreamKey{event.OutputIndex, 0}, event.Item, event.Delta)
-	case "response.output_item.done":
+	case "response.output_item.done", "anthropic.block.stop":
 		return p.endItem(event.OutputIndex, event.Item)
 	case "response.completed", "response.incomplete", "response.failed", "response.cancelled", "completed":
 		return p.finish(event.Response)

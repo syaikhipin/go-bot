@@ -15,6 +15,7 @@ type ModelSelection struct {
 }
 
 type ModelEndpoint struct {
+	Protocol  string   `json:"protocol"`
 	Name      string   `json:"name"`
 	BaseURL   string   `json:"baseUrl"`
 	Models    []string `json:"models"`
@@ -32,10 +33,12 @@ type SessionModel struct {
 }
 
 type ModelEndpointInput struct {
-	Name    string   `json:"name"`
-	BaseURL string   `json:"baseUrl"`
-	Models  []string `json:"models"`
-	APIKey  string   `json:"apiKey,omitempty"`
+	// Protocol is responses (the default) or anthropic_messages.
+	Protocol string   `json:"protocol,omitempty"`
+	Name     string   `json:"name"`
+	BaseURL  string   `json:"baseUrl"`
+	Models   []string `json:"models"`
+	APIKey   string   `json:"apiKey,omitempty"`
 }
 
 type ModelUpdate struct {

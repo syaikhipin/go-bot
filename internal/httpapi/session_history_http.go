@@ -70,14 +70,14 @@ func sameHistoryVersion(a, b os.FileInfo) bool {
 
 func (c *coldHistoryCache) load(ctx context.Context, host *hostruntime.NativeHost, id string) (sessionformat.PhysicalArtifact, error) {
 	if host.SessionLogInfo == nil {
-		return host.ReadSession(ctx, id)
+		return host.SessionArtifact(ctx, id)
 	}
 	version, err := host.SessionLogInfo(id)
 	if err != nil {
 		return sessionformat.PhysicalArtifact{}, err
 	}
 	if version.Size() > maxCachedHistoryBytes {
-		return host.ReadSession(ctx, id)
+		return host.SessionArtifact(ctx, id)
 	}
 	c.mu.Lock()
 	if c.id == id && sameHistoryVersion(c.version, version) {
@@ -86,7 +86,7 @@ func (c *coldHistoryCache) load(ctx context.Context, host *hostruntime.NativeHos
 		return artifact, nil
 	}
 	c.mu.Unlock()
-	artifact, err := host.ReadSession(ctx, id)
+	artifact, err := host.SessionArtifact(ctx, id)
 	if err != nil {
 		return sessionformat.PhysicalArtifact{}, err
 	}

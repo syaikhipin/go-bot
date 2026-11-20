@@ -2,14 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocale } from '../locale'
 import { ArrowUp, FileText, LoaderCircle, Menu, Plus, Square, X } from 'lucide-react'
 import { HarnessAvatar } from '../HarnessAvatar'
-import { APIError, readTranscript, readStream, sendMessage, stopTurn, updateQueue } from '../api/controller'
+import { APIError, readTranscript, sendMessage, stopTurn, updateQueue } from '../api/controller'
 import { MessageBubble } from './ChatContent'
 import { ApprovalPanel, PermissionPicker } from './PermissionControls'
 import { QuestionPanel } from './QuestionPanel'
 import { addMessageFiles, isMessageImage } from './attachments'
 import { ModelPicker } from './ModelPicker'
 import { attemptMessage, emptyTranscript, groupAssistantReplies, messageText, textMessage, visibleQueue, type Message } from './transcript'
-import { cacheTranscript, prependTranscriptPage, updateCachedTranscript, type TranscriptCache } from './transcriptCache'
+import { prependTranscriptPage, type TranscriptCache } from './transcriptCache'
 
 function greeting() {
   const hour = new Date().getHours()
@@ -69,7 +69,6 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
   const [atBottom, setAtBottom] = useState(true)
   const scrollAnchor = useRef<{ height: number; top: number } | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const kick = useRef<() => void>(() => {})
   const historySignal = useRef<AbortSignal>(undefined)
   const composer = useRef<HTMLTextAreaElement>(null)
   const scroll = useRef<HTMLDivElement>(null)
@@ -90,85 +89,39 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
     if (!id) return
     const sessionId = id
     const abort = new AbortController()
-    const signal = abort.signal
-    historySignal.current = signal
+    historySignal.current = abort.signal
     setLoadingOlder(false)
-    let entry = cache.get(sessionId)
-    let running = false
-    let retryTimer: number | undefined
-    let wait = 500
-
-    function scheduleReconnect() {
-      retryTimer = window.setTimeout(() => { void follow() }, wait)
-      wait = Math.min(wait * 2, 4000)
+    const update = () => {
+      if (cache.isUnavailable(sessionId)) { missing.current(sessionId); return }
+      const entry = cache.get(sessionId)
+      if (entry) { setTranscript(entry.transcript); setBefore(entry.before) }
     }
-
-    async function follow() {
-      if (running || !entry || signal.aborted) return
-      const current = entry
-      window.clearTimeout(retryTimer)
-      running = true
-      try {
-        await readStream(userId, sessionId, current.cursor, signal, () => {
-          if (signal.aborted) return
-          wait = 500
-          setConnecting(false)
-        }, (kind, data) => {
-          if (signal.aborted || cache.get(sessionId) !== current) return
-          setTranscript(updateCachedTranscript(current, kind, data))
-        })
-        if (!signal.aborted) {
-          setConnecting(true)
-          scheduleReconnect()
-        }
-      } catch (error) {
-        if (signal.aborted) return
-        if (error instanceof APIError && error.status === 404) {
-          cache.delete(sessionId)
-          entry = undefined
-          missing.current(sessionId)
-        } else {
-          setConnecting(true)
-          scheduleReconnect()
-        }
-      } finally {
-        running = false
-      }
-    }
-
-    kick.current = () => { void follow() }
-
-    async function loadHistory() {
-      setLoading(true)
-      setHistoryError('')
-      try {
-        const page = await readTranscript(userId, sessionId, null, signal)
-        if (signal.aborted) return
-        entry = cacheTranscript(page)
-        cache.keep(sessionId, entry)
-        setBefore(entry.before)
-        setTranscript(entry.transcript)
-        if (entry.cursor !== null) refresh.current()
-        void follow()
-      } catch (error) {
-        if (signal.aborted) return
-        if (error instanceof APIError && error.status === 404) missing.current(sessionId)
-        else setHistoryError('Chat history could not be loaded.')
-      } finally {
-        if (!signal.aborted) setLoading(false)
-      }
-    }
-
+    const unsubscribe = cache.subscribe(sessionId, update)
+    const connection = () => setConnecting(cache.connecting)
+    const unsubscribeConnection = cache.subscribe('@connection', connection)
+    connection()
+    const entry = cache.get(sessionId)
     if (entry) {
       cache.keep(sessionId, entry)
+      update()
+      setLoading(false)
       setHistoryError('')
-      void follow()
-    } else void loadHistory()
-    return () => {
-      abort.abort()
-      window.clearTimeout(retryTimer)
-      kick.current = () => {}
+    } else {
+      cache.beginLoad(sessionId)
+      setLoading(true)
+      setHistoryError('')
+      void readTranscript(userId, sessionId, null, abort.signal).then(page => {
+        if (abort.signal.aborted) return
+        cache.finishLoad(sessionId, page)
+        refresh.current()
+      }).catch(error => {
+        if (abort.signal.aborted) return
+        cache.cancelLoad(sessionId)
+        if (error instanceof APIError && error.status === 404) missing.current(sessionId)
+        else setHistoryError('Chat history could not be loaded.')
+      }).finally(() => { if (!abort.signal.aborted) setLoading(false) })
     }
+    return () => { abort.abort(); unsubscribe(); unsubscribeConnection(); cache.cancelLoad(sessionId) }
   }, [cache, id, loadAttempt, userId])
 
   const pendingMessages = pending.filter(item => !transcript.messages.some(message => message.id === item.id))
@@ -282,7 +235,6 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
         setAwaitingMessage(result.messageId)
         if (!files.length) setPending(items => [...items, textMessage(result.messageId, text)])
       }
-      kick.current()
       setInput(value => value.trim() === text ? '' : value)
       setFiles([])
       setFileIssues([])
@@ -341,7 +293,7 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
         <div className="composer-tools">
           <button type="button" className="attachment-button" aria-label={t('Add attachments')} title={t('Add attachments')}
             disabled={submitting} onClick={() => filePicker.current?.click()}><Plus size={21} /></button>
-          <ModelPicker userId={userId} id={id} settingsVersion={settingsVersion} onSettings={onSettings} onSaving={setModelSaving} />
+          <ModelPicker generating={activeTurn !== null} userId={userId} id={id} settingsVersion={settingsVersion} onSettings={onSettings} onSaving={setModelSaving} />
           {id && <PermissionPicker key={id} userId={userId} sessionId={id} streamState={transcript.permission}
             disabled={activeTurn !== null || submitting} onSaving={setPermissionSaving} />}
         </div>

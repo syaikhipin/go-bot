@@ -22,6 +22,46 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestRetriedCreateDoesNotReturnCreatedBeforeAdmittedCreationFails(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	host := &hostruntime.NativeHost{UserID: "retry-test", Build: func(string, bool) (*hostruntime.NativeRuntime, error) {
+		close(entered)
+		<-release
+		return nil, errors.New("preparation failed")
+	}}
+	handler := NewNativeHostHTTP(host, NativeWorkerHTTPOptions{})
+	id := uuid.NewString()
+	call := func(output chan<- int) {
+		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		defer cancel()
+		out := httptest.NewRecorder()
+		handler.ServeHTTP(out, httptest.NewRequest(http.MethodPost, "/internal/host/sessions", strings.NewReader(`{"sessionId":"`+id+`"}`)).WithContext(ctx))
+		output <- out.Code
+	}
+	first, second := make(chan int, 1), make(chan int, 1)
+	go call(first)
+	<-entered
+	go call(second)
+	select {
+	case status := <-second:
+		t.Fatal("retry returned before the actual creation settled", status)
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(release)
+	for _, result := range []<-chan int{first, second} {
+		if status := <-result; status != http.StatusServiceUnavailable {
+			t.Fatal("failed creation reported success", status)
+		}
+	}
+}
+
 func TestHostFilesListsColdWorkspacesAndRejectsPathsOutsideRoot(t *testing.T) {
 	root := t.TempDir()
 	workspace := filepath.Join(root, "workspaces", "cold-session")

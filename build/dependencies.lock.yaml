@@ -1,7 +1,7 @@
-officecli:
-  repository: iOfficeAI/OfficeCLI
-  version: v1.0.160
-  checksums: build/officecli.sha256
+cordis-runtime:
+  node: 24.22.3
+  pnpm: 11.25.0
+  dependency_lockfile: extensions/cordis/pnpm-lock.yaml
 agent-browser:
   repository: vercel-labs/agent-browser
   version: v0.43.0

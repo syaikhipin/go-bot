@@ -41,19 +41,39 @@ func (m *hostModels) route(sessionID string) (agent.TurnModel, error) {
 	if !ok {
 		choice = m.scheduled[sessionID]
 	}
-	endpoint, err := m.snapshot.Catalog.Resolve(choice)
+	route := agent.ModelRoute{Provider: choice.EndpointID, Model: choice.ModelID}
+	model, err := m.selectedLocked(route)
 	if err != nil {
 		return agent.TurnModel{}, err
 	}
-	route := agent.ModelRoute{Provider: choice.EndpointID, Model: choice.ModelID}
+	return agent.TurnModel{Model: model, Route: route}, nil
+}
+
+func (m *hostModels) selected(_ context.Context, route agent.ModelRoute) (agent.Model, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.selectedLocked(route)
+}
+
+func (m *hostModels) selectedLocked(route agent.ModelRoute) (agent.Model, error) {
+	endpoint, err := m.snapshot.Catalog.Resolve(modelsettings.Selection{EndpointID: route.Provider, ModelID: route.Model})
+	if err != nil {
+		return nil, err
+	}
 	model := m.base
 	model.Config = mainmodel.Config{
 		Default: route,
 		Endpoints: map[string]mainmodel.Endpoint{route.Provider: {
-			BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey, Protocol: llm.Responses,
+			BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey, Protocol: llm.Protocol(modelsettings.NormalizeProtocol(endpoint.Protocol)),
 		}},
 	}
-	return agent.TurnModel{Model: model, Route: route}, nil
+	return model, nil
+}
+
+func (m *hostModels) defaultProtocol() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return modelsettings.NormalizeProtocol(m.snapshot.Catalog.Endpoints[m.snapshot.Catalog.DefaultEndpointID].Protocol)
 }
 
 // Host-created Schedule Sessions keep their credential-free selection on disk.
@@ -185,6 +205,13 @@ func (m *hostModels) handle(w http.ResponseWriter, r *http.Request, wake func())
 			return
 		}
 		m.mu.Lock()
+		for _, endpoint := range snapshot.Catalog.Endpoints {
+			if !modelsettings.ValidProtocol(endpoint.Protocol) {
+				m.mu.Unlock()
+				http.Error(w, "invalid model protocol", http.StatusBadRequest)
+				return
+			}
+		}
 		if snapshot.Revision < m.snapshot.Revision {
 			m.mu.Unlock()
 			http.Error(w, "stale model settings", http.StatusConflict)

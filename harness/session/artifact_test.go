@@ -78,7 +78,8 @@ func TestDecodePhysicalV4SeedCut(t *testing.T) {
 	if _, err := DecodePhysicalJSONL(strings.NewReader(unseeded + "\n" + rows[3] + "\n")); err == nil {
 		t.Fatal("seeded header with a sequence gap was accepted")
 	}
-	if _, err := DecodePhysicalJSONL(strings.NewReader(physicalV4Header + "\n" + `{"type":"session/end-seed","seq":0,"time":2,"data":{"inherited":true}}` + "\n")); err == nil {
-		t.Fatal("unseeded header with inherited marker was accepted")
+	replayed, err := DecodePhysicalJSONL(strings.NewReader(physicalV4Header + "\n" + `{"type":"session/end-seed","seq":0,"time":2,"data":{"inherited":true}}` + "\n"))
+	if err != nil || replayed.InheritedEventCount != 0 || replayed.Header.IsSeeded {
+		t.Fatal("a replayed prior marker invented new fork lineage", err)
 	}
 }

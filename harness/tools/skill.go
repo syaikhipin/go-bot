@@ -81,7 +81,14 @@ var skillAttribute = strings.NewReplacer("&", "&amp;", "\"", "&quot;", "<", "&lt
 func RenderSkillContent(value skills.Value) string {
 	resources := fmt.Sprintf("Resources for this skill are managed by provider \"%s\".\nLoad referenced resources only as needed.", skills.EscapeText(value.Provider))
 	if value.ResourceBase != nil {
-		resources = fmt.Sprintf("Base directory for this skill: %s\nResolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed.", skills.EscapeText(value.ResourceBase.Path))
+		switch value.ResourceBase.Kind {
+		case "directory":
+			resources = fmt.Sprintf("Base directory for this skill: %s\nResolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed.", skills.EscapeText(value.ResourceBase.Path))
+		case "url":
+			resources = fmt.Sprintf("Base URL for this skill: %s\nResolve relative URLs mentioned by this skill against the base URL before using them. Load referenced resources only as needed.", skills.EscapeText(value.ResourceBase.URL))
+		case "opaque":
+			resources = fmt.Sprintf("Resources for this skill: %s\nLoad referenced resources only as needed.", skills.EscapeText(value.ResourceBase.Description))
+		}
 	}
 	return fmt.Sprintf("<skill_content name=\"%s\">\n<skill_resources>\n%s\n</skill_resources>\n\n<skill_instructions>\n%s\n</skill_instructions>\n</skill_content>",
 		skillAttribute.Replace(value.Name), resources, value.Content)

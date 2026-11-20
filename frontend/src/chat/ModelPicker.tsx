@@ -1,14 +1,16 @@
+import { modelProtocol, protocolNames } from '../settings/modelProtocol'
 import { useEffect, useRef, useState } from 'react'
 import { useLocale } from '../locale'
 import { Check, ChevronDown, Cpu } from 'lucide-react'
 import { getModelSettings, getSessionModel, saveSessionModel, settingsApplyFailed, type ModelSelection, type ModelSettings, type SessionModel } from '../api/controller'
 
-export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving }: {
+export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving, generating }: {
   userId: string
   id?: string
   settingsVersion: number
   onSettings: () => void
   onSaving: (value: boolean) => void
+  generating?: boolean
 }) {
   const { t } = useLocale()
   const [catalog, setCatalog] = useState<ModelSettings>()
@@ -17,6 +19,7 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
   const [endpointId, setEndpointID] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -33,6 +36,9 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
     }
     return () => controller.abort()
   }, [userId, id, settingsVersion])
+
+  useEffect(() => { setNotice('') }, [userId, id])
+  useEffect(() => { if (!generating) setNotice('') }, [generating])
 
   const picker = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -53,6 +59,7 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
     try {
       const next = await saveSessionModel(userId, id, selection)
       setRoute(next)
+      setNotice(generating ? 'This model will be used from the next turn.' : '')
       setOpen(false)
       requestAnimationFrame(() => trigger.current?.focus())
     } catch (failure) {
@@ -94,7 +101,7 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
     </button>
     {open && catalog && <div className="model-picker-menu">
       <label>{t('Endpoint')}<select value={endpointId} onChange={event => setEndpointID(event.target.value)}>
-        {choices.map(([id, endpoint]) => <option key={id} value={id}>{endpoint.name}</option>)}
+        {choices.map(([id, endpoint]) => <option key={id} value={id}>{endpoint.name} · {protocolNames[modelProtocol(endpoint.protocol)]}</option>)}
       </select></label>
       <div className="model-picker-options">
         {catalog.endpoints[endpointId]?.models.map(modelId => <button type="button" key={modelId} disabled={busy}
@@ -104,6 +111,7 @@ export function ModelPicker({ userId, id, settingsVersion, onSettings, onSaving 
         </button>)}
       </div>
     </div>}
+    {notice && <small role="status">{t(notice)}</small>}
     {error && <small role="alert">{t(error)}</small>}
   </div>
 }

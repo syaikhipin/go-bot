@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go-bot/extensions/catalog"
 	"go-bot/internal/config"
 	dock "go-bot/providers/runtime/docker"
 	cloud "go-bot/providers/runtime/eci"
@@ -38,7 +39,9 @@ type Manager struct {
 	Client *http.Client
 
 	accountLocks  [64]sync.Mutex
+	pluginLocks   [64]sync.Mutex
 	containerized bool
+	pluginCatalog []catalog.Entry
 }
 
 func InContainer() bool { return os.Getenv("CONTROLLER_CONTAINER") == "1" }
@@ -65,12 +68,18 @@ func New(c config.Config, driver runtime.Driver, store AccountStore) *Manager {
 	return &Manager{
 		Config: c, Driver: driver, Store: store,
 		containerized: InContainer(),
+		pluginCatalog: catalog.Entries(),
 		Client:        &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 	}
 }
 
 func (m *Manager) accountLock(id string) *sync.Mutex {
 	return &m.accountLocks[crc32.ChecksumIEEE([]byte(id))%uint32(len(m.accountLocks))]
+}
+
+// Package downloads serialize only plugin mutations, never ordinary account work.
+func (m *Manager) pluginLock(id string) *sync.Mutex {
+	return &m.pluginLocks[crc32.ChecksumIEEE([]byte(id))%uint32(len(m.pluginLocks))]
 }
 
 func (m *Manager) CreateAccount(ctx context.Context, id string) error {

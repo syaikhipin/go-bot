@@ -7,6 +7,456 @@ info:
 servers:
 - url: http://127.0.0.1:8080
 paths:
+  /assets/plugins/{pluginId}/{file}:
+    get:
+      summary: Read a catalog plugin image declared in plugin.json
+      parameters:
+        - {name: pluginId, in: path, required: true, schema: {type: string}}
+        - {name: file, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Public plugin image; no running Host is required
+          content:
+            image/png:
+              schema: {type: string, format: binary}
+        '404': {description: Image not found}
+  /v1/host/extensions/authorization:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    get:
+      tags: [Extensions]
+      summary: List plugin authorization flows without other clients' interaction details
+      operationId: listPluginAuthorization
+      responses:
+        '200':
+          description: Registered methods, in-flight state and account configuration reported by the native integration or Go credential store
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/AuthorizationEntry'}}
+        '409': {description: Host is not running}
+        '503': {description: Plugin runtime is not running}
+    delete:
+      tags: [Extensions]
+      summary: Cancel a key's active attempt even when its initiating page has closed
+      operationId: cancelPluginAuthorizationKey
+      description: Uses the original cancel(key) seam. No interaction details from another surface are returned; an admitted commit finishes before settlement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [key]
+              properties:
+                key: {type: string}
+      responses:
+        '200':
+          description: Settlement or a no-op when no attempt is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string, enum: [authorized, cancelled, failed]}
+    post:
+      tags: [Extensions]
+      summary: Start an explicit authorization using the bundled client's own interaction surface
+      operationId: startPluginAuthorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              additionalProperties: false
+              properties:
+                key: {type: string, description: CredentialKey of the registered flow}
+                method: {type: string, description: Defaults to the first declared method}
+      responses:
+        '202':
+          description: An admitted attempt; this response is not an authorization success
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthorizationAttempt'}
+        '404': {description: No such registered flow}
+        '409': {description: Host unavailable or this key already has an active attempt}
+        '422': {description: Invalid method or key}
+  /v1/host/extensions/authorization/disconnect:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    post:
+      tags: [Extensions]
+      summary: Disconnect an account using the integration's native logout
+      operationId: disconnectPluginAuthorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [key]
+              properties:
+                key: {type: string}
+      responses:
+        '200':
+          description: Native account is no longer configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured: {type: boolean}
+                  accountLabel: {type: string}
+        '409': {description: Host unavailable or another authorization operation is in progress}
+        '404': {description: No registered disconnect operation for this account}
+        '422': {description: The native account is still configured}
+  /v1/host/extensions/authorization/{attemptId}:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - {name: attemptId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Extensions]
+      summary: Read notices and unanswered prompts using the initiating surface's transient handle
+      operationId: getPluginAuthorization
+      responses:
+        '200':
+          description: Current attempt; never contains entered answers or credential values
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthorizationAttempt'}
+        '404': {description: Unknown handle or runtime restarted}
+        '409': {description: Host is not running}
+    delete:
+      tags: [Extensions]
+      summary: Withdraw this attempt and wait for its authorization outcome
+      operationId: cancelPluginAuthorization
+      description: An admitted record commit finishes. Cancellation does not remove an earlier credential record. There is no framework-wide timeout.
+      responses:
+        '200':
+          description: Settled outcome, including authorized when a commit was already admitted
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthorizationAttempt'}
+        '404': {description: Unknown handle or runtime restarted}
+  /v1/host/extensions/authorization/{attemptId}/answer:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - {name: attemptId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Extensions]
+      summary: Answer or decline one prompt in this authorization
+      operationId: answerPluginAuthorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [promptId]
+              additionalProperties: false
+              properties:
+                promptId: {type: string, format: uuid}
+                answer: {type: string, maxLength: 16384, description: Sent only to the waiting flow; never echoed or stored by Controller}
+                decline: {type: boolean, description: Reject this prompt with the original AuthorizationDeclinedError}
+      responses:
+        '200':
+          description: Updated interaction; the flow can continue asynchronously
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthorizationAttempt'}
+        '404': {description: Unknown attempt or prompt no longer pending}
+        '422': {description: Invalid answer or unoffered select option}
+  /v1/host/mcp:
+    get:
+      tags: [Extensions]
+      summary: Plugin-owned MCP runtime diagnostics; configured through the owning plugin
+      operationId: getMCPStatus
+      parameters:
+        - {$ref: '#/components/parameters/AccountName'}
+      responses:
+        '200':
+          description: Actual Host connection state without independent account settings
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPView'}
+  /v1/host/mcp/servers/{name}/restart:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,32}$'}
+    post:
+      summary: Reconnect a managed MCP server after completing prior cleanup
+      operationId: restartMCPServer
+      responses:
+        '200':
+          description: Actual state after the initial reconnect attempt.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPView'}
+        '409': {description: Host is not running}
+        '502': {description: Restart failed}
+  /v1/host/mcp/servers/{name}/probe:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,32}$'}
+    post:
+      summary: Inspect and close a temporary MCP connection without publishing tools
+      operationId: probeMCPServer
+      responses:
+        '200':
+          description: Temporary probe state, independent of the managed server state. OAuth never starts implicitly.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, source, state, toolCount, resources]
+                properties:
+                  name: {type: string}
+                  source: {type: string, enum: [user, plugin]}
+                  owner: {type: string}
+                  state: {type: string, enum: [connected, failed, waiting-credentials, waiting-authorization, stopping]}
+                  error: {type: string}
+                  missing: {type: array, items: {type: string}}
+                  toolCount: {type: integer, minimum: 0}
+                  resources: {type: boolean}
+                  protocolVersion: {type: string}
+                  serverName: {type: string}
+                  oauthEnabled: {type: boolean, description: The plugin declared standard MCP OAuth for this connection.}
+        '409': {description: Host is not running}
+        '502': {description: Host probe request or cleanup failed}
+  /v1/host/mcp/servers/{name}/authorize:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,32}$'}
+    post:
+      summary: Start an explicit MCP OAuth authorization-code flow with PKCE
+      operationId: authorizeMCPServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                origin:
+                  type: string
+                  description: Visible Controller origin; must match the actual request Host. HTTPS or loopback HTTP only. Forwarded destination headers are not trusted.
+      responses:
+        '200':
+          description: Authorization URL is ready, or the attempt completed without further browser interaction.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPOAuthAuthorization'}
+        '400': {description: Invalid origin or callback requirements}
+        '409': {description: Host is not running}
+        '502': {description: Authorization preparation failed}
+  /v1/host/mcp/servers/{name}/authorization:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,32}$'}
+    delete:
+      summary: Cancel a pending browser authorization without deleting an existing grant
+      operationId: cancelMCPAuthorization
+      parameters:
+      - name: id
+        in: query
+        schema: {type: string, maxLength: 128}
+        description: Select this attempt only; stale identities are ignored. Omission cancels the current attempt.
+      responses:
+        '200':
+          description: Attempt cleanup completed; saved credentials remain independent.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPView'}
+        '409': {description: Host is not running}
+        '502': {description: Authorization cleanup failed}
+  /v1/host/mcp/servers/{name}/grant:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,32}$'}
+    delete:
+      summary: Disconnect MCP and remove its local OAuth grant
+      operationId: disconnectMCPOAuth
+      responses:
+        '200':
+          description: Connection stopped and local grant removed; no remote provider revocation is implied.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPView'}
+        '409': {description: Host is not running}
+        '502': {description: Local cleanup or grant deletion failed}
+  /v1/mcp/oauth/callback/{userId}:
+    parameters:
+    - name: userId
+      in: path
+      required: true
+      schema: {type: string}
+    - name: state
+      in: query
+      required: true
+      schema: {type: string}
+    - name: code
+      in: query
+      schema: {type: string}
+    - name: iss
+      in: query
+      schema: {type: string}
+    - name: error
+      in: query
+      schema: {type: string}
+    get:
+      summary: Forward a browser callback to the already-running account Host for one-time state validation
+      operationId: completeMCPOAuthCallback
+      description: No X-User-ID header is required. Only this callback is exempted from browser-origin checks. A stopped Host is never started by the callback.
+      responses:
+        '200':
+          description: Fixed confirmation page, or a request to continue additional provider authorization in Go Bot. Does not echo codes, tokens or state.
+          content:
+            text/html:
+              schema: {type: string}
+        '400': {description: Invalid, expired, replayed or failed authorization}
+        '404': {description: Account unavailable}
+        '409': {description: Host is not running}
+  /v1/plugins/authorization/callback/{userId}/{token}:
+    get:
+      tags: [Extensions]
+      summary: Receive a single-use browser callback for an active plugin authorization
+      operationId: receivePluginAuthorizationCallback
+      parameters:
+      - {in: path, name: userId, required: true, schema: {type: string}}
+      - {in: path, name: token, required: true, schema: {type: string, format: uuid}}
+      - {in: query, name: state, required: true, schema: {type: string}}
+      description: Provider query parameters are forwarded privately to the current flow. Receipt does not mean authorization succeeded. This endpoint does not require X-User-ID and never starts a Host.
+      responses:
+        '200':
+          description: Callback received; return to the app for the actual authorization outcome.
+          content:
+            text/html:
+              schema: {type: string}
+        '400': {description: Invalid, expired, replayed or rejected callback}
+        '409': {description: The account has no running Host}
+  /v1/settings/plugins:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    get:
+      summary: Saved plugin settings and actual Host runtime state
+      operationId: getPluginSettings
+      responses:
+        '200':
+          description: Credential values are never returned; a stopped Host reports unavailable.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PluginView'}
+  /v1/settings/plugins/packages:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    post:
+      summary: Install a reviewed plugin and its dependencies; initially disabled
+      operationId: installPluginPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PluginPackageInput'}
+      responses:
+        '200':
+          description: Package and approved native installation scripts completed.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PluginView'}
+        '409': {description: Host is stopped or package is already configured}
+        '422': {description: Package preparation failed}
+        '502': {description: Intent was saved but the Host could not confirm application}
+  /v1/settings/plugins/packages/{name}:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - {in: path, name: name, required: true, schema: {type: string}, description: URL-encode the complete npm package name as one segment.}
+    put:
+      summary: Enable or disable an installed plugin package
+      operationId: setPluginEnabled
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+      responses:
+        '200':
+          description: Saved selection and actual Host status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PluginView'}
+        '400': {description: Invalid input}
+        '404': {description: Plugin is not installed}
+        '502': {description: Selection saved but activation failed}
+    delete:
+      summary: Remove package intent and stop its code before uninstalling
+      operationId: removePluginPackage
+      responses:
+        '200':
+          description: Credentials and workspace data are retained.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PluginView'}
+        '404': {description: Package not configured}
+        '409': {description: Host is not running}
+        '502': {description: Intent was saved but Host removal failed}
+  /v1/settings/plugins/packages/{name}/update:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    - {in: path, name: name, required: true, schema: {type: string}}
+    post:
+      summary: Prepare and explicitly apply a new package version
+      operationId: updatePluginPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PluginPackageInput'}
+      responses:
+        '200':
+          description: Actual state after applying the new saved source
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PluginView'}
+        '404': {description: Package not configured}
+        '409': {description: Host is not running}
+        '502': {description: New intent was saved but application failed}
+  /v1/host/plugins/runtime/restart:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    post:
+      summary: Apply saved intent and restart the Host extension process
+      operationId: restartPlugins
+      responses:
+        '200':
+          description: Actual state after cleanup and restart
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PluginView'}
+        '409': {description: Host is not running}
+        '502': {description: Application or restart failed}
   /healthz:
     get:
       summary: Process liveness
@@ -249,6 +699,25 @@ paths:
       summary: Remove all ended tasks and their delivery histories
       responses:
         '200': {description: Count of deleted tasks}
+  /v1/host/stream:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    - $ref: "#/components/parameters/ControllerOrigin"
+    get:
+      summary: Stream all account session updates and task catalog changes over one SSE connection
+      parameters:
+      - name: cursors
+        in: query
+        description: URL-encoded JSON object mapping up to 20 cached session IDs to their last durable sequence or null
+        schema: {type: string, maxLength: 8192}
+      responses:
+        '200':
+          description: "event: host records containing sessionId (for session events), type and data; connection restores pending interactions"
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: Invalid session cursor map}
+        '503': {description: Host unavailable}
   /v1/host/schedules/stream:
     parameters:
     - $ref: "#/components/parameters/AccountName"
@@ -476,7 +945,7 @@ paths:
             schema:
               type: object
               properties:
-                provider: {type: string, default: deepseek, enum: [deepseek, zhipu, doubao]}
+                provider: {type: string, default: deepseek, enum: [deepseek, zhipu, doubao, tavily, brave]}
                 activate:
                   type: boolean
                   description: Set false to save without changing the active provider. Set true to use this provider with a saved key. Omit for legacy save-and-select behavior.
@@ -624,6 +1093,14 @@ paths:
         description: When true, return only the most recently created unarchived session, if one exists.
         schema:
           type: boolean
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      - name: cursor
+        in: query
+        schema:
+          type: string
       responses:
         '200':
           description: Success
@@ -661,15 +1138,6 @@ paths:
           description: State conflict
         '503':
           description: Service unavailable
-      parameters:
-      - name: limit
-        in: query
-        schema:
-          type: integer
-      - name: cursor
-        in: query
-        schema:
-          type: string
   /v1/sessions/{id}:
     parameters:
     - $ref: "#/components/parameters/AccountName"
@@ -1500,6 +1968,12 @@ paths:
           type: string
 components:
   parameters:
+    ControllerOrigin:
+      in: header
+      name: X-Go-Bot-Controller-Origin
+      required: false
+      description: Actual Controller origin visible to the client. Must match the request Host; HTTPS or loopback HTTP enables the Host's private OAuth callback channel. Bundled clients send this automatically, including when TLS terminates at a proxy.
+      schema: {type: string, format: uri, maxLength: 4096}
     AccountName:
       in: header
       name: X-User-ID
@@ -1509,6 +1983,221 @@ components:
         type: string
         pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
   schemas:
+    AuthorizationEntry:
+      type: object
+      required: [key, label, methods, inFlight, configured]
+      properties:
+        key: {type: string}
+        label: {type: string}
+        methods:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [id, label]
+            properties:
+              id: {type: string}
+              label: {type: string}
+        inFlight: {type: boolean}
+        configured: {type: boolean, description: Native integration or Go credential store reports an account; does not assert external service availability}
+        canDisconnect: {type: boolean}
+        accountLabel: {type: string}
+        attemptId: {type: string, format: uuid, description: Latest resumable interaction handle retained by the Host surface.}
+        attemptStatus: {type: string, enum: [running, authorized, cancelled, failed]}
+    AuthorizationAttempt:
+      type: object
+      required: [id, key, label, method, status, notices, prompts]
+      properties:
+        id: {type: string, format: uuid, description: Transient Host interaction handle; absent from Redis and client storage}
+        key: {type: string}
+        label: {type: string}
+        method: {type: string}
+        status: {type: string, enum: [running, authorized, cancelled, failed]}
+        notices:
+          type: array
+          items:
+            type: object
+            required: [message]
+            properties:
+              message: {type: string}
+              url: {type: string}
+              code: {type: string}
+        prompts:
+          type: array
+          items:
+            type: object
+            required: [id, kind, message]
+            properties:
+              id: {type: string, format: uuid}
+              kind: {type: string, enum: [text, secret, select]}
+              message: {type: string}
+              placeholder: {type: string}
+              webInput: {type: string, enum: [json-file], description: "Optional Web file chooser hint; native clients retain the declared text/secret input."}
+              options:
+                type: array
+                items:
+                  type: object
+                  required: [id, label]
+                  properties:
+                    id: {type: string}
+                    label: {type: string}
+                    description: {type: string}
+        error: {type: string, description: Diagnostic with captured secret answers redacted}
+    MCPServer:
+      type: object
+      required: [transport]
+      additionalProperties: false
+      description: Process and HTTP fields are mutually exclusive. Credential templates are resolved only in args, env and headers.
+      properties:
+        enabled: {type: boolean, default: true}
+        transport: {type: string, enum: [stdio, streamable-http]}
+        command: {type: string}
+        args: {type: array, items: {type: string}}
+        env: {type: object, additionalProperties: {type: string}}
+        cwd: {type: string, description: Absolute Host directory for stdio}
+        url: {type: string, description: HTTP(S) MCP endpoint for streamable-http}
+        headers: {type: object, additionalProperties: {type: string}}
+        toolLoading: {type: string, enum: [eager, on-demand], default: eager}
+        oauth:
+          type: object
+          additionalProperties: false
+          description: Explicit authorization code with PKCE. Omit clientId for dynamic registration; confidential clients use a static credential reference. Grants remain private Host files.
+          properties:
+            clientId: {type: string}
+            clientSecretRef: {type: string}
+            credentialKey: {type: string}
+            scope: {type: string, description: Explicit scope; omission uses the server challenge}
+            requestTimeoutMs: {type: integer, minimum: 1, maximum: 2147483647, default: 10000}
+            authorizationTimeoutMs: {type: integer, minimum: 1, maximum: 2147483647, default: 600000}
+            scopes: {type: array, items: {type: string}}
+    MCPOAuthAuthorization:
+      type: object
+      required: [name, state]
+      properties:
+        name: {type: string}
+        id: {type: string, description: Opaque attempt identity; distinct from OAuth state and PKCE values}
+        phase: {type: string, enum: [starting, waiting-browser, exchanging, committing, authorized, cancelled, failed]}
+        state: {type: string, enum: [preparing, pending, connecting, authorized, failed, cancelled, expired]}
+        url: {type: string, description: Provider authorization URL, present only while user interaction is needed}
+        expiresAt: {type: integer, format: int64, description: Authorization attempt expiry in Unix milliseconds}
+        error: {type: string}
+    MCPView:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: object
+          properties:
+            error: {type: string}
+            servers:
+              type: array
+              items:
+                type: object
+                properties:
+                  name: {type: string}
+                  source: {type: string, enum: [user, plugin]}
+                  owner: {type: string}
+                  state: {type: string, enum: [disabled, waiting-credentials, waiting-authorization, connecting, connected, reconnecting, stopping, failed]}
+                  error: {type: string}
+                  missing: {type: array, items: {type: string}}
+                  toolCount: {type: integer}
+                  resources: {type: boolean}
+                  protocolVersion: {type: string}
+                  serverName: {type: string}
+                  oauthEnabled: {type: boolean, description: The plugin declared standard MCP OAuth for this connection.}
+                  authorization: {$ref: '#/components/schemas/MCPOAuthAuthorization'}
+    PluginSource:
+      type: object
+      required: [type, spec]
+      properties:
+        type: {type: string, enum: [registry, git, directory, tarball, bundled]}
+        spec: {type: string, description: Fixed source snapshot resolved by the Controller and Host.}
+        registry: {type: string}
+        authRef: {type: string, description: Reference to an explicitly saved installation credential.}
+        username: {type: string}
+    PluginPackageInput:
+      type: object
+      additionalProperties: false
+      required: [pluginId]
+      properties:
+        pluginId: {type: string, description: Stable ID from the Controller's built-in reviewed catalog.}
+    PluginLocalized:
+      type: object
+      required: [en, zh-CN]
+      properties:
+        en: {type: string}
+        zh-CN: {type: string}
+    PluginCatalogEntry:
+      type: object
+      required: [pluginId, package, name, description, version, icon, maintainer, license]
+      properties:
+        pluginId: {type: string}
+        package: {type: string}
+        name: {type: string}
+        description: {$ref: '#/components/schemas/PluginLocalized'}
+        version: {type: string}
+        icon: {type: string, description: Controller-relative image path declared by plugin.json}
+        maintainer: {type: string}
+        license: {type: string}
+        tutorials:
+          type: array
+          items:
+            type: object
+            required: [language, title, video]
+            properties:
+              language: {type: string, enum: [en, zh-CN]}
+              title: {type: string}
+              video: {type: string, description: Backend-relative MP4 asset from plugin.json}
+              poster: {type: string, description: Optional backend-relative poster image}
+    PluginPackageInfo:
+      type: object
+      properties:
+        name: {type: string}
+        version: {type: string}
+        description: {type: string}
+        license: {type: string}
+        source: {$ref: '#/components/schemas/PluginSource'}
+        api: {type: string, enum: ['1']}
+        title: {type: string}
+        availableVersion: {type: string, description: Present only when the reviewed release is newer than the actual installed package.}
+        configSchema: {type: object, additionalProperties: true}
+        present: {type: boolean}
+    PluginSettings:
+      type: object
+      additionalProperties: false
+      required: [packages]
+      properties:
+        packages:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: false
+            required: [catalogId, version, enabled]
+            properties:
+              catalogId: {type: string}
+              version: {type: string}
+              enabled: {type: boolean}
+    PluginView:
+      type: object
+      required: [catalog, settings, status]
+      properties:
+        catalog: {type: array, items: {$ref: '#/components/schemas/PluginCatalogEntry'}}
+        settings: {$ref: '#/components/schemas/PluginSettings'}
+        status:
+          type: object
+          properties:
+            runtime: {type: string, enum: [stopped, running, failed, unavailable]}
+            packages: {type: array, items: {$ref: '#/components/schemas/PluginPackageInfo'}}
+            instances:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: string}
+                  package: {type: string}
+                  state: {type: string, enum: [ready, pending, loading, stopping, disposed, failed, disabled, unavailable]}
+                  error: {type: string}
+            error: {type: string}
     ScheduleEntry:
       type: object
       required: [record, status, scheduledAtLocal]
@@ -1621,6 +2310,11 @@ components:
     ModelEndpointInput:
       type: object
       properties:
+        protocol:
+          type: string
+          enum: [responses, anthropic_messages]
+          default: responses
+          description: Endpoint API format; independent of the model name.
         name: {type: string}
         baseUrl: {type: string, format: uri}
         apiKey: {type: string, writeOnly: true}

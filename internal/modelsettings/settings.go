@@ -17,11 +17,30 @@ type Selection struct {
 	ModelID    string `json:"modelId"`
 }
 
+// Protocol belongs to an endpoint, independently of its model IDs.
+const (
+	Responses         = "responses"
+	AnthropicMessages = "anthropic_messages"
+)
+
+func NormalizeProtocol(value string) string {
+	if value == "" {
+		return Responses
+	}
+	return value
+}
+
+func ValidProtocol(value string) bool {
+	value = NormalizeProtocol(value)
+	return value == Responses || value == AnthropicMessages
+}
+
 type Endpoint struct {
-	Name    string   `json:"name"`
-	BaseURL string   `json:"baseUrl"`
-	APIKey  string   `json:"apiKey"`
-	Models  []string `json:"models"`
+	Protocol string   `json:"protocol"`
+	Name     string   `json:"name"`
+	BaseURL  string   `json:"baseUrl"`
+	APIKey   string   `json:"apiKey"`
+	Models   []string `json:"models"`
 }
 
 type Catalog struct {
@@ -42,7 +61,7 @@ func (c Catalog) Resolve(selection Selection) (Endpoint, error) {
 		return Endpoint{}, ErrUnconfigured
 	}
 	endpoint, ok := c.Endpoints[selection.EndpointID]
-	if !ok || endpoint.BaseURL == "" || endpoint.APIKey == "" || !slices.Contains(endpoint.Models, selection.ModelID) {
+	if !ok || !ValidProtocol(endpoint.Protocol) || endpoint.BaseURL == "" || endpoint.APIKey == "" || !slices.Contains(endpoint.Models, selection.ModelID) {
 		return Endpoint{}, ErrUnavailable
 	}
 	return endpoint, nil

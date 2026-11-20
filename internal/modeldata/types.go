@@ -27,7 +27,18 @@ type AssistantOutputBlock struct {
 	Arguments string `json:"arguments,omitempty"`
 }
 
+// ProviderReplay contains signed native blocks, separate from visible content.
+// It is reusable only with the endpoint and model that produced it.
+type ProviderReplay struct {
+	EndpointURL string            `json:"endpointUrl,omitempty"`
+	Protocol    string            `json:"protocol"`
+	EndpointID  string            `json:"endpointId"`
+	ModelID     string            `json:"modelId"`
+	Content     []json.RawMessage `json:"content"`
+}
+
 type AssistantMessage struct {
+	ProviderReplay *ProviderReplay        `json:"providerReplay,omitempty"`
 	Content        string                 `json:"content"`
 	MaxTokens      bool                   `json:"maxTokens,omitempty"`
 	RawOutput      []content.ContentBlock `json:"rawOutput,omitempty"`
@@ -54,13 +65,15 @@ type ModelUsage struct {
 }
 
 type ToolResult struct {
-	ID            string                 `json:"id"`
-	Name          string                 `json:"name"`
-	Content       string                 `json:"content"`
-	ContentBlocks []content.ContentBlock `json:"contentBlocks,omitempty"`
-	IsError       bool                   `json:"isError,omitempty"`
-	Code          string                 `json:"code,omitempty"`
-	ErrorName     string                 `json:"errorName,omitempty"`
-	Meta          json.RawMessage        `json:"meta,omitempty"`
-	ConcludeTurn  bool                   `json:"concludeTurn,omitempty"`
+	ID                 string                 `json:"id"`
+	Name               string                 `json:"name"`
+	Content            string                 `json:"content"`
+	ContentBlocks      []content.ContentBlock `json:"contentBlocks,omitempty"`
+	IsError            bool                   `json:"isError,omitempty"`
+	Code               string                 `json:"code,omitempty"`
+	ErrorName          string                 `json:"errorName,omitempty"`
+	ErrorReason        *string                `json:"errorReason,omitempty"`
+	Meta               json.RawMessage        `json:"meta,omitempty"`
+	ConcludeTurn       bool                   `json:"concludeTurn,omitempty"`
+	AdditionalContexts []json.RawMessage      `json:"-"`
 }

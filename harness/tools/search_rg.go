@@ -16,12 +16,12 @@ import (
 	"unicode/utf8"
 
 	"go-bot/harness/agent"
+	"go-bot/harness/output"
 )
 
 const (
 	rgRawLimit       = 20_000_000
 	rgStderrLimit    = 64 << 10
-	rgOutputLimit    = 512 << 10
 	rgGlobMaxResults = 100
 	rgGrepMaxMatches = 250
 	rgGrepLineBytes  = 2000
@@ -37,6 +37,8 @@ type RipgrepSearch struct {
 	Workdir string
 	Binary  string // empty selects the ripgrep binary from PATH
 }
+
+func (RipgrepSearch) RetainsOutput() bool { return true }
 
 type searchArgs struct {
 	Pattern string  `json:"pattern"`
@@ -239,19 +241,20 @@ func (t RipgrepSearch) renderGlob(raw []byte) (string, error) {
 	if len(paths) == 0 {
 		return "No files found", nil
 	}
+	full := strings.Join(paths, "\n")
 	shown := min(len(paths), rgGlobMaxResults)
-	for shown > 0 && len(strings.Join(paths[:shown], "\n")) > rgOutputLimit {
+	if shown == len(paths) && output.Estimate(full) <= output.InlineTokens {
+		return full, nil
+	}
+	fullPath := t.spill("glob-results-*.txt", full)
+	for {
+		footer := fmt.Sprintf("\n\n(Showing %d of %d paths. %s)", shown, len(paths), spillHint(fullPath, "Narrow pattern or path to see more."))
+		preview := strings.Join(paths[:shown], "\n") + footer
+		if output.Estimate(preview) <= output.InlineTokens || shown == 0 {
+			return preview, nil
+		}
 		shown--
 	}
-	if shown == 0 {
-		return "", &SearchToolError{Code: "SEARCH_FAILED", Err: errors.New("glob path exceeds result limit")}
-	}
-	if shown == len(paths) {
-		return strings.Join(paths, "\n"), nil
-	}
-	fullPath := t.spill("glob-results-*.txt", strings.Join(paths, "\n"))
-	footer := fmt.Sprintf("\n\n(Showing %d of %d paths. %s)", shown, len(paths), spillHint(fullPath, "Narrow pattern or path to see more."))
-	return strings.Join(paths[:shown], "\n") + footer, nil
 }
 
 type rgJSONText struct {
@@ -305,19 +308,19 @@ func (t RipgrepSearch) renderGrep(raw []byte) (string, error) {
 	if len(matches) == 0 {
 		return "No matches found", nil
 	}
-	full := formatGrep(matches)
+	full := fmt.Sprintf("Found %d matches\n\n%s", len(matches), formatGrep(matches))
 	shown := min(len(matches), rgGrepMaxMatches)
-	for shown > 0 && len(formatGrep(matches[:shown])) > rgOutputLimit {
+	if shown == len(matches) && output.Estimate(full) <= output.InlineTokens {
+		return full, nil
+	}
+	fullPath := t.spill("grep-results-*.txt", full)
+	for {
+		preview := fmt.Sprintf("Found %d of %d matches\n\n%s\n\n(%s)", shown, len(matches), formatGrep(matches[:shown]), spillHint(fullPath, "Narrow pattern, path, or include to see more."))
+		if output.Estimate(preview) <= output.InlineTokens || shown == 0 {
+			return preview, nil
+		}
 		shown--
 	}
-	if shown == 0 {
-		return "", &SearchToolError{Code: "SEARCH_FAILED", Err: errors.New("grep match exceeds result limit")}
-	}
-	if shown == len(matches) {
-		return fmt.Sprintf("Found %d matches\n\n%s", len(matches), full), nil
-	}
-	fullPath := t.spill("grep-results-*.txt", fmt.Sprintf("Found %d matches\n\n%s", len(matches), full))
-	return fmt.Sprintf("Found %d of %d matches\n\n%s\n\n(%s)", shown, len(matches), formatGrep(matches[:shown]), spillHint(fullPath, "Narrow pattern, path, or include to see more.")), nil
 }
 
 func formatGrep(matches []grepMatch) string {

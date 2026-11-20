@@ -4,6 +4,9 @@
     "slug": "go-bot-mobile",
     "version": "0.0.1",
     "userInterfaceStyle": "light",
+    "experiments": {
+      "tsconfigPaths": false
+    },
     "platforms": [
       "ios",
       "android"
@@ -26,6 +29,7 @@
       ]
     },
     "plugins": [
+      "./plugins/with-shared-source-inputs",
       [
         "expo-build-properties",
         {
@@ -43,7 +47,10 @@
           "microphonePermission": false
         }
       ],
-      ["react-native-share", {}],
+      [
+        "react-native-share",
+        {}
+      ],
       [
         "expo-media-library",
         {
@@ -51,7 +58,8 @@
           "granularPermissions": []
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-video"
     ],
     "icon": "./assets/app-icon.png"
   }

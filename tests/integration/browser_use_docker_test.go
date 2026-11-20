@@ -24,7 +24,7 @@ func TestDockerBrowserSkillAndSessionIsolation(t *testing.T) {
 	if image := os.Getenv("HARNESS_TEST_HOST_IMAGE"); image != "" {
 		c.Runtime.Image = image
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Minute)
 	defer cancel()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/page", func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,9 @@ func TestDockerBrowserSkillAndSessionIsolation(t *testing.T) {
 		var userMessage string
 		outputs := map[string]string{}
 		for _, item := range body.Input {
-			if item.Role == "user" && len(item.Content) > 0 && !strings.HasPrefix(item.Content[0].Text, "Time sampled") {
+			if item.Role == "user" && len(item.Content) > 0 &&
+				!strings.HasPrefix(item.Content[0].Text, "Time sampled") &&
+				!strings.HasPrefix(item.Content[0].Text, "Current runtime context.") {
 				userMessage = item.Content[0].Text
 			}
 			if item.Type == "function_call_output" && len(item.Output) > 0 {
@@ -222,6 +224,13 @@ printf "fresh browser session"
 	request("DELETE", imageSettings+"?provider=seedream", "", 200).Body.Close()
 
 	first, second := newSession(), newSession()
+	// Sessions already exist before CLI installation. Installation must prepare
+	// software while disabled; activation contributes the Skill without downloading.
+	manager.Exec(t, ctx, "sh", "-ec", "! command -v agent-browser")
+	request("POST", "/v1/settings/plugins/packages", `{"pluginId":"agent-browser"}`, 200).Body.Close()
+	manager.Exec(t, ctx, "sh", "-ec", "agent-browser --version; test ! -e /root/harness/.dsh/plugins/profile/plugins.json")
+	request("PUT", "/v1/settings/plugins/packages/%40go-bot%2Fplugin-agent-browser", `{"enabled":true}`, 200).Body.Close()
+
 	send(first, "Browser first", "")
 	after := send(second, "Browser second", "")
 	for name, signature := range map[string]string{"browser-report.png": "\x89PNG", "browser-report.txt": "browser download fixture"} {

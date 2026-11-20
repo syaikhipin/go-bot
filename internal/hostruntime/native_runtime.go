@@ -60,38 +60,136 @@ type NativeRuntime struct {
 	closeOnce             sync.Once
 	closeError            error
 	activatedAt           time.Time
+	startDone             chan struct{}
+	startCancel           context.CancelFunc
+	sessionCreation       *assembly.NativeSessionOptions
 	timedQuestions        []interaction.Pending
 	timedQuestionsThrough int64
 }
 
+type NativeSetup func(context.Context, *assembly.NativeLive) error
+
 func (r *NativeRuntime) Start(ctx context.Context, resume bool) error {
+	return r.start(ctx, resume, nil, nil, nil)
+}
+
+func (r *NativeRuntime) StartWithSetup(ctx context.Context, resume bool, setup NativeSetup) error {
+	return r.start(ctx, resume, nil, nil, setup)
+}
+
+func (r *NativeRuntime) start(ctx context.Context, resume bool, sessionReady func(*sessionformat.LiveSession), readable func(*assembly.NativeLive), setup NativeSetup) (err error) {
+	ctx, cancel := context.WithCancel(ctx)
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.live != nil || r.stopping {
+	if r.live != nil || r.stopping || r.startDone != nil {
+		r.mu.Unlock()
+		cancel()
 		return errors.New("native worker already started")
 	}
-	var live *assembly.NativeLive
-	var err error
+	r.startDone, r.startCancel = make(chan struct{}), cancel
+	r.mu.Unlock()
+	var prepared *assembly.NativeLive
+	defer func() {
+		cancel()
+		if err != nil && prepared != nil {
+			cleanup := prepared.Close()
+			if cleanup != nil && !errors.Is(err, cleanup) {
+				err = errors.Join(err, cleanup)
+			}
+			if cleanup != nil {
+				// Retain ownership if cleanup was not confirmed. Host must not
+				// permit a second same-id lifetime over these resources.
+				r.mu.Lock()
+				r.live, r.fatalErr, r.stopping = prepared, err, true
+				r.mu.Unlock()
+			} else {
+				r.mu.Lock()
+				if r.live == prepared {
+					r.live = nil
+				}
+				r.mu.Unlock()
+			}
+		}
+		r.mu.Lock()
+		r.startCancel = nil
+		close(r.startDone)
+		r.mu.Unlock()
+	}()
 	_, hasChildStorage := r.Factory.Storage.(assembly.NativeChildStorageFactory)
 	r.Factory.Children = nil
 	if hasChildStorage {
 		r.Factory.Children = r
 	}
+	factory := r.Factory
+	ready := factory.SessionReady
+	factory.SessionReady = func(s *sessionformat.LiveSession) {
+		if sessionReady != nil {
+			sessionReady(s)
+		}
+		if ready != nil {
+			ready(s)
+		}
+	}
+	beforePublish := factory.BeforePublish
+	factory.BeforePublish = func(ctx context.Context, live *assembly.NativeLive) error {
+		prepared = live
+		if readable != nil {
+			readable(live)
+		}
+		if beforePublish != nil {
+			if err := beforePublish(ctx, live); err != nil {
+				return err
+			}
+		}
+		if setup != nil {
+			if err := setup(ctx, live); err != nil {
+				return err
+			}
+		}
+		return ctx.Err()
+	}
+	var live *assembly.NativeLive
 	if resume {
-		live, err = r.Factory.Resume(ctx, r.Identity)
+		live, err = factory.Resume(ctx, r.Identity)
 	} else {
-		live, err = r.Factory.Activate(ctx, r.Identity)
+		options := r.sessionCreation
+		r.sessionCreation = nil
+		if options == nil {
+			live, err = factory.Activate(ctx, r.Identity)
+		} else {
+			live, err = factory.ActivateWithSessionOptions(ctx, r.Identity, *options)
+		}
 	}
 	if err != nil {
 		return err
 	}
+	// Schedule delivery can synchronously reenter admission during Start.
+	// It may enqueue into the real Session, but no driver runs until commit.
+	r.mu.Lock()
+	if err := ctx.Err(); err != nil || r.stopping {
+		r.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		return context.Canceled
+	}
 	r.live = live
+	r.mu.Unlock()
 	if r.Factory.Schedule != nil && !r.HostOwnsSchedule {
 		if err := r.Factory.Schedule.Start(ctx); err != nil {
-			r.live = nil
-			_ = live.Close()
+			r.Factory.Schedule.Close()
 			return fmt.Errorf("start native Schedule: %w", err)
 		}
+	}
+	r.mu.Lock()
+	if err := ctx.Err(); err != nil || r.stopping {
+		r.mu.Unlock()
+		if r.Factory.Schedule != nil && !r.HostOwnsSchedule {
+			r.Factory.Schedule.Close()
+		}
+		if err != nil {
+			return err
+		}
+		return context.Canceled
 	}
 	r.activatedAt = time.Now().UTC()
 	if hasChildStorage {
@@ -106,15 +204,15 @@ func (r *NativeRuntime) Start(ctx context.Context, resume bool) error {
 	r.done = make(chan struct{})
 	var runCtx context.Context
 	runCtx, r.cancel = context.WithCancel(context.Background())
+	r.startCancel = nil // Publication detaches the creation-only signal.
 	go r.drive(runCtx)
 	if live.Resource.Jobs != nil {
 		go r.watchJobs(runCtx, live.Resource.Jobs)
 	}
 	// A resumed journal can have an interrupted turn even with an empty inbox.
 	// Wake once so RunNext repairs that tail before this worker becomes idle.
-	if resume {
-		r.kick()
-	}
+	r.kick() // Also observes input accepted by creation listeners before start.
+	r.mu.Unlock()
 	return nil
 }
 
@@ -829,12 +927,62 @@ func (r *NativeRuntime) TerminationError() error {
 // closes the Session. A caller deadline converts the stop to an abort; the
 // durable inbox and interrupted-turn repair determine recovery afterward.
 func (r *NativeRuntime) Stop(ctx context.Context) error {
-	r.stopMu.Lock()
-	defer r.stopMu.Unlock()
-	r.mu.Lock()
-	if r.live == nil {
+	// Preparation/setup may call back into other Go services. Never hold the
+	// stop or state mutex while waiting for that creation transaction to drain.
+	for {
+		r.mu.Lock()
+		starting := r.startDone
+		if starting != nil {
+			select {
+			case <-starting:
+				starting = nil
+			default:
+			}
+		}
+		cancel := r.startCancel
+		if starting != nil && cancel != nil {
+			r.stopping = true
+		}
 		r.mu.Unlock()
+		if starting == nil {
+			break
+		}
+		if cancel != nil {
+			cancel()
+		}
+		select {
+		case <-starting:
+		case <-ctx.Done():
+			r.Abort()
+			return ctx.Err()
+		}
+	}
+	r.stopMu.Lock()
+	r.mu.Lock()
+	if r.startDone != nil {
+		select {
+		case <-r.startDone:
+		default:
+			r.mu.Unlock()
+			r.stopMu.Unlock()
+			return r.Stop(ctx) // Start was admitted after the barrier check.
+		}
+	}
+	defer r.stopMu.Unlock()
+	if r.live == nil {
+		attempted := r.startDone != nil
+		r.mu.Unlock()
+		if attempted {
+			return nil // Failed preparation already released its resources.
+		}
 		return errors.New("native worker is not started")
+	}
+	if r.done == nil {
+		live := r.live
+		r.stopping = true
+		r.mu.Unlock()
+		r.closeOnce.Do(func() { r.closeError = live.Close() })
+		return r.closeError
 	}
 	if !r.stopping {
 		r.stopping = true
@@ -865,15 +1013,44 @@ func (r *NativeRuntime) Stop(ctx context.Context) error {
 	return r.closeError
 }
 
+// Dispose is factory-owner teardown, rather than the UI's draining Stop.
+// Upstream clears a ready machine's inbox on disposal, but failed/unpublished
+// creation retains accepted input for recovery. Stop still drains every writer
+// and resource; cancellation alone never transfers ownership of them.
+func (r *NativeRuntime) Dispose(ctx context.Context) error {
+	r.Abort()
+	r.mu.Lock()
+	live, ready, compactDone := r.live, r.done != nil, r.compactDone
+	r.mu.Unlock()
+	var err error
+	if live != nil && ready {
+		err = live.Agent.CancelPending(ctx)
+	}
+	// A manual compaction runs outside the turn driver. Its cancellation must
+	// settle before scoped effects or the Session writer can be closed.
+	if compactDone != nil {
+		select {
+		case <-compactDone:
+		case <-ctx.Done():
+			return errors.Join(err, ctx.Err())
+		}
+	}
+	return errors.Join(err, r.Stop(ctx))
+}
+
 // Abort is for owner loss or process shutdown. It cancels the active turn;
 // unlike Stop, it does not consume queued user messages before exiting.
 func (r *NativeRuntime) Abort() {
 	r.mu.Lock()
 	r.stopping = true
 	cancel := r.cancel
+	startCancel := r.startCancel
 	compactCancel := r.compactCancel
 	children := r.children
 	r.mu.Unlock()
+	if startCancel != nil {
+		startCancel()
+	}
 	if cancel != nil {
 		cancel()
 	}

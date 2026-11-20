@@ -183,9 +183,9 @@ func classifyModelError(endpoint, model string, status int, upstreamCode, messag
 		code = ModelErrorBillingOrQuotaExhausted
 	case containsAny(text, "permission denied", "accessdenied", "access denied", "forbidden", "model.accessdenied"):
 		code = ModelErrorPermissionDenied
-	case containsAny(text, "datainspectionfailed", "data_inspection_failed", "sensitive content", "inappropriate content", "content policy"):
+	case containsAny(text, "datainspectionfailed", "data_inspection_failed", "sensitive content", "inappropriate content", "content policy", "content_policy", "refusal"):
 		code = ModelErrorContentPolicyRejected
-	case containsAny(text, "context length", "context_length", "ai_context_limit_exceeded", "maximum context", "token length exceed", "too many tokens"):
+	case containsAny(text, "context length", "context_length", "ai_context_limit_exceeded", "maximum context", "token length exceed", "too many tokens", "prompt is too long", "model_context_window_exceeded"):
 		code = ModelErrorContextLimitExceeded
 	case containsAny(text, "model not found", "model_not_found", "model does not exist", "model not exist", "endpoint not found"):
 		code = ModelErrorModelNotFound
@@ -215,7 +215,7 @@ func classifyModelError(endpoint, model string, status int, upstreamCode, messag
 		code = ModelErrorUpstreamInternal
 	case containsAny(text, "connection reset", "broken pipe", "connection refused", "no such host", "network is unreachable", "tls handshake", "connection error", "dial tcp"):
 		code = ModelErrorUpstreamNetwork
-	case status == http.StatusBadRequest || containsAny(text, "invalid parameter", "invalid_parameter", "invalid request", "bad request"):
+	case status == http.StatusBadRequest || containsAny(text, "invalid parameter", "invalid_parameter", "invalid request", "invalid_request", "bad request"):
 		code = ModelErrorInvalidRequest
 	case status == http.StatusUnauthorized:
 		code = ModelErrorAuthenticationFailed

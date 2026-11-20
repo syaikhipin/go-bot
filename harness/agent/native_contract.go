@@ -15,6 +15,8 @@ import (
 
 // Message is the model-facing projection of the durable v4 session surface.
 type Message struct {
+	ProviderReplay         *modeldata.ProviderReplay        `json:"providerReplay,omitempty"`
+	IsError                bool                             `json:"isError,omitempty"`
 	Role                   string                           `json:"role"`
 	Content                string                           `json:"content"`
 	ContentBlocks          []content.ContentBlock           `json:"contentBlocks,omitempty"`
@@ -82,6 +84,36 @@ type Tool interface {
 	Execute(context.Context, json.RawMessage) (string, error)
 }
 
+// SettledTool confirms provisional core state after the final tool result has
+// been durably committed. Failure (including a failed commit) discards it.
+// This is an optional built-in Go capability, not a plugin lifecycle callback.
+type SettledTool interface {
+	Tool
+	SettleResult(callID string, success bool)
+}
+
+// RetainedOutputTool owns a specialized recoverable preview (for example
+// grep/glob) or a Job status suffix. Generic retention must not save an
+// already limited preview as though it were the original output.
+type RetainedOutputTool interface {
+	Tool
+	RetainsOutput() bool
+}
+
+// PreparedOutputTool captures built-in output state before execution and
+// applies it at PostExecute. No such callbacks are exposed by the plugin SDK.
+type PreparedOutputTool interface {
+	Tool
+	PrepareOutput(json.RawMessage) func(modeldata.ToolResult) modeldata.ToolResult
+}
+
+// ConcurrencyTool supplies the upstream per-arguments overlap classifier.
+// Only a successful true opts into overlap; failures remain exclusive.
+type ConcurrencyTool interface {
+	Tool
+	IsConcurrencySafe(context.Context, json.RawMessage) (bool, error)
+}
+
 type ContentTool interface {
 	Tool
 	ExecuteContent(context.Context, json.RawMessage) (string, []content.ContentBlock, error)
@@ -91,6 +123,21 @@ type ContentTool interface {
 type PresentedTool interface {
 	Tool
 	ExecutePresented(context.Context, json.RawMessage) (string, json.RawMessage, error)
+}
+
+// RichTool retains structured presentation metadata and durable image content
+// together. The Agent still owns the checkpoint, error and result journal.
+type RichTool interface {
+	PresentedTool
+	ExecuteRich(context.Context, json.RawMessage) (string, []content.ContentBlock, json.RawMessage, error)
+}
+
+// ResultTool preserves a protocol's normalized failure content as well as its
+// successful content. An MCP isError response is a tool outcome, not a Go
+// transport exception; its ordered text/images must survive both cases.
+type ResultTool interface {
+	Tool
+	ExecuteResult(context.Context, json.RawMessage) (modeldata.ToolResult, error)
 }
 
 type Limits struct {

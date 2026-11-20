@@ -1,0 +1,21 @@
+[
+ {"name":"omitted"},
+ {"name":"explicit-empty","seed":[]},
+ {"name":"ordinary-replay","seed":[{"type":"permission/preset","seq":0,"time":1,"data":{"preset":"workspace-write"}}]},
+ {"name":"existing-end","seed":[{"type":"session/end-seed","seq":0,"time":1,"data":{}}]},
+ {"name":"empty-fork","isSeeded":true,"inheritedEventCount":0,"seed":[]},
+ {"name":"closed-fork","isSeeded":true,"inheritedEventCount":2,"seed":[{"type":"turn/start","seq":0,"time":1,"data":{"turn":1}},{"type":"turn/end","seq":1,"time":2,"data":{"turn":1,"reason":{"kind":"completed"}}}]},
+ {"name":"marked-fork-with-tail","isSeeded":true,"inheritedEventCount":1,"seed":[{"type":"permission/preset","seq":0,"time":1,"data":{"preset":"read-only"}},{"type":"session/end-seed","seq":1,"time":2,"data":{"inherited":true}},{"type":"approval/policy","seq":2,"time":3,"data":{"policy":"ask"}}]},
+ {"name":"nested-fork","isSeeded":true,"inheritedEventCount":2,"seed":[{"type":"session/end-seed","seq":0,"time":1,"data":{"inherited":true}},{"type":"permission/preset","seq":1,"time":2,"data":{"preset":"read-only"}}]},
+ {"name":"unseeded-replay-of-fork","seed":[{"type":"session/end-seed","seq":0,"time":1,"data":{"inherited":true}},{"type":"permission/preset","seq":1,"time":2,"data":{"preset":"read-only"}}]},
+ {"name":"open-turn-replay","seed":[{"type":"turn/start","seq":0,"time":1,"data":{"turn":1}}]},
+ {"name":"open-turn-fork","isSeeded":true,"inheritedEventCount":1,"seed":[{"type":"turn/start","seq":0,"time":1,"data":{"turn":1}}]},
+ {"name":"opaque-plugin-record","seed":[{"type":"plugin:qa/seed","seq":0,"time":1,"ignorable":true,"data":{"nested":[1,"二",true]}}]},
+ {"name":"missing-seed","isSeeded":true,"inheritedEventCount":0},
+ {"name":"missing-inherited-count","isSeeded":true,"seed":[]},
+ {"name":"inherited-count-past-seed","isSeeded":true,"inheritedEventCount":2,"seed":[]},
+ {"name":"unseeded-nonzero-inheritance","inheritedEventCount":1,"seed":[{"type":"session/end-seed","seq":0,"time":1,"data":{}}]},
+ {"name":"unmarked-cut-before-tail","isSeeded":true,"inheritedEventCount":0,"seed":[{"type":"permission/preset","seq":0,"time":1,"data":{"preset":"read-only"}}]},
+ {"name":"later-inherited-marker","isSeeded":true,"inheritedEventCount":0,"seed":[{"type":"session/end-seed","seq":0,"time":1,"data":{"inherited":true}},{"type":"session/end-seed","seq":1,"time":2,"data":{"inherited":true}}]},
+ {"name":"sequence-gap","seed":[{"type":"session/end-seed","seq":1,"time":1,"data":{}}]}
+]

@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go-bot/internal/modelsettings"
 	"go-bot/internal/providersettings"
+	"go-bot/plugin"
 )
 
 var ErrAccountNotFound = errors.New("account not found")
@@ -21,6 +22,7 @@ type Account struct {
 	HostEndpoint    string                     `json:"hostEndpoint,omitempty"`
 	WebSearch       *providersettings.Settings `json:"webSearch,omitempty"`
 	ImageGeneration *providersettings.Settings `json:"imageGeneration,omitempty"`
+	Plugins         *plugin.Settings           `json:"plugins,omitempty"`
 }
 
 type AccountStore interface {
@@ -28,6 +30,7 @@ type AccountStore interface {
 	Get(context.Context, string) (Account, error)
 	Save(context.Context, string, Account) error // Save only Host lifecycle fields.
 	SaveProviderSettings(context.Context, string, string, providersettings.Settings) error
+	SavePluginSettings(context.Context, string, plugin.Settings) error
 	LoadModels(context.Context, string) (modelsettings.Snapshot, error)
 	SaveModelCatalog(context.Context, string, modelsettings.Catalog) (int64, error)
 	SaveSessionModel(context.Context, string, string, modelsettings.Selection) (int64, error)
@@ -37,6 +40,7 @@ const (
 	accountPrefix        = "user:"
 	webSearchField       = "webSearch"
 	imageGenerationField = "imageGeneration"
+	pluginsField         = "plugins"
 )
 
 type RedisStore struct{ client *redis.Client }
@@ -70,6 +74,13 @@ func (a Account) fields() ([]any, error) {
 			fields = append(fields, item.name, data)
 		}
 	}
+	if a.Plugins != nil {
+		data, err := json.Marshal(a.Plugins)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, pluginsField, data)
+	}
 	return fields, nil
 }
 
@@ -96,7 +107,7 @@ func (s *RedisStore) Create(ctx context.Context, id string, record Account) erro
 }
 
 func (s *RedisStore) Get(ctx context.Context, id string) (Account, error) {
-	fields, err := s.client.HMGet(ctx, accountPrefix+id, "desiredState", "hostId", "hostToken", "hostEndpoint", webSearchField, imageGenerationField).Result()
+	fields, err := s.client.HMGet(ctx, accountPrefix+id, "desiredState", "hostId", "hostToken", "hostEndpoint", webSearchField, imageGenerationField, pluginsField).Result()
 	if err != nil {
 		return Account{}, err
 	}
@@ -110,7 +121,36 @@ func (s *RedisStore) Get(ctx context.Context, id string) (Account, error) {
 	if !decodeField(fields[4], &record.WebSearch) || !decodeField(fields[5], &record.ImageGeneration) {
 		return Account{}, errors.New("invalid Redis provider settings")
 	}
+	if !decodeField(fields[6], &record.Plugins) {
+		return Account{}, errors.New("invalid Redis plugin settings")
+	}
 	return record, nil
+}
+
+func (s *RedisStore) SavePluginSettings(ctx context.Context, id string, settings plugin.Settings) error {
+	if err := settings.Validate(); err != nil {
+		return err
+	}
+	return s.saveExtensionSettings(ctx, id, pluginsField, settings)
+}
+
+func (s *RedisStore) saveExtensionSettings(ctx context.Context, id, field string, settings any) error {
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	key := accountPrefix + id
+	return s.watch(ctx, []string{key}, func(tx *redis.Tx) error {
+		exists, err := tx.HExists(ctx, key, "desiredState").Result()
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return ErrAccountNotFound
+		}
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error { pipe.HSet(ctx, key, field, data); return nil })
+		return err
+	})
 }
 
 func (s *RedisStore) Save(ctx context.Context, id string, record Account) error {

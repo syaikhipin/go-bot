@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const browserCLI = "/usr/local/bin/agent-browser"
+const browserCLI = "agent-browser"
 
 type browserSession struct {
 	socketDir string

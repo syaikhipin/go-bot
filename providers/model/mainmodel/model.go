@@ -55,7 +55,7 @@ func ParseConfig(raw string) (Config, error) {
 		parsed, err := url.Parse(endpoint.BaseURL)
 		if name == "" || strings.TrimSpace(name) != name || err != nil || parsed.Host == "" ||
 			(parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" ||
-			(endpoint.Protocol != llm.Responses && endpoint.Protocol != llm.ChatCompletions) {
+			(endpoint.Protocol != llm.Responses && endpoint.Protocol != llm.ChatCompletions && endpoint.Protocol != llm.AnthropicMessages) {
 			return Config{}, fmt.Errorf("invalid Host model endpoint %q", name)
 		}
 	}
@@ -139,5 +139,5 @@ func (m Model) adapter(ctx context.Context) (agent.LLMAdapter, context.Context, 
 	if err != nil {
 		return agent.LLMAdapter{}, nil, err
 	}
-	return agent.LLMAdapter{Transport: client, Protocol: endpoint.Protocol, Images: m.Images, ImageAccessPath: m.ImageAccessPath, ImageInputEnabled: true}, ctx, nil
+	return agent.LLMAdapter{EndpointURL: strings.TrimRight(endpoint.BaseURL, "/"), Transport: client, Protocol: endpoint.Protocol, Images: m.Images, ImageAccessPath: m.ImageAccessPath, ImageInputEnabled: true}, ctx, nil
 }

@@ -133,13 +133,15 @@ Open the browser after startup. Controller already serves the web app.
 
 1. Open [http://127.0.0.1:8080](http://127.0.0.1:8080) and create an account by
    name. Opening the account starts its Host in a separate Docker container.
-2. In **Model settings**, add an OpenAI-compatible Responses endpoint, API key,
+2. In **Model settings**, choose **OpenAI Responses** or **Anthropic Messages** in the protocol dropdown, then add the endpoint URL, API key,
    and at least one model ID. Then select **New chat** and send a message.
-3. For web search, save a key for DeepSeek, Zhipu, or Doubao under **Settings → Web search**. For image generation, configure Seedream, OpenAI Images, or Google Nano Banana under **Settings → Image generation**. Choose **Use provider** to activate a saved service. [Provider setup](docs/providers.md)
+3. For web search, save a key for DeepSeek, Zhipu, Doubao, Tavily, or Brave Search under **Settings → Web search**. For image generation, configure Seedream, OpenAI Images, or Google Nano Banana under **Settings → Image generation**. Choose **Use provider** to activate a saved service. [Provider setup](docs/providers.md)
 
 Choose **English** or **简体中文** on the account page or in **Settings**. The browser remembers your choice.
 
-### Phone via Tailscale
+Install and enable **agent-browser** and **OfficeCLI** from the sidebar **Plugins** entry to use browser and Office tasks. First installation downloads their official CLI dependencies.
+
+## Phone via Tailscale
 
 Tailscale connects your phone and the computer
 running Controller over a private network called a tailnet. This gives the phone
@@ -173,11 +175,15 @@ the Go agent, calls model providers directly, and manages tools, v4 session
 journals, memory, schedules, attachments, and the workspace. Each account has
 its own Host, started when the account is opened.
 
-The Host includes OfficeCLI, agent-browser with Chromium, Python and Node.js.
-The OfficeCLI and agent-browser skills are installed into
-`/root/harness/.dsh/skills/` on first use of each data directory. They can be
-edited or deleted like any other skill. The model discovers skills by their
-names and descriptions and loads their instructions on demand.
+The Host includes Chromium, Python, Node.js and the general document environment.
+Install **agent-browser** and **OfficeCLI** from **Plugins → Plugin market**, then
+enable them. Installation prepares the fixed official CLI and its original
+Skills; activation only loads those capabilities. No API key is needed.
+OfficeCLI contributes 11 original Skills; agent-browser contributes its official
+discovery Skill. They remain in their plugin packages under
+`/root/harness/.dsh/plugins/profile/node_modules/`, rather than being copied into
+user Skill directories. Disabling withdraws the Skills and retains installed CLI
+software. The model discovers Skill names/descriptions and loads instructions on demand.
 
 | Runtime | Where Host data lives | What **Stop Host** does |
 | --- | --- | --- |
@@ -285,7 +291,7 @@ creation, storage and Controller-to-Host connectivity.
 | Develop outside Docker | Go 1.26 or newer for the backend, a Redis instance for a native Controller, and Node.js 22.12+ with npm for frontend development. |
 
 Compose runs Redis and builds the frontend. Python, Node.js, Chromium and
-OfficeCLI for agent tasks are included in the Host image.
+the general document environment are included in the Host image. Install OfficeCLI and agent-browser through the plugin market.
 
 ## Develop and extend
 
@@ -299,6 +305,7 @@ credentials and bind access to the authenticated account.
 
 - **Add a Skill** with a `SKILL.md` file to describe a repeatable workflow that uses existing tools. Put account-level skills under `/root/harness/.dsh/skills/` on the Host.
 - **Add tools and selected third-party services** in a custom Host build. Implement the Go tool contract and include the tool in the Host's tool set. Keep external SDK and HTTP calls in `thirdparty/`, and use `providers/` for adapters to the runtime, model, search, or image provider contracts. [Tool interface](harness/agent/native_contract.go) · [Host tool assembly](harness/assembly/native_runtime.go) · [Provider guide](docs/providers.md)
+- **Add business plugins** with native Cordis and asynchronous `ctx.host` APIs for tools, Skills, prompts, credentials, authorization and MCP. The Harness core stays in Go. [Plugin SDK](extensions/sdk/README.md) · [Examples](examples/plugins/README.md)
 - **Build the product interface** on HTTP and SSE. Connect your own chat frontend or messaging channel and handle account authentication, connection permissions, and user approval for actions such as booking or payment. [API guide](docs/api.md) · [Personal-agent integration research](docs/personal-agent-research.zh-CN.md)
 
 [Documentation](docs/README.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)

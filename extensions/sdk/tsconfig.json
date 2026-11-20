@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "ESNext.Disposable", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "types": ["node"],
+    "paths": { "@go-bot/plugin-sdk": ["./index.d.ts"] }
+  },
+  "include": ["index.d.ts", "test/**/*.ts", "../../examples/plugins/typescript-tool/src/*.ts"]
+}

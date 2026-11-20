@@ -26,6 +26,8 @@ __pycache__/
 controller.lock
 state.json
 *.token
+.credentials.yaml
+.credential-write-*
 .write-*
 
 # Private cloud deployment and replay notes

@@ -14,7 +14,8 @@ export default defineConfig({
     strictPort: true,
     fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL('../docs/providers.md', import.meta.url))] },
     proxy: {
-      '/v1': { target: 'http://127.0.0.1:8080', changeOrigin: true },
+      // OAuth callbacks return through this same public /v1 route.
+      '/v1': { target: 'http://127.0.0.1:8080', changeOrigin: false },
     },
   },
 })

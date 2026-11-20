@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -13,22 +14,42 @@ type RuntimeContextSection struct {
 	Text string `json:"text"`
 }
 
+// SetSystemContextSource supplies dynamic system sections at each model step.
+// ensureSystem commits their assembled text through the existing v4
+// system/message replacement mechanism, including withdrawal and compaction.
+func (a *NativeLoop) SetSystemContextSource(source func(context.Context, string) ([]RuntimeContextSection, error)) {
+	a.systemContextSource = source
+}
+
 func (a *NativeLoop) SetRuntimeContext(provider func() []RuntimeContextSection) {
 	a.runtimeContext = provider
 }
 
-func (a *NativeLoop) ensureRuntimeContext() error {
-	if a.runtimeContext == nil {
+func (a *NativeLoop) SetRuntimeContextSource(source func(context.Context, string) ([]RuntimeContextSection, error)) {
+	a.runtimeContextSource = source
+}
+
+func (a *NativeLoop) ensureRuntimeContext(ctx context.Context) error {
+	if a.runtimeContext == nil && a.runtimeContextSource == nil && a.promptAssembler == nil {
 		return nil
 	}
-	sections := a.runtimeContext()
-	if len(sections) == 0 {
-		return nil
+	var sections []RuntimeContextSection
+	sections = append(sections, a.assembledContexts...)
+	if a.runtimeContext != nil {
+		sections = append(sections, a.runtimeContext()...)
+	}
+	if a.runtimeContextSource != nil {
+		extra, err := a.runtimeContextSource(ctx, a.session.Header().ID)
+		if err != nil {
+			return err
+		}
+		sections = append(sections, extra...)
 	}
 	surface, err := a.session.Surface()
 	if err != nil {
 		return err
 	}
+	previous := false
 	for _, messageData := range slices.Backward(surface.Messages) {
 		// Use retained model messages so a compacted snapshot is reannounced.
 		var message struct {
@@ -44,7 +65,11 @@ func (a *NativeLoop) ensureRuntimeContext() error {
 		if slices.Equal(message.Source.Sections, sections) {
 			return nil
 		}
+		previous = true
 		break
+	}
+	if len(sections) == 0 && !previous {
+		return nil
 	}
 	paragraphs := []string{"Current runtime context. This snapshot supersedes earlier runtime-context snapshots."}
 	for _, section := range sections {

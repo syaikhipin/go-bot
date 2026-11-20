@@ -57,7 +57,7 @@ same instance.
 
 The driver supplies an address reachable from Controller. Docker
 Hosts use dynamic published ports. ECI uses the private IP. After a successful
-`/readyz` probe, Controller synchronizes model settings and saves the endpoint
+`/readyz` probe, Controller synchronizes model and saved extension settings and saves the endpoint
 in Redis for session forwarding and readiness checks.
 
 The Host checks its startup configuration and writable filesystem operations
@@ -111,3 +111,24 @@ model/search keys and other Sessions. It is not a multi-tenant isolation layer.
 
 See [configuration](configuration.md), [deployment](deployment.md),
 [provider extension](providers.md) and [validation evidence](validation.md).
+
+## Business plugins
+
+Each Host may start one private Node/Cordis process. The built-in Host Bridge
+provides `ctx.host` through bidirectional asynchronous JSON-RPC over a private
+Unix socket. Go owns AgentLoop, Sessions and the unified PreExecute → Execute →
+PostExecute → Result flow. Only selected plugin business callbacks cross RPC;
+normal Go Session creation, checkpointing and result commits do not wait for
+Node compatibility listeners. No pre-stage guard or remote middleware is used.
+
+Cordis Loader/Fiber/effect owns plugin dependencies and lifecycle. Go tracks
+resource registrations and active calls, not a second plugin-instance state
+machine. Controller Redis stores only per-package selections (catalog ID, version and enabled). Installed packages
+live under `$DSH_HOME/plugins/profile`; no local plugins.json is generated. The Host
+unifies package/dependency installation through pnpm and reviewed standard
+lifecycle scripts before reporting installation success. Cordis activation
+registers capabilities without installing software. Plugin credentials and
+business/MCP grants use the one built-in Go credentials Store. Host has no Redis
+access. Public SDK methods are Promise-based; native `host/*` notifications only
+observe state and cannot replace tool results. See [plugin API](api.md#plugins)
+and [SDK](../extensions/sdk/README.md).

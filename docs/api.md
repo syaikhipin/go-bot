@@ -25,7 +25,8 @@ Serve a custom browser UI from the same origin as the Controller API, or use the
 | POST /v1/sessions/{id}/messages | JSON content or multipart content/files/images |
 | GET /v1/sessions/{id}/events?after=&limit= | Durable events and nextCursor for active or cold sessions |
 | GET /v1/sessions/{id}/transcript?before=&limit= | Web transcript, paged by whole turns for active and cold sessions |
-| GET /v1/sessions/{id}/stream?view=chat | One Web SSE stream for the session, including the transcript projection, queue, permissions and questions |
+| GET /v1/host/stream?cursors= | One account Host SSE per client, multiplexing all session chat events and task catalog changes |
+| GET /v1/sessions/{id}/stream?view=chat | Optional single-session chat projection for specialized clients; bundled clients use the Host stream |
 | GET /v1/sessions/{id}/stream | Native SSE, with `Last-Event-ID` or `after` for both views |
 | POST /v1/sessions/{id}/queue/{messageId}/steer | Move one queued user message into the current turn's next step |
 | DELETE /v1/sessions/{id}/queue/{messageId} | Remove one queued user message |
@@ -74,9 +75,14 @@ the tool, original tool call ID, reason, operation detail and optional target
 mode. The pending item's top-level `callId` identifies the decision.
 POST an answer like `{"answers":[{"id":"approval","selected":["Allow once"]}]}`
 to allow the pending operation. Use `"Deny"` to reject it. An approval never
-changes the saved mode. A turn without an interactive chat stream fails a
-request for approval closed, including scheduled work targeting an unopened
-chat. A pending decision expires after two minutes.
+changes the saved mode. A Host stream provides an interactive audience for all
+its sessions, including scheduled work in newly created or unopened chats.
+Without any interactive answerer, an approval returns unavailable and the
+action does not run. Pending approvals have no fixed timeout. Disconnecting
+after a request was created does not cancel it; reconnecting restores the
+pending state. Turn cancellation or Host shutdown ends the wait. The bundled
+clients show approvals inside their owning chat, with pending indicators in
+the chat list; they never present a global approval dialog.
 
 The chat stream and transcript expose successful `present` calls as
 `assistant/message` events with `delivery: true` and `file` blocks. A block
@@ -121,6 +127,183 @@ running Host. Public responses omit keys. A response of
 `503 settings_saved_host_apply_failed` means the setting was saved but the
 running Host did not confirm it. Retry or reopen the account.
 
+## Plugins
+
+The account Redis `plugins` field contains only per-package selections:
+
+```json
+{"packages":{"@go-bot/plugin-officecli":{"catalogId":"officecli","version":"0.1.0","enabled":false}}}
+```
+
+The Controller resolves reviewed sources while sending Host-private commands.
+Go owns installation and the core Harness; Cordis owns plugin loading and
+resource lifetimes. No Host Redis client, local plugins.json, public multi-instance
+configuration or background retry is used.
+
+| Method/path | Purpose |
+| --- | --- |
+| GET /assets/plugins/{pluginId}/{file} | Public static image declared by plugin.json; available before Host startup or plugin installation |
+| GET /v1/settings/plugins | Reviewed catalog, user package selections, actual Host state |
+| POST /v1/settings/plugins/packages | Install `{pluginId}`, including declared CLI dependencies; disabled initially |
+| PUT /v1/settings/plugins/packages/{name} | Set `{enabled}` for one installed plugin |
+| POST /v1/settings/plugins/packages/{name}/update | Explicit update or reinstall from the reviewed `{pluginId}` |
+| DELETE /v1/settings/plugins/packages/{name} | Withdraw contributions and remove package; retain credentials, files and globally installed CLI dependencies |
+| POST /v1/host/plugins/runtime/restart | Restart Cordis and apply saved selections |
+
+The catalog includes the first-party agent-browser and OfficeCLI packages shipped
+with the Host. Other reviewed sources may be fixed npm versions, pinned Git commits
+or fixed HTTPS archives. Clients cannot submit source URLs, directories or arbitrary
+business config. Catalog maintainers must retain selected versions for supported
+releases; users explicitly update to a new version.
+
+Installation checks metadata without executing business setup, saves user intent,
+installs the wrapper and dependencies through pnpm, including native lifecycle
+scripts allowed by the reviewed build policy. pnpmfile hooks remain disabled. Only success of all steps
+completes installation. Activation only checks local readiness and registers
+capabilities. A failed setup requires explicit reinstall; no automatic background
+retry is scheduled. Enabled plugins are reloaded after a successful update.
+
+The response has catalog, settings and status. status.packages describes real
+package files; status.instances is diagnostic information from native Cordis
+entries, not user-editable instances. A package file being present alone does
+not certify successful dependency setup. A failure after saving returns
+502 settings_saved_host_apply_failed with actual status. Plugin install methods
+are synchronous requests and may take several minutes.
+
+Package mutations serialize separately from account operations. Installation does
+not block chat, model settings or read-only plugin views, and adding a new package
+keeps existing Cordis contributions available during dependency preparation. Web
+and mobile retain the pending request when navigating away from the plugin screen;
+returning shows its progress or result without submitting it again. Other package
+mutations remain disabled while that client's request is pending. This does not
+turn installation into a detached server job: closing/reloading the browser or
+terminating the app can still cancel its request.
+
+### Developing a plugin
+
+Use the [local SDK](../extensions/sdk/README.md) and [examples](../examples/plugins/README.md).
+A compiled JavaScript package registers business capabilities through `ctx.host`:
+
+```ts
+export const inject = ['host']
+export async function apply(ctx) {
+  await ctx.host.tools.register({
+    name: 'lookup', description: 'Look up information in an external service.',
+    inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+    async execute(args, call) {
+      call.signal.throwIfAborted()
+      return { content: [{ type: 'text', text: 'Service result' }], data: { found: true } }
+    },
+  })
+}
+```
+
+All Go-facing SDK methods return Promises. Cordis owns dependencies, fibers and
+cleanup. Registration becomes visible after Go confirms it, and native disposal
+retracts it. Tools are named `<instanceId>__<toolName>` and execute through the same
+Go stages as built-ins. Only their business callback crosses RPC; no tool-stage
+middleware, `next`, global guard or Agent/Session proxy is exposed. Plugin results
+contain ordered text blocks and optional JSON data. Existing Go tools handle
+images and `present` file delivery; plugins cannot invent attachment/log facts.
+
+The SDK also exposes Skills, appended prompts, credentials, authorization, MCP,
+and active-tool approval/question requests. See [the full type contract](../extensions/sdk/index.d.ts).
+Native `ctx.on` subscribes to the documented `host/*` state notifications; their
+return values do not change execution. Local Cordis services/events keep their
+native semantics. Plugins are trusted container code, not sandboxed subprocesses.
+
+### Credentials and authorization
+
+Plugin records are stored in `$DSH_HOME/.credentials.yaml`, keyed by instance
+and the plugin's local credential key. API keys and OAuth grants share the Go
+Store. A plugin can register an acquisition flow that prompts for a key, opens
+an OAuth/device flow, exchanges tokens and commits a validated record. The Go
+authorization service controls admission, cancellation, prompts and persistence.
+The plugin validates the supplier protocol; successful persistence is not proof
+that an arbitrary supplier token is valid.
+
+The self-owned Web/Mobile plugin pages expose this management surface:
+
+| Request | Purpose |
+| --- | --- |
+| GET /v1/host/extensions/authorization | Flow labels/methods, configured/in-flight state and the latest resumable attempt handle; no tokens or answers |
+| POST /v1/host/extensions/authorization | Start `{key,method?}`; return the attempt and pending interaction |
+| GET /v1/host/extensions/authorization/{id} | Current attempt state, notices and prompts |
+| POST /v1/host/extensions/authorization/{id}/answer | Answer `{promptId,answer?,decline?}` |
+| DELETE /v1/host/extensions/authorization/{id} | Cancel the attempt |
+| DELETE /v1/host/extensions/authorization | Cancel `{key}` |
+| POST /v1/host/extensions/authorization/disconnect | Disconnect the native account for `{key}`; available when `canDisconnect` is true |
+
+Open the plugin market from the Web sidebar or the mobile Chat workspace menu.
+Each installed plugin shows only its registered authorization methods. A single
+method has a direct entry; multiple methods offer a choice. A plugin without
+authentication has no authorization entry. Ordinary flows and declared MCP
+OAuth connections appear within the owning plugin, not in a separate MCP page.
+
+The list includes optional `accountLabel` and `canDisconnect`. For native CLI
+flows, `configured` is queried through the plugin's `inspect` callback, not a
+placeholder Go credential record. A successful `run` is confirmed with `inspect`.
+Ordinary flows keep their credential commit requirement. Explicit disconnect is
+separate from cancelling a pending attempt: it calls the integration's native
+logout and confirms that it no longer reports an authorized account.
+
+Closing a panel or disconnecting a client does not cancel an authorization.
+The flow listing exposes transient `attemptId`/`attemptStatus`; another view can
+retrieve that attempt and its still-pending prompts. The flow ends on completion,
+failure, explicit cancellation, plugin disposal or Host shutdown. Attempts stay in Host memory, not
+browser storage or Redis. `configured` means a credential record exists, not
+that a third-party service is currently reachable.
+
+For an OAuth authorization-code flow, `session.callback({state})` returns
+`{url,wait()}`. The provider library supplies its generated state; Go allocates a
+single-use callback for the current attempt. `await callback.wait()` returns the
+query as `Record<string,string[]>` to the plugin only. The plugin must validate
+the provider response/issuer, exchange the code using its PKCE/client settings,
+and then call `session.commit(record)`. A callback receipt is not authorization.
+
+The browser callback is
+`GET /v1/plugins/authorization/callback/{userId}/{token}`. Controller forwards it
+to that account's authenticated Host, which checks the active attempt, token
+and expected state and rejects replay. The callback does not start a Host or
+expose arbitrary plugin HTTP routes. Its public base comes from the verified
+Controller origin (HTTPS or localhost HTTP). API-key and device-code flows use
+normal prompts/notices without this callback. Callback query/code data never
+enter frontend attempt views or Redis configuration.
+
+Credential authorization is separate from tool execution approval. A tool can
+await `ctx.host.approvals.request(call, request)` before its business side effect;
+only `allowed` means it should proceed. `questions.ask` waits for a real answer
+within the active call. Neither adds a short RPC timeout to the human wait.
+
+## MCP
+
+MCP Client is a built-in Go service. Plugins register connections with
+`await ctx.host.mcp.register({name,connection,toolLoading?})`. `stdio` accepts a
+command/args/env/cwd and `streamable-http` accepts a URL/headers. Transport fields
+are mutually exclusive. No independent end-user MCP configuration page is needed.
+
+The Go client resolves explicit `${credential:NAME}` references, connects,
+initializes, discovers and executes tools directly. It also owns MCP protocol
+OAuth: discovery, PKCE, token exchange/refresh and grant persistence in the same
+credential Store. Its grant addresses are separate from business OAuth records.
+Missing credentials/authorization and connection failures are distinct states.
+Disposing the owning Cordis instance releases the Go connection and tools.
+
+`register` returns a Registration after initial handling; it does not promise
+`connected`. Plugins can await `list`/`inspect`/`restart`, start protocol OAuth with
+`authorize`, cancel a specific attempt, or `signOut`. These are SDK operations,
+not a second Node MCP client. A declared `toolLoading` defaults to `eager`; the
+existing Go on-demand discovery mode remains available.
+
+The project's low-level `/v1/host/mcp` diagnostics and explicit restart/probe/OAuth
+operations remain for specialized clients. They do not create servers. The
+browser OAuth callback is `GET /v1/mcp/oauth/callback/{userId}`; the running Host
+validates state, PKCE and issuer and is never started by a callback. The callback
+uses a verified HTTPS or loopback HTTP Controller origin. Ordinary HTTP Host/chat
+access keeps its existing behavior. Full request shapes are in [OpenAPI](../api/openapi.yaml).
+
+## Files and streams
+
 The Host file listing starts at `/root/harness`. Pass a relative directory
 path and use `nextOffset` to read the rest of a directory. The response includes
 `rootPath`, `path`, `files` and `truncated`. Entries contain `name`, `path`,
@@ -137,14 +320,31 @@ when an intermediate page contains no public events. Durable inbox admission
 returns messageId before a turn is assigned. Persisted event sequence numbers are
 the reconnect cursor; live attempt chunks have a separate transient sequence.
 
-The first transcript page includes `events`, `throughSeq`, `before`, `queue`
-and `questions`. Pass `before` to get the previous page. Start the chat SSE
-with `after=throughSeq` and use the last processed durable event sequence to
-reconnect. The projected `session` events carry ordered user and assistant
-blocks, tool outcomes and turn boundaries. The transient frames
-`assistant-stream-baseline` and `assistant-stream` cover the active model
-attempt. `queue.state` and `questions.state` carry current snapshots.
-`chat.idle` indicates a session has no active runtime.
+Bundled Web and Mobile clients open one `GET /v1/host/stream` for the signed-in
+workspace, independently of the selected chat or tab. Each SSE record uses
+`event: host` and JSON `{sessionId?, type, data}`. Session records carry their
+own `sessionId`; `sessions.changed`, `schedule/changed` and `extensions.changed`
+invalidate their Host-level lists or settings. Session switches do not reconnect.
+No separate task or plugin stream is needed.
+
+The first transcript page includes `events`, `throughSeq`, `before`, `queue`,
+`questions`, optional live `baseline`, and `permission`. Pass `before` for older
+pages. On connection/reconnection, URL-encode `cursors` as a JSON map from each
+cached session ID to its last processed durable sequence (or null for an empty
+journal). At most 20 entries are accepted. Omitted cursors overlap the same
+bounded recent 20-turn page used for initial history, covering messages that
+arrive while a session is being discovered. Clients deduplicate by session ID
+and sequence, and buffer events while fetching history. Unopened chats keep
+only in-memory activity/pending summaries, not whole transcripts.
+
+The projected `session` events carry ordered user and assistant blocks, tool
+outcomes and turn boundaries. `assistant-stream-baseline` and
+`assistant-stream` cover provisional model output. `session.state` carries the
+current `activeTurn`; `queue.state`, `permissions.state` and `questions.state`
+synchronize controls. `session.cursor` advances over filtered private records
+without revealing them. `session.unavailable` invalidates an unavailable cached
+chat. Per-session durable sequences remain the recovery authority; no global
+journal, Redis event queue or client receipt acknowledgement is introduced.
 
 A successful message POST returns 202 with a `messageId`. Queue operations
 use that ID and return 204 on success. A queue entry that is no longer
@@ -164,3 +364,14 @@ The bundled Web UI uses the Controller's own origin. Browser requests from
 other origins are denied by default. For local Vite development, pass
 `--web-dev-origin http://127.0.0.1:5173` to the Controller. CLI requests
 without a browser origin still work. See the [frontend README](../frontend/README.md).
+
+## Model endpoint protocols
+
+`POST /v1/settings/models/endpoints` and `PATCH /v1/settings/models/endpoints/{endpointId}`
+accept `protocol: "responses" | "anthropic_messages"` alongside `name`, `baseUrl`,
+`apiKey` and `models`. Omitted protocol defaults to Responses for a new endpoint
+and stays unchanged on an existing endpoint. GET settings returns protocol and
+`hasApiKey`, never the stored key. A session continues to select only
+`{ "endpointId": "...", "modelId": "..." }` through its `/model` endpoint.
+Base URLs include the API prefix, such as `/v1`, but exclude `/messages` or
+`/responses`. See [model provider configuration](providers.md#language-models).

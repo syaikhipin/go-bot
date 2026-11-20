@@ -1,0 +1,34 @@
+{
+  "name": "@go-bot/plugin-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TypeScript contracts for plugins running in the Go Bot Host",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.mjs"
+    }
+  },
+  "files": [
+    "index.d.ts",
+    "index.mjs",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "tsc --noEmit && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

@@ -51,3 +51,22 @@ func TestSkillStructuredResultAndPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestSkillRendersProviderResourceBasesInTheModelInstructions(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		base *skills.ResourceBase
+		want string
+	}{
+		{"url", &skills.ResourceBase{Kind: "url", URL: "https://example.com/skills/?a=1&b=2"}, "Base URL for this skill: https://example.com/skills/?a=1&amp;b=2\nResolve relative URLs"},
+		{"opaque", &skills.ResourceBase{Kind: "opaque", Description: "Use provider <documents>"}, "Resources for this skill: Use provider &lt;documents&gt;"},
+		{"none", nil, "Resources for this skill are managed by provider \"example\"."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := RenderSkillContent(skills.Value{Name: "remote-skill", Provider: "example", ResourceBase: test.base, Content: "Original instructions"})
+			if !strings.Contains(result, test.want) || !strings.Contains(result, "<skill_instructions>\nOriginal instructions\n</skill_instructions>") {
+				t.Fatalf("model-facing provider instructions lost their resource base: %s", result)
+			}
+		})
+	}
+}

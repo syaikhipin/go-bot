@@ -1,0 +1,293 @@
+[
+  {
+    "name": "omitted",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": []
+  },
+  {
+    "name": "explicit-empty",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "session/end-seed",
+        "seq": 0,
+        "time": 1000,
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "ordinary-replay",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "permission/preset",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "preset": "workspace-write"
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 1,
+        "time": 1000,
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "existing-end",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "session/end-seed",
+        "seq": 0,
+        "time": 1,
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "empty-fork",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "session/end-seed",
+        "seq": 0,
+        "time": 1000,
+        "data": {
+          "inherited": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "closed-fork",
+    "ok": true,
+    "inheritedEventCount": 2,
+    "events": [
+      {
+        "type": "turn/start",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "turn": 1
+        }
+      },
+      {
+        "type": "turn/end",
+        "seq": 1,
+        "time": 2,
+        "data": {
+          "turn": 1,
+          "reason": {
+            "kind": "completed"
+          }
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 2,
+        "time": 1000,
+        "data": {
+          "inherited": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "marked-fork-with-tail",
+    "ok": true,
+    "inheritedEventCount": 1,
+    "events": [
+      {
+        "type": "permission/preset",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "preset": "read-only"
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 1,
+        "time": 2,
+        "data": {
+          "inherited": true
+        }
+      },
+      {
+        "type": "approval/policy",
+        "seq": 2,
+        "time": 3,
+        "data": {
+          "policy": "ask"
+        }
+      }
+    ]
+  },
+  {
+    "name": "nested-fork",
+    "ok": true,
+    "inheritedEventCount": 2,
+    "events": [
+      {
+        "type": "session/end-seed",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "inherited": true
+        }
+      },
+      {
+        "type": "permission/preset",
+        "seq": 1,
+        "time": 2,
+        "data": {
+          "preset": "read-only"
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 2,
+        "time": 1000,
+        "data": {
+          "inherited": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "unseeded-replay-of-fork",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "session/end-seed",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "inherited": true
+        }
+      },
+      {
+        "type": "permission/preset",
+        "seq": 1,
+        "time": 2,
+        "data": {
+          "preset": "read-only"
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 2,
+        "time": 1000,
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "open-turn-replay",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "turn/start",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "turn": 1
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 1,
+        "time": 1000,
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "open-turn-fork",
+    "ok": true,
+    "inheritedEventCount": 1,
+    "events": [
+      {
+        "type": "turn/start",
+        "seq": 0,
+        "time": 1,
+        "data": {
+          "turn": 1
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 1,
+        "time": 1000,
+        "data": {
+          "inherited": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "opaque-plugin-record",
+    "ok": true,
+    "inheritedEventCount": 0,
+    "events": [
+      {
+        "type": "plugin:qa/seed",
+        "seq": 0,
+        "time": 1,
+        "ignorable": true,
+        "data": {
+          "nested": [
+            1,
+            "二",
+            true
+          ]
+        }
+      },
+      {
+        "type": "session/end-seed",
+        "seq": 1,
+        "time": 1000,
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "missing-seed",
+    "ok": false
+  },
+  {
+    "name": "missing-inherited-count",
+    "ok": false
+  },
+  {
+    "name": "inherited-count-past-seed",
+    "ok": false
+  },
+  {
+    "name": "unseeded-nonzero-inheritance",
+    "ok": false
+  },
+  {
+    "name": "unmarked-cut-before-tail",
+    "ok": false
+  },
+  {
+    "name": "later-inherited-marker",
+    "ok": false
+  },
+  {
+    "name": "sequence-gap",
+    "ok": false
+  }
+]
