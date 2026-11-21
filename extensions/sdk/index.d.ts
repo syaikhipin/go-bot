@@ -79,6 +79,9 @@ export interface QuestionRequest {
 export interface QuestionAnswer { answers: { id: string; selected: string[]; custom?: string }[] }
 export type ApprovalOutcome = 'allowed' | 'rejected' | 'cancelled' | 'unavailable'
 export interface Host {
+  /** Signal that this plugin has new external information. Contents remain in
+   * the plugin's source and are read later; this never forces a turn now. */
+  proactive: { changed(): Promise<void> }
   info(): Promise<{ userId: string; hostId: string; dataRoot: string; instanceId: string; apiVersion: '1' }>
   tools: { register(definition: ToolDefinition): Promise<Registration> }
   skills: {

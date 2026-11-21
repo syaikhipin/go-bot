@@ -81,7 +81,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request, files fs.FS) bool {
 		http.FileServerFS(files).ServeHTTP(w, r)
 		return true
 	}
-	if r.URL.Path != "/" && r.URL.Path != "/settings/models" && r.URL.Path != "/settings/web-search" && r.URL.Path != "/settings/image-generation" && r.URL.Path != "/plugins" {
+	if r.URL.Path != "/" && r.URL.Path != "/settings/models" && r.URL.Path != "/settings/web-search" && r.URL.Path != "/settings/image-generation" && r.URL.Path != "/settings/proactive" && r.URL.Path != "/plugins" {
 		id, chat := strings.CutPrefix(r.URL.Path, "/chat/")
 		if !chat || len(id) != 36 || uuid.Validate(id) != nil {
 			return false

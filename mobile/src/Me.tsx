@@ -4,14 +4,15 @@ import { changeProtocolURL, modelProtocol, modelRequestURL, protocolNames, proto
 import { languages, useLocale } from './locale'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { Camera, ChevronRight, Images, Image as Drawing, Languages, Layers2, LogOut, Power, Search, Server } from 'lucide-react-native'
+import { Camera, ChevronRight, Images, Image as Drawing, Languages, Layers2, LogOut, Power, Search, Server, Sparkles } from 'lucide-react-native'
+import { Proactive } from './Proactive'
 import { Controller, problem, type ModelSettings, type ProviderPage, type ProviderSettings } from './api'
 import { getAvatar, pickAvatar } from './library'
 import { LanguageSheet } from './LanguageSheet'
 import { accent, Button, Field, Hint, IconButton, edge, glass, ink, muted, Panel, s, Sheet, SheetScroll, wash } from './ui'
 
 const providerLabels = { 'web-search': '网页搜索', 'image-generation': '图片生成' }
-export type Section = 'models' | ProviderPage
+export type Section = 'models' | ProviderPage | 'proactive'
 
 export function Me({ api, section, open, close, exitAccount }: {
   api: Controller; section: Section | null; open: (section: Section) => void; close: () => void; exitAccount: () => void
@@ -56,6 +57,7 @@ export function Me({ api, section, open, close, exitAccount }: {
         {([
           ['models', '模型', Layers2],
           ['web-search', '网页搜索', Search],
+          ['proactive', 'Proactive assistance', Sparkles],
           ['image-generation', '图片生成', Drawing],
           ['language', '语言', Languages],
         ] as const).filter(([id]) => id !== 'image-generation' || imageGenerationSettingsEnabled).map(([id, label, Icon], index) => <Pressable accessibilityRole="button" key={id}
@@ -101,7 +103,8 @@ export function Me({ api, section, open, close, exitAccount }: {
       if (!modelDirty) { proceed(); return }
       Alert.alert(t('放弃未保存的修改？'), undefined, [{ text: t('取消'), style: 'cancel' }, { text: t('放弃修改'), style: 'destructive', onPress: proceed }])
     }}><Models api={api} onDirtyChange={setModelDirty} /></Sheet>}
-    {section && section !== 'models' && (section !== 'image-generation' || imageGenerationSettingsEnabled) && <Sheet title={t(providerLabels[section])} onClose={close}><Providers key={section} api={api} page={section} /></Sheet>}
+    {section === 'proactive' && <Sheet title={t('Proactive assistance')} onClose={close}>{afterClose => <Proactive api={api} onModels={() => afterClose(() => open('models'))} />}</Sheet>}
+    {section && section !== 'models' && section !== 'proactive' && (section !== 'image-generation' || imageGenerationSettingsEnabled) && <Sheet title={t(providerLabels[section])} onClose={close}><Providers key={section} api={api} page={section} /></Sheet>}
 
   </>
 }

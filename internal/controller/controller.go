@@ -17,6 +17,8 @@ import (
 	"github.com/google/uuid"
 	"go-bot/extensions/catalog"
 	"go-bot/internal/config"
+	proactive "go-bot/internal/proactivesettings"
+	"go-bot/plugin"
 	dock "go-bot/providers/runtime/docker"
 	cloud "go-bot/providers/runtime/eci"
 	"go-bot/runtime"
@@ -86,7 +88,13 @@ func (m *Manager) CreateAccount(ctx context.Context, id string) error {
 	if !userName.MatchString(id) {
 		return errInvalidAccount
 	}
-	return m.Store.Create(ctx, id, Account{DesiredState: stopped})
+	defaults := plugin.Settings{}.Clone()
+	for _, release := range m.pluginCatalog {
+		if release.DefaultEnabled {
+			defaults.Packages[release.Package] = plugin.PackageSelection{CatalogID: release.ID, Version: release.Version, Enabled: true}
+		}
+	}
+	return m.Store.Create(ctx, id, Account{DesiredState: stopped, MainSessionID: uuid.NewString(), Plugins: &defaults, Proactive: &proactive.Settings{Enabled: true}})
 }
 
 func (m *Manager) spec(id string, record Account) runtime.Spec {

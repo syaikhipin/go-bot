@@ -9,7 +9,8 @@
     },
     "builds": [
       "@go-bot/plugin-agent-browser"
-    ]
+    ],
+    "defaultEnabled": true
   },
   {
     "pluginId": "officecli",
@@ -21,7 +22,8 @@
     },
     "builds": [
       "@go-bot/plugin-officecli"
-    ]
+    ],
+    "defaultEnabled": true
   },
   {
     "pluginId": "x",
@@ -39,8 +41,13 @@
     "pluginId": "gemini-api",
     "package": "@go-bot/plugin-gemini-api",
     "version": "0.1.0",
-    "source": { "type": "bundled", "spec": "gemini-api" },
-    "builds": ["@go-bot/plugin-gemini-api"]
+    "source": {
+      "type": "bundled",
+      "spec": "gemini-api"
+    },
+    "builds": [
+      "@go-bot/plugin-gemini-api"
+    ]
   },
   {
     "pluginId": "google-workspace",

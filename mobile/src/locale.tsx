@@ -2,10 +2,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { File, Paths } from 'expo-file-system'
 import { getLocales } from 'expo-localization'
 import { extensionChinese } from '../../frontend/src/extensions/messages'
+import { proactiveChinese } from '../../frontend/src/settings/proactiveState'
 
 const extensionEnglish = Object.fromEntries(Object.entries(extensionChinese).map(([en, zh]) => [zh, en]))
 
 const english: Record<string, string> = {
+  '主会话': 'Main chat', '配置模型': 'Configure model', '查看插件': 'View plugins',
+  '主会话未能准备完成。': 'The main chat could not be prepared.',
+  '正在准备浏览器与 Office 能力…': 'Preparing browser and Office capabilities…',
+  '部分插件未能准备完成。': 'Some plugins could not be prepared.',
+  '请先配置模型，再开始聊天。': 'Set up a model to start chatting.',
+  '当前会话的模型不可用，请重新选择。': 'The model for this chat is unavailable. Choose another model.',
+  '文字和附件已保留在输入框中。': 'Your message and attachments are kept in the composer.',
+
   '审阅方案': 'Review the plan',
   '待审批': 'Approval needed', '待回答': 'Answer needed',
   '当前会话权限': 'Chat permission', '全权限': 'Full access', '工作区可写': 'Workspace write', '只读': 'Read only',
@@ -124,6 +133,7 @@ const english: Record<string, string> = {
   '助手未能完成回复。': 'The agent could not finish its reply.',
 }
 const notices: Record<string, string> = {
+  ...proactiveChinese,
   'Approve this plan and leave plan mode?': '确认方案后开始执行，或提出修改意见继续规划。',
   'Approve': '按此方案执行', 'Keep planning': '继续完善方案',
   'Leave plan mode; the plan is carried out from the next step.': '退出规划模式，从下一步开始执行方案。',

@@ -23,22 +23,23 @@ type MCPManager interface {
 	StartAuthorization(context.Context, string) (mcpconfig.OAuthAttemptView, error)
 }
 type RuntimeConfig struct {
-	UserID        string
-	HostID        string
-	Node          string
-	Main          string
-	ProfileDir    string
-	Home          string
-	DSHHome       string
-	SocketParent  string
-	ReservedTools []string
-	Authorization *authorization.Service
-	Credentials   *credentials.Store
-	MCP           MCPManager
-	Skills        *skills.Registry
-	Workspace     string
-	Log           func(string, string)
-	Changed       func()
+	UserID           string
+	HostID           string
+	Node             string
+	Main             string
+	ProfileDir       string
+	Home             string
+	DSHHome          string
+	SocketParent     string
+	ReservedTools    []string
+	Authorization    *authorization.Service
+	Credentials      *credentials.Store
+	MCP              MCPManager
+	Skills           *skills.Registry
+	Workspace        string
+	Log              func(string, string)
+	Changed          func()
+	ProactiveChanged func() error
 }
 
 func runtimeEnvironment() []string {

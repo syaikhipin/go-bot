@@ -39,7 +39,7 @@ type ContextMenu = { row: SessionRow; x: number; y: number; anchor: HTMLElement 
 
 export function Sidebar(props: Props) {
   const { language, t } = useLocale()
-  const rowTitle = (row: SessionRow) => row.title || t('New chat')
+  const rowTitle = (row: SessionRow) => row.isMain ? 'Go Bot' : row.title || t('New chat')
   const [menu, setMenu] = useState<ContextMenu | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const accountDock = useRef<HTMLDivElement>(null)
@@ -86,6 +86,7 @@ export function Sidebar(props: Props) {
   }, [confirm])
 
   function openMenu(row: SessionRow, anchor: HTMLElement, x: number, y: number) {
+    if (row.isMain) return
     setMenu({ row, anchor, x: Math.max(8, Math.min(x, window.innerWidth - 188)), y: Math.max(8, Math.min(y, window.innerHeight - 60)) })
   }
 
@@ -132,18 +133,18 @@ export function Sidebar(props: Props) {
                   }
                 }}>
                 <MessageSquare size={16} strokeWidth={1.65} />
-                <span className="chat-label">{rowTitle(row)}
+                <span className="chat-label">{rowTitle(row)}{row.isMain && <small className="main-chat-label">{t('Main chat')}</small>}
                   {props.cache.summary(row.sessionId)?.pending && <small className="session-attention"><span aria-hidden="true" />{t(props.cache.summary(row.sessionId)?.pending === 'approval' ? 'Approval needed' : 'Answer needed')}</small>}
                   {!row.title && <small>{new Date(row.createdAt).toLocaleString(language, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
                 </span>
               </button>
-              <button type="button" className="icon-button row-actions" aria-label={t('Actions for {name}', { name: rowTitle(row) })} aria-haspopup="menu"
+              {!row.isMain && <button type="button" className="icon-button row-actions" aria-label={t('Actions for {name}', { name: rowTitle(row) })} aria-haspopup="menu"
                 onClick={event => {
                   const box = event.currentTarget.getBoundingClientRect()
                   openMenu(row, event.currentTarget, box.right - 168, box.bottom)
                 }}>
                 <Ellipsis size={18} />
-              </button>
+              </button>}
             </div>
           ))}
           {props.hasMore && <button type="button" className="text-button more" disabled={props.isLoading} onClick={props.onMore}>{t('Load more')}</button>}

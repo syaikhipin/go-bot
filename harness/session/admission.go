@@ -98,7 +98,7 @@ func validateV4Row(event Event) error {
 		return err
 	}
 	if event.Type == "system/message" {
-		if err := validateSystemMessage(data); err != nil {
+		if err := validateSystemMessage(data, isInitialSystemMessage(event)); err != nil {
 			return err
 		}
 	}
@@ -253,11 +253,13 @@ func validateRetiredContent(event Event, data map[string]json.RawMessage) error 
 	return nil
 }
 
-func validateSystemMessage(data map[string]json.RawMessage) error {
-	for _, field := range []string{"turn", "step"} {
-		value, err := safeCount(data[field])
-		if err != nil || value == 0 {
-			return fmt.Errorf("system/message %s must be positive", field)
+func validateSystemMessage(data map[string]json.RawMessage, constructor bool) error {
+	if !constructor {
+		for _, field := range []string{"turn", "step"} {
+			value, err := safeCount(data[field])
+			if err != nil || value == 0 {
+				return fmt.Errorf("system/message %s must be positive", field)
+			}
 		}
 	}
 	message, err := objectValue(data["message"])

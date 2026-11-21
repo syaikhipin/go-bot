@@ -129,14 +129,16 @@ go-bot 是用 Go 实现的 DeepSeek Harness，也是一款可自托管的 Person
 启动后直接打开浏览器即可，Controller 已经提供网页。
 
 1. 打开 [http://127.0.0.1:8080](http://127.0.0.1:8080)，输入账号名创建账号。
-   打开账号时，Controller 会启动独立的 Docker Host 容器。
+   打开账号时，Controller 会启动独立的 Docker Host 容器，并直接进入带有欢迎消息的主会话。
 2. 在 **Model settings** 通过协议下拉框选择 **OpenAI Responses** 或 **Anthropic Messages**，填写端点地址、API Key 和至少一个模型 ID，
-   然后点击 **New chat** 发消息。
+   返回主会话即可发消息；**New chat** 用于创建独立主题的会话。
 3. 在 **Settings → Web search** 配置 DeepSeek、智谱、豆包、Tavily 或 Brave Search，保存后点击 **Use provider** 选用。需要生图及其他 Gemini 媒体能力时，在插件市场安装并启用 **Gemini API CLI**，然后配置其 API Key。[供应商配置](docs/providers.md) · [插件连接](docs/plugin-account-setup.md#gemini-api-cli)
 
 可在账号页或「设置」选择简体中文或 English。浏览器会记住语言偏好。
 
-需要浏览器和 Office 能力时，从侧栏「插件市场」安装并启用 **agent-browser** 和 **OfficeCLI**；安装会准备官方 CLI 和原始 Skills。
+新账号会自动安装并启用 **agent-browser** 和 **OfficeCLI**，安装期间可以先配置模型。后续登录复用安装结果，也不会恢复你已停用或卸载的插件；可在侧栏「插件市场」管理。
+
+配置可用模型后，主动服务默认开启：结合近期交流和记忆自主研究，在合适时将发现带到主会话，并产生相应的模型与服务用量。可在「设置 → 主动服务」关闭或查看下次检查安排。[工作机制](docs/configuration.md#proactive-assistance)
 
 ### 手机通过 Tailscale 连接
 
@@ -170,7 +172,7 @@ Host 状态。**Host** 运行 Go Agent 并直接访问模型服务，管理工�
 附件和工作区。每个账号有自己的 Host，打开账号时按需启动。
 
 Host 预装 Chromium、Python、Node.js 与通用文档处理环境。
-在「插件市场」安装 **agent-browser** 和 **OfficeCLI** 后启用即可使用，无需 API Key。
+新账号自动安装并启用 **agent-browser** 和 **OfficeCLI**，无需 API Key。
 安装时准备固定版本的官方 CLI 和原始 Skills，启用只加载能力。
 OfficeCLI 提供 11 个原始 Skills，agent-browser 提供官方发现 Skill；资源保存在
 `/root/harness/.dsh/plugins/profile/node_modules/` 的对应包内，不再复制到用户 Skill 目录。

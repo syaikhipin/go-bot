@@ -7,6 +7,7 @@ export type PluginTutorial = { language: 'en' | 'zh-CN'; title: string; video: s
 export type CatalogEntry = { pluginId: string; package: string; name: string; description: Localized; version: string; icon: string; maintainer: string; license: string; tutorials?: PluginTutorial[] }
 export type PluginSettings = { packages: Record<string, { catalogId: string; version: string; enabled: boolean }> }
 export type PluginView = { catalog: CatalogEntry[]; settings: PluginSettings; status: { runtime: string; packages: PackageInfo[]; instances: PluginInstance[]; error?: string } }
+export const preparePlugins = (user: string) => request<PluginView>('/v1/host/plugins/prepare', { method: 'POST' }, user)
 const plugins = '/v1/settings/plugins'
 function body(method: string, value?: unknown): RequestInit { return { method, ...(value === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }) } }
 export const getPlugins = (user: string, signal?: AbortSignal) => request<PluginView>(plugins, { signal }, user)

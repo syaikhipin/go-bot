@@ -55,6 +55,9 @@ func ProjectUsage(events []Event) (UsageSnapshot, error) {
 			result.StepsStarted++
 			continue
 		case "assistant/message":
+			if isInitialWelcomeMessage(event) {
+				continue
+			}
 			result.AssistantMessages++
 		case "assistant/attempt":
 			result.AssistantAttempts++

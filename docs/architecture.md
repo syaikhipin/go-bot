@@ -32,7 +32,7 @@ flowchart LR
 | cmd/host | Container process entry |
 | harness | Native AgentLoop, v4 Session, assembly, tools and Agent features |
 | internal/hostruntime | Multiple Sessions, child/fork lifecycle, replay and execution |
-| internal/host | Host composition, skill initialization and readiness |
+| internal/host | Host composition, main-chat initialization and readiness |
 | internal/controller | Account lifecycle and streaming proxy |
 | internal/httpapi | Authenticated session HTTP surface |
 | internal/config, internal/localstate | Deployment configuration, private profile writes and local image-cache operation state |
@@ -57,7 +57,7 @@ same instance.
 
 The driver supplies an address reachable from Controller. Docker
 Hosts use dynamic published ports. ECI uses the private IP. After a successful
-`/readyz` probe, Controller synchronizes model and saved extension settings and saves the endpoint
+`/readyz` probe, Controller synchronizes model and provider settings and saves the endpoint
 in Redis for session forwarding and readiness checks.
 
 The Host checks its startup configuration and writable filesystem operations
@@ -66,6 +66,43 @@ Session, with durable inbox admission and one active turn at a time. Multiple
 Sessions and tool calls can execute concurrently. The Host pins the selected
 session model at the start of each turn. Child Agents inherit that turn's
 model, and a fork creates another context branch within the same Host.
+
+Each new account reserves a stable main Session ID in its existing Redis hash.
+Core startup prepares that Session without activating a model. Its constructor
+publishes an initial system message followed by one ordinary assistant greeting.
+On the first model step, the current system prompt replaces the initial system
+through the existing append-only surface operation; the greeting remains an
+assistant message and is eligible for ordinary compaction. It has no fabricated
+model usage or execution turn. See [main-chat design](main-chat-and-first-run-plan.zh-CN.md).
+
+Default plugin selection is written once at account creation from the reviewed
+catalog. The client automatically requests package preparation after core startup;
+Host uses pnpm for missing packages and Cordis for activation. Installed matching
+releases are reused, and later logins respect user disable/uninstall decisions.
+
+Proactive assistance is a separate Go Host service and persistent Agent, not a
+fork or Cordis core plugin. It assembles an internal Go composition and drives
+the existing `RunNext` with standard Inbox inputs. AgentLoop, tool pipeline,
+checkpoint and compaction execution remain shared. The composition chooses real
+static/dynamic tools and a consistent Skill view; ordinary chat keeps its full
+composition. Background results use a fresh per-turn `structured_output` wrapper
+and are accepted only after successful tool/result and turn/end commits.
+
+The Host owns an independent AI-selected timer and a change-trigger window.
+Bounded recent dialogue comes from the existing SQLite message index, filtered
+to visible user/assistant text; research has its own journal. Standard time-context
+is sampled before each run through the existing Inbox. Only an explicit notify
+decision creates an `agent-message` in the main chat's next-turn queue. There is
+no automatic child-settled report or main-chat worthiness review. The usual SSE
+projection sends the main Agent's resulting reply, without exposing the relay
+as a user bubble. Durable message IDs let interrupted I/O retry admission once.
+
+Redis adds one `proactive` preference to the account Hash. Host stores only its
+local recovery projection under `.dsh/storages/proactive.json`; Controller has no
+background scheduling loop and never connects to Host SQLite. The small
+`internal/proactivesettings` wire contract keeps Agent and SQLite dependencies
+out of Controller's Alpine image. See [configuration](configuration.md#proactive-assistance)
+and the [design and verification plan](proactive-discovery-plan.zh-CN.md).
 
 ## Storage
 
@@ -80,8 +117,9 @@ can choose the same workspace, each with its own journal. Archiving preserves th
 workspace and journal. Attachments live under `$DSH_HOME/attachments/v1`
 and Host-wide schedules use `$DSH_HOME/storages/schedule.json`. Both user
 skill roots also share the data root.
-The Host installs initial OfficeCLI and agent-browser skills from the image on
-first use of the data root.
+OfficeCLI and agent-browser are packaged as plugins in the image. New accounts
+select them by default; plugin preparation installs their CLI dependencies, and
+enabled plugins contribute the upstream Skills from their installed packages.
 
 One Controller manages the deployment and serializes lifecycle changes for
 each account. ProcessClaims prevents duplicate Session activation inside a Host.

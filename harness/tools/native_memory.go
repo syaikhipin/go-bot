@@ -9,7 +9,10 @@ import (
 	"go-bot/harness/memory"
 )
 
-type NativeMemory struct{ Store *memory.Store }
+type NativeMemory struct {
+	Store   *memory.Store
+	Changed func(context.Context)
+}
 
 func (t NativeMemory) Spec() agent.ToolSpec {
 	return agent.ToolSpec{
@@ -57,6 +60,9 @@ func (t NativeMemory) Execute(ctx context.Context, raw json.RawMessage) (string,
 	result, err := t.Store.Apply(args.Target, args.Operations)
 	if err != nil {
 		return "", err
+	}
+	if result.Changed && t.Changed != nil {
+		t.Changed(ctx)
 	}
 	out, err := json.Marshal(result)
 	return string(out), err

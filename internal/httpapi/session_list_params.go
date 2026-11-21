@@ -30,6 +30,7 @@ type UserSessionPage struct {
 	NextCursor string              `json:"nextCursor,omitempty"`
 }
 type ListedUserSession struct {
+	IsMain    bool      `json:"isMain,omitempty"`
 	SessionID string    `json:"sessionId"`
 	CreatedAt time.Time `json:"createdAt"`
 	Mode      string    `json:"mode"`

@@ -114,6 +114,18 @@ func TestDockerWebChatPreview(t *testing.T) {
 	if files != nil && !strings.Contains(read("GET", "/", "", 200), "/assets/") {
 		t.Fatal("Controller entry does not load its embedded resources")
 	}
+	var main struct {
+		MainSessionID string `json:"mainSessionId"`
+	}
+	if err := json.Unmarshal([]byte(read("POST", "/v1/host/start", `{"welcomeLocale":"en"}`, 200)), &main); err != nil || main.MainSessionID == "" {
+		t.Fatalf("main chat: %v", err)
+	}
+	if greeting := read("GET", "/v1/sessions/"+main.MainSessionID+"/transcript", "", 200); !strings.Contains(greeting, "Hi, I'm Go Bot") {
+		t.Fatal("main greeting absent")
+	}
+	if failure := read("DELETE", "/v1/sessions/"+main.MainSessionID, "", 409); !strings.Contains(failure, "main_session_cannot_archive") {
+		t.Fatal("main could be archived")
+	}
 	var created struct{ SessionID string }
 	if err := json.Unmarshal([]byte(read("POST", "/v1/sessions", "", 201)), &created); err != nil || created.SessionID == "" {
 		t.Fatalf("missing created session: %v", err)

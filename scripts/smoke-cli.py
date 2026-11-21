@@ -76,6 +76,7 @@ def main():
         alice, bob = (f"{PROJECT}-{name}" for name in ("alice", "bob"))
         names = {}
         sessions = {}
+        main_sessions = {}
 
         def compose(*args):
             return run("docker", "compose", "--env-file", "/dev/null", "-p", PROJECT,
@@ -102,9 +103,15 @@ def main():
                 call("POST", "/v1/accounts", payload=payload, expected=201)
                 call("POST", "/v1/accounts", payload=payload, expected=409)
                 assert redis("TYPE", f"user:{account}") == "hash"
-                assert record(account) == {"desiredState": "stopped"}
+                created = record(account)
+                assert created["desiredState"] == "stopped"
+                main_sessions[account] = created["mainSessionId"]
+                uuid.UUID(main_sessions[account])
+                defaults = json.loads(created["plugins"])["packages"]
+                assert set(defaults) == {"@go-bot/plugin-officecli", "@go-bot/plugin-agent-browser"}
+                assert all(package["enabled"] for package in defaults.values())
                 assert redis("TTL", f"user:{account}") == "-1"
-                call("POST", "/v1/host/start", account, expected=204)
+                assert call("POST", "/v1/host/start", account) == {"mainSessionId": main_sessions[account]}
                 state = call("GET", "/v1/host", account)
                 assert state["status"] == "ready"
                 names[account] = f"go-bot-{state['hostId']}"
@@ -116,7 +123,8 @@ def main():
                 session = call("POST", "/v1/sessions", account, expected=201)
                 sessions[account] = session["sessionId"]
                 rows = call("GET", "/v1/sessions", account)["sessions"]
-                assert [row["sessionId"] for row in rows] == [sessions[account]]
+                assert {row["sessionId"] for row in rows} == {sessions[account], main_sessions[account]}
+                assert next(row for row in rows if row["sessionId"] == main_sessions[account])["isMain"]
                 selection = call("GET", f"/v1/sessions/{sessions[account]}/model", account)
                 assert selection["selection"] == {"endpointId": endpoint["endpointId"], "modelId": account}
                 configured = call("GET", "/v1/settings/models", account)["endpoints"][endpoint["endpointId"]]
@@ -167,8 +175,8 @@ def main():
             BASE = "http://" + compose("port", "controller", "8080")
             wait_for(lambda: call("GET", "/readyz") is None)
             rows = call("GET", "/v1/sessions", alice)["sessions"]
-            assert [row["sessionId"] for row in rows] == [sessions[alice]]
-            call("POST", "/v1/host/start", alice, expected=204)
+            assert {row["sessionId"] for row in rows} == {sessions[alice], main_sessions[alice]}
+            assert call("POST", "/v1/host/start", alice) == {"mainSessionId": main_sessions[alice]}
             assert record(alice)["hostId"] == old_alice["hostId"]
 
             compose("stop", "controller")
@@ -185,7 +193,7 @@ def main():
             assert call("GET", "/v1/host", bob)["status"] == "stopped"
             stopped_bob = record(bob)
             assert stopped_bob["hostId"] == old_bob["hostId"] and "hostEndpoint" not in stopped_bob
-            call("POST", "/v1/host/start", bob, expected=204)
+            assert call("POST", "/v1/host/start", bob) == {"mainSessionId": main_sessions[bob]}
             assert record(bob)["hostId"] == old_bob["hostId"]
             for account in names:
                 host_id = record(account)["hostId"]
@@ -193,7 +201,7 @@ def main():
                 released = record(account)
                 assert released["desiredState"] == "stopped"
                 assert {"hostId", "hostToken", "hostEndpoint"}.isdisjoint(released)
-                settings_fields = {"llm", "sessionModels", "modelRevision", "webSearch", "imageGeneration"}
+                settings_fields = {"mainSessionId", "plugins", "llm", "sessionModels", "modelRevision", "webSearch", "imageGeneration"}
                 before = old_bob if account == bob else old_alice
                 assert {key: value for key, value in released.items() if key in settings_fields} == {
                     key: value for key, value in before.items() if key in settings_fields

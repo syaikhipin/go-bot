@@ -15,7 +15,6 @@ import { HostConnection } from '../frontend/src/chat/hostConnection'
 import { accent, Ambient, Button, edge, Field, Hint, ink, logo, muted, Panel, s, useReducedMotion } from './src/ui'
 
 const profileFile = new File(Paths.document, 'controller-profile.json')
-const lastChatFile = (account: string) => new File(Paths.document, 'last-chat-' + account + '.txt')
 
 function saveProfile(profile: Profile, autoConnect: boolean) {
   try {
@@ -24,23 +23,6 @@ function saveProfile(profile: Profile, autoConnect: boolean) {
   } catch {}
 }
 
-function savedChat(account: string) {
-  try {
-    const file = lastChatFile(account)
-    if (!file.exists) return undefined
-    const id = file.textSync().trim()
-    if (/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id)) return id
-  } catch {}
-}
-
-function saveChat(account: string, id: string) {
-  try {
-    const file = lastChatFile(account)
-    if (!id) { if (file.exists) file.delete(); return }
-    if (!file.exists) file.create()
-    file.write(id)
-  } catch {}
-}
 
 function connectionError(error: unknown) {
   const message = error instanceof Error ? error.message : ''
@@ -79,7 +61,7 @@ function Main() {
         if (saved.autoConnect === false) return
         const controller = new Controller(profile)
         try {
-          await controller.connect()
+          await controller.connect(false, language)
           if (active) {
             setLanguageOpen(false)
             setApi(controller)
@@ -100,7 +82,7 @@ function Main() {
     try {
       const profile = normalizeProfile(fields)
       const controller = new Controller(profile)
-      await controller.connect(create)
+      await controller.connect(create, language)
       saveProfile(profile, true)
       setFields(profile)
       setLanguageOpen(false)
@@ -149,7 +131,7 @@ function Workspace({ api, exitAccount }: { api: Controller; exitAccount: () => v
   const reduced = useReducedMotion()
   const [tab, setTab] = useState(1)
   const [section, setSection] = useState<Section | null>(null)
-  const [session, setSession] = useState(() => savedChat(api.profile.account))
+  const [session, setSession] = useState<string | undefined>(api.mainSessionId)
   const [lookupError, setLookupError] = useState(false)
   const [lookupAttempt, setLookupAttempt] = useState(0)
   const [externalChat, setExternalChat] = useState(0)
@@ -170,25 +152,18 @@ function Workspace({ api, exitAccount }: { api: Controller; exitAccount: () => v
     return () => { listener.remove(); connection.stop() }
   }, [api, transcriptCache])
 
-  useEffect(() => {
-    if (session !== undefined) {
-      saveChat(api.profile.account, session)
-      return
-    }
-    const controller = new AbortController()
-    setLookupError(false)
-    void api.latestSession(controller.signal).then(id => {
-      if (!controller.signal.aborted) setSession(current => current ?? id)
-    }, () => {
-      if (!controller.signal.aborted) setLookupError(true)
-    })
-    return () => controller.abort()
-  }, [api, session, lookupAttempt])
+  const [preparation, setPreparation] = useState<'running' | 'failed' | ''>('running')
+  async function prepare() {
+    setPreparation('running')
+    try { await api.preparePlugins(); setPreparation('') }
+    catch { setPreparation('failed') }
+  }
+  useEffect(() => { void prepare() }, [api])
 
   function unavailable(id: string) {
     if (session !== id) return
-    saveChat(api.profile.account, '')
-    setSession(undefined)
+    if (id === api.mainSessionId) { setLookupError(true); return }
+    setSession(api.mainSessionId)
   }
 
   function activate(next: number) {
@@ -207,7 +182,7 @@ function Workspace({ api, exitAccount }: { api: Controller; exitAccount: () => v
     <Animated.View style={{ flex: 1, transform: [{ translateX: offset }] }}>
       <View style={tab === 0 ? styles.app : styles.hidden}><Tasks api={api} cache={transcriptCache} active={tab === 0} openChat={id => { setSession(id); setExternalChat(old => old + 1); activate(1) }} /></View>
       <View style={tab === 1 ? styles.app : styles.hidden}><Chat key={externalChat} api={api} cache={transcriptCache} id={session ?? ''} active={tab === 1}
-        resolving={session === undefined} lookupError={lookupError} retryLookup={() => setLookupAttempt(value => value + 1)}
+        preparation={preparation} retryPreparation={() => void prepare()} resolving={session === undefined} lookupError={lookupError} retryLookup={() => setLookupAttempt(value => value + 1)}
         selectSession={setSession} onUnavailable={unavailable} openModelSettings={openModelSettings} /></View>
       <View style={tab === 2 ? styles.app : styles.hidden}><Me api={api} section={section} open={setSection} close={() => setSection(null)} exitAccount={exitAccount} /></View>
     </Animated.View>

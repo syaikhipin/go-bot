@@ -414,6 +414,15 @@ func (r *hostBridge) invokeHost(ctx context.Context, raw json.RawMessage) (any, 
 	if input.Service == "credentials" {
 		return r.credential(ctx, input.Owner, input.Method, input.Input, input.Mutation)
 	}
+	if input.Service == "proactive" && input.Method == "changed" {
+		if r.config.ProactiveChanged == nil {
+			return nil, failure("UNAVAILABLE", "Proactive information signaling is not configured")
+		}
+		if err := r.config.ProactiveChanged(); err != nil {
+			return nil, failure("UNAVAILABLE", "The information change could not be recorded")
+		}
+		return nil, nil
+	}
 	if input.Service == "approvals" && input.Method == "request" {
 		return r.approvalCall(ctx, input.Owner, input.Invocation, input.Input)
 	}

@@ -25,3 +25,14 @@ No user conversation, production credential or deployment log is part of the
 intended distribution. Run `scripts/verify-upstream.mjs` against a pinned,
 separately installed upstream checkout to validate generated JSONL with the
 original strict decoder; upstream TypeScript is not a runtime dependency.
+
+## Main-chat initialization
+
+Go Bot adds a narrowly validated constructor prefix: `system/message` at sequence
+0 from `go-bot/initial-system`, followed by a text-only `assistant/message` at
+sequence 1 from `go-bot/welcome`, before any execution turn. The welcome has an
+empty stream and no usage. These are ordinary model-visible messages and use
+native append/replace and compaction; regular model/tool messages still require
+an open turn and step. This product initialization is an intentional addition to
+the upstream constructor acceptance rules, with no custom v4 Header fields or
+special client content blocks.

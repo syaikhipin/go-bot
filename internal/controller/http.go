@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"go-bot/internal/modelsettings"
+	proactive "go-bot/internal/proactivesettings"
 	mcpconfig "go-bot/mcp"
 	"go-bot/plugin"
 	"io"
@@ -88,7 +90,7 @@ func (m *Manager) HandlerWithWeb(web WebOptions) http.Handler {
 		isHost := r.URL.Path == "/v1/host" || strings.HasPrefix(r.URL.Path, "/v1/host/") || strings.HasPrefix(r.URL.Path, "/v1/hosts/")
 		isSession := r.URL.Path == "/v1/capabilities" || r.URL.Path == "/v1/sessions" || strings.HasPrefix(r.URL.Path, "/v1/sessions/")
 		isPlugins := r.URL.Path == plugin.SettingsPath || strings.HasPrefix(r.URL.Path, plugin.SettingsPath+"/")
-		isSettings := isPlugins || r.URL.Path == settingsPath || strings.HasPrefix(r.URL.Path, settingsPath+"/") || r.URL.Path == webSearchSettingsPath || r.URL.Path == imageSettingsPath
+		isSettings := isPlugins || r.URL.Path == settingsPath || strings.HasPrefix(r.URL.Path, settingsPath+"/") || r.URL.Path == webSearchSettingsPath || r.URL.Path == imageSettingsPath || r.URL.Path == proactive.SettingsPath
 		if !isHost && !isSession && !isSettings {
 			http.NotFound(w, r)
 			return
@@ -116,6 +118,8 @@ func (m *Manager) HandlerWithWeb(web WebOptions) http.Handler {
 			m.hostHTTP(w, r, id)
 		case r.URL.Path == webSearchSettingsPath:
 			m.providerSettingsHTTP(w, r, id, searchSettings)
+		case r.URL.Path == proactive.SettingsPath:
+			m.proactiveSettingsHTTP(w, r, id)
 		case r.URL.Path == imageSettingsPath:
 			m.providerSettingsHTTP(w, r, id, imageSettings)
 		case isSettings:
@@ -183,8 +187,40 @@ func (m *Manager) hostHTTP(w http.ResponseWriter, r *http.Request, id string) {
 			writeJSON(w, http.StatusOK, m.hostStatus(ctx, record))
 			return
 		}
+	case r.URL.Path == "/v1/host/plugins/prepare" && r.Method == http.MethodPost:
+		m.preparePluginsHTTP(w, r, id)
+		return
 	case r.URL.Path == "/v1/host/start" && r.Method == http.MethodPost:
+		var input struct {
+			WelcomeLocale string `json:"welcomeLocale"`
+		}
+		if r.Body != nil {
+			if decodeErr := decodeJSON(http.MaxBytesReader(w, r.Body, 1024), &input); decodeErr != nil && !errors.Is(decodeErr, io.EOF) {
+				httpError(w, 400, "invalid_host_start")
+				return
+			}
+		}
+		if input.WelcomeLocale != "" && input.WelcomeLocale != "en" && input.WelcomeLocale != "zh-CN" {
+			httpError(w, 400, "invalid_welcome_locale")
+			return
+		}
 		err = m.Ensure(ctx, id)
+		if err == nil {
+			record, readErr := m.Store.Get(ctx, id)
+			if readErr != nil {
+				err = readErr
+			} else if record.MainSessionID != "" {
+				code, prepareErr := m.requestHost(ctx, record, http.MethodPost, "/internal/host/sessions/main", map[string]string{"sessionId": record.MainSessionID, "locale": input.WelcomeLocale}, nil)
+				if prepareErr != nil || code != http.StatusOK {
+					err = errors.New("main_session_unavailable")
+				} else {
+					writeJSON(w, http.StatusOK, map[string]string{"mainSessionId": record.MainSessionID})
+					return
+				}
+			} else {
+				err = errors.New("main_session_unconfigured")
+			}
+		}
 	case r.URL.Path == "/v1/host/stop" && r.Method == http.MethodPost:
 		err = m.Stop(ctx, id)
 	case r.URL.Path == "/v1/host/instance" && r.Method == http.MethodDelete:
@@ -238,6 +274,23 @@ func (m *Manager) forward(w http.ResponseWriter, r *http.Request, id string) {
 				lock.Unlock()
 				httpError(w, http.StatusServiceUnavailable, "session_model_unavailable")
 				return
+			}
+			if choiceErr == nil && choice == (modelsettings.Selection{}) && sessionID == record.MainSessionID {
+				choice = state.Catalog.Default()
+				if _, valid := state.Catalog.Resolve(choice); valid == nil {
+					revision, saveErr := m.Store.SaveSessionModel(r.Context(), id, sessionID, choice)
+					if saveErr != nil {
+						lock.Unlock()
+						httpError(w, 503, "model_settings_write_failed")
+						return
+					}
+					state.Sessions[sessionID], state.Revision = choice, revision
+					if m.syncModels(r.Context(), record, state) != nil {
+						lock.Unlock()
+						httpError(w, 503, "host_model_settings_unavailable")
+						return
+					}
+				}
 			}
 			if _, routeErr := state.Catalog.Resolve(choice); routeErr != nil {
 				code, existsErr := m.requestHost(r.Context(), record, http.MethodGet, "/internal/host/sessions/"+sessionID+"/exists", nil, nil)

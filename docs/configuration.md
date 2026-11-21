@@ -54,7 +54,7 @@ Apply tuning when creating or replacing the Host.
 
 ## Model, search and image generation
 
-Add one or more OpenAI-compatible Responses endpoints in Model settings.
+Add one or more OpenAI Responses or Anthropic Messages compatible endpoints in Model settings.
 Each endpoint has its own API key and ordered model IDs. New sessions use the
 first model of the default endpoint. An individual session can switch models
 during the lifetime of its Host. Child agents inherit the parent turn's route.
@@ -67,6 +67,37 @@ in the plugin market and configure its API key in **Accounts and authorization**
 The built-in image-generation tool and settings UI are currently disabled; their
 implementations and saved settings remain available for future integration.
 See the [provider guide](providers.md) for account and key requirements.
+
+### Proactive assistance
+
+New accounts enable proactive assistance by default. **Settings → Proactive
+assistance** on the Web, or **Me → Proactive assistance** on mobile, controls the
+account preference. The Web also displays the next check and current status;
+mobile shows those diagnostic details only in Debug builds. Release builds keep
+the switch and actionable configuration/error messages. No new
+deployment environment variable or extra model profile is needed. This feature
+uses the main chat's valid model selection, or the account default if the main
+chat has no selection yet. A broken explicit selection waits for correction.
+Model and connected-service calls can consume the user's API credits.
+
+Host manages an independent persistent background Agent using the existing Go
+AgentLoop. Each successfully finished turn submits a non-null future check time
+and reason through `structured_output`, independently of whether it chooses to
+contact the main chat. New dialogue, memory changes and plugin information use a
+10-minute quiet window and a 30-minute minimum interval from the latest run;
+these gates never delay an AI-selected timer or user Schedule. A successful
+collection consumes the earlier change marker, while later changes remain pending.
+Turning the service off and back on while its Host is running requests an immediate
+check. Repeated configuration synchronization does not trigger another turn; a
+normal Host restart restores the existing AI-selected check time.
+
+The Host stores its private recovery projection in
+`/root/harness/.dsh/storages/proactive.json`; research lives in its ordinary v4
+Session journal. Its internal preset excludes the journal from public chat lists
+and session search. The next timer and pending delivery resume with the Host's
+normal volume/NAS data. Stopping the Host stops checks; Controller never starts
+a Host just because a check is due. Disabling assistance leaves user Schedules
+and previously published replies intact. There is no phone push requirement.
 
 ## Credentials
 
@@ -91,6 +122,8 @@ Each account has one Redis Hash at `user:<userId>` with no expiration.
 | --- | --- | --- |
 | `desiredState` | String | `stopped` or `running` |
 | `hostId` | String | Current Host instance ID |
+| `mainSessionId` | String | Stable main chat UUID, reserved when the account is created |
+| `proactive` | JSON | `enabled` boolean; account preference only, no background history or timer queue |
 | `hostToken` | String | Internal credential used by Controller to call the Host |
 | `hostEndpoint` | String | Ready Host URL including its port |
 | `llm` | JSON | `defaultEndpointId` and `endpoints`. Each endpoint stores its name, URL, API key and ordered model list |
@@ -107,8 +140,8 @@ from the previous development storage format.
 
 Controller supplies `HOST_ACCOUNT_ID`, `HOST_ID`, `HOST_API_TOKEN` and
 `HOST_DATA_MOUNTED` when it starts the Host. It synchronizes the selected search
-and image settings, model catalog, session selections and saved plugin intent over the authenticated
-Host control channel. Open an account to start or reconnect its
+and image settings, model catalog and session selections over the authenticated
+Host control channel. Saved plugin intent is applied by the separate plugin preparation request so first-time downloads do not block the main chat or settings. Open an account to start or reconnect its
 Host. Use the stop request to stop it. Host-created scheduled sessions
 store their model selections in the Host data directory.
 

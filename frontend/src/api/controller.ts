@@ -3,8 +3,10 @@ import type { PermissionMode, SessionPermission } from '../chat/permissions'
 import { messageRequest } from '../chat/attachments'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 import type { Answer, FileRef, PendingQuestion, QueueItem } from '../chat/transcript'
+import type { ProactiveStatus } from '../settings/proactiveState'
 
 export type SessionRow = {
+  isMain?: boolean
   sessionId: string
   createdAt: string
   title?: string
@@ -72,6 +74,14 @@ function write(method: string, body: unknown): RequestInit {
   return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
 
+export function getProactiveSettings(userId: string, signal?: AbortSignal) {
+  return request<ProactiveStatus>('/v1/settings/proactive', { signal }, userId)
+}
+
+export function saveProactiveSettings(userId: string, enabled: boolean) {
+  return request<ProactiveStatus>('/v1/settings/proactive', write('PUT', { enabled }), userId)
+}
+
 export function registerAccount(userId: string) {
   return request<{ userId: string }>('/v1/accounts', write('POST', { userId }))
 }
@@ -124,8 +134,8 @@ export function saveSessionModel(userId: string, id: string, model: ModelSelecti
   return request<SessionModel>(sessionPath(id) + '/model', write('PUT', model), userId)
 }
 
-export function openAccount(userId: string) {
-  return request<void>('/v1/host/start', { method: 'POST' }, userId)
+export function openAccount(userId: string, welcomeLocale: 'en' | 'zh-CN' = 'en') {
+  return request<{ mainSessionId: string }>('/v1/host/start', write('POST', { welcomeLocale }), userId)
 }
 
 export function stopHost(userId: string) {

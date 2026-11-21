@@ -110,13 +110,57 @@ func (a *NativeLoop) ensureTimeContext(ctx context.Context, turn uint64, step in
 	if available {
 		elapsed = nativeTimeDuration(now.Sub(time.UnixMilli(previous)))
 	}
+	message, err := sampleNativeTimeContext(clock, now, turn, step, baseline, elapsed, browserZones)
+	if err != nil {
+		return err
+	}
+	_, err = a.append("user/message", message, json.RawMessage(`"append"`), nil)
+	return err
+}
+
+// SampleTimeContext produces the same standard clock snapshot as the normal
+// pre-step refresh. An external owner may inject it through the existing Inbox
+// before driving an idle Agent. It does not append a log row or start a turn.
+func (a *NativeLoop) SampleTimeContext() (json.RawMessage, error) {
+	a.runMu.Lock()
+	defer a.runMu.Unlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.timeContext == nil {
+		return nil, errors.New("time-context is not enabled for this Agent")
+	}
+	now := time.Now()
+	var turn uint64 = 1
+	var previous int64
+	var available bool
+	for _, event := range a.session.Events() {
+		switch event.Type {
+		case "turn/start":
+			var data struct {
+				Turn uint64 `json:"turn"`
+			}
+			if json.Unmarshal(event.Data, &data) == nil && data.Turn >= turn {
+				turn = data.Turn + 1
+			}
+		case "user/message", "assistant/message", "tool/result":
+			previous, available = event.Time, true
+		}
+	}
+	elapsed := "unavailable"
+	if available {
+		elapsed = nativeTimeDuration(now.Sub(time.UnixMilli(previous)))
+	}
+	return sampleNativeTimeContext(a.timeContext, now, turn, 1, "model-visible message", elapsed, nil)
+}
+
+func sampleNativeTimeContext(clock *nativeTimeContext, now time.Time, turn uint64, step int, baseline, elapsed string, browserZones map[string]struct{}) (json.RawMessage, error) {
 	selected := *clock
 	browserText := "Browser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times."
 	if len(browserZones) == 1 {
 		for zone := range browserZones {
 			location, err := time.LoadLocation(zone)
 			if err != nil {
-				return fmt.Errorf("invalid browser time zone %q: %w", zone, err)
+				return nil, fmt.Errorf("invalid browser time zone %q: %w", zone, err)
 			}
 			selected.zone, selected.location = zone, location
 			browserText = fmt.Sprintf("Browser time zone for this request: %s. Interpret otherwise-unqualified dates and times in this zone.", zone)
@@ -129,7 +173,7 @@ func (a *NativeLoop) ensureTimeContext(ctx context.Context, turn uint64, step in
 		slices.Sort(zones)
 		encoded, err := json.Marshal(zones)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		browserText = fmt.Sprintf("Browser time zone for this request: mixed %s. Ask the user to clarify otherwise-unqualified dates and times.", encoded)
 	}
@@ -142,8 +186,7 @@ func (a *NativeLoop) ensureTimeContext(ctx context.Context, turn uint64, step in
 		"source":  map[string]any{"kind": "time-context", "form": "snapshot", "sections": []any{map[string]any{"name": "time-context", "text": text}}},
 		"content": []any{map[string]any{"type": "text", "text": text}},
 	}
-	_, err := a.append("user/message", message, json.RawMessage(`"append"`), nil)
-	return err
+	return json.Marshal(message)
 }
 
 func nativeTimeTimestamp(now time.Time, clock *nativeTimeContext) string {

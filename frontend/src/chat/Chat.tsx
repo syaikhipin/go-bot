@@ -7,6 +7,7 @@ import { MessageBubble } from './ChatContent'
 import { ApprovalPanel, PermissionPicker } from './PermissionControls'
 import { QuestionPanel } from './QuestionPanel'
 import { addMessageFiles, isMessageImage } from './attachments'
+import { ModelRequiredDialog } from './ModelRequiredDialog'
 import { ModelPicker } from './ModelPicker'
 import { attemptMessage, emptyTranscript, groupAssistantReplies, messageText, textMessage, visibleQueue, type Message } from './transcript'
 import { prependTranscriptPage, type TranscriptCache } from './transcriptCache'
@@ -38,13 +39,15 @@ type ChatProps = {
   filesOverlay: boolean
   settingsVersion: number
   onSettings: () => void
+  onPlugins: () => void
+  isMain: boolean
   onOpenMenu: () => void
   onAccepted: (id: string, text: string) => void
   onUnavailable: (id: string) => void
   onTitleRefresh: () => void
 }
 
-export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, settingsVersion, onSettings, onOpenMenu, onAccepted, onUnavailable, onTitleRefresh }: ChatProps) {
+export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, settingsVersion, onSettings, onPlugins, isMain, onOpenMenu, onAccepted, onUnavailable, onTitleRefresh }: ChatProps) {
   const { t } = useLocale()
   const cached = id ? cache.get(id) : undefined
   const [transcript, setTranscript] = useState(() => cached?.transcript ?? emptyTranscript())
@@ -54,6 +57,7 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
   const [fileIssues, setFileIssues] = useState<ReturnType<typeof addMessageFiles>['issues']>([])
   const filePicker = useRef<HTMLInputElement>(null)
   const [failure, setFailure] = useState('')
+  const [modelRequired, setModelRequired] = useState<'setup' | 'selection'>()
   const [historyError, setHistoryError] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [loading, setLoading] = useState(Boolean(id && !cached))
@@ -79,6 +83,8 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
   refresh.current = onTitleRefresh
   const missing = useRef(onUnavailable)
   missing.current = onUnavailable
+
+  useEffect(() => { setFailure('') }, [settingsVersion])
 
   useEffect(() => {
     mounted.current = true
@@ -239,7 +245,12 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
       setFiles([])
       setFileIssues([])
     } catch (error) {
-      if (mounted.current) setFailure(sendError(error))
+      if (mounted.current) {
+        setFailure(sendError(error))
+        if (error instanceof APIError && ['model_unconfigured', 'model_unavailable', 'model_default_required'].includes(error.message)) {
+          setModelRequired(error.message === 'model_unavailable' ? 'selection' : 'setup')
+        }
+      }
     } finally {
       submittingNow.current = false
       if (mounted.current) {
@@ -315,8 +326,12 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
     <main className="workspace" hidden={hidden} inert={drawerOpen || filesOverlay}>
       <header className="topbar">
         <button className="icon-button drawer-toggle" type="button" onClick={onOpenMenu} aria-expanded={drawerOpen} aria-controls="chat-sidebar" aria-label={t('Open chats')}><Menu size={22} /></button>
-        <span>{t('Go Bot Chat')}</span>
+        <span>{isMain ? t('Main chat') : t('Go Bot Chat')}</span>
       </header>
+      {modelRequired && <ModelRequiredDialog selection={modelRequired === 'selection'} onClose={() => setModelRequired(undefined)}
+        onSettings={() => { setModelRequired(undefined); onSettings() }} onChoose={() => {
+          setModelRequired(undefined); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.model-picker-trigger')?.click())
+        }} />}
       {!id ? (
         <div className="chat-empty">
           <HarnessAvatar className="welcome-avatar" />
@@ -354,6 +369,10 @@ export function Chat({ hidden, userId, cache, id, drawerOpen, filesOverlay, sett
             </div>
           </div>
           <div className="chat-input">
+            {isMain && transcript.messages.length <= 1 && !loading && <div className="onboarding-actions">
+              <button type="button" className="text-button" onClick={onSettings}>{t('Configure model')}</button>
+              <button type="button" className="text-button" onClick={onPlugins}>{t('View plugins')}</button>
+            </div>}
             {connecting && <p className="chat-status reconnecting" role="status">{t('Reconnecting…')}</p>}
             {failure && <p className="feedback" role="alert">{t(failure)}</p>}
             {!atBottom && <button type="button" className="text-button" onClick={() => {

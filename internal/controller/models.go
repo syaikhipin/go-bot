@@ -90,10 +90,7 @@ func (m *Manager) syncAccountSettings(ctx context.Context, id string, record Acc
 	if err := errors.Join(m.syncProviderSettings(ctx, record, searchSettings), m.syncProviderSettings(ctx, record, imageSettings)); err != nil {
 		return err
 	}
-	// A failed optional plugin is visible in its actual Host status. Keep the
-	// personal computer available for ordinary built-in chat and configuration.
-	_ = m.syncPlugins(ctx, id, record)
-	return nil
+	return m.syncProactive(ctx, record)
 }
 
 func (m *Manager) hostHasModelRevision(ctx context.Context, record Account, revision int64) bool {

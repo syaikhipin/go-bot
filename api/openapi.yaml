@@ -457,6 +457,41 @@ paths:
               schema: {$ref: '#/components/schemas/PluginView'}
         '409': {description: Host is not running}
         '502': {description: Application or restart failed}
+  /v1/settings/proactive:
+    parameters:
+    - $ref: '#/components/parameters/AccountName'
+    get:
+      summary: Read proactive assistance preference and Host status without starting a Host
+      operationId: getProactiveSettings
+      responses:
+        '200':
+          description: Account preference and current Host status, timestamps in Unix milliseconds
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProactiveStatus'}
+        '404': {description: Account not found}
+    put:
+      summary: Save the proactive assistance preference and apply it to a running Host
+      operationId: saveProactiveSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+      responses:
+        '200':
+          description: Saved preference and current Host status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProactiveStatus'}
+        '400': {description: Invalid settings}
+        '404': {description: Account not found}
+        '503': {description: Storage unavailable or settings_saved_host_apply_failed after a successful Redis save}
   /healthz:
     get:
       summary: Process liveness
@@ -888,21 +923,52 @@ paths:
     parameters:
     - $ref: "#/components/parameters/AccountName"
     post:
-      summary: Start or reconnect the selected account Host
+      summary: Start Host and prepare its stable main chat without requiring an LLM
       operationId: post__v1_host_start
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                welcomeLocale:
+                  type: string
+                  enum: [en, zh-CN]
+                  default: en
       responses:
-        '204':
-          description: Success
+        '200':
+          description: Core Host ready; prepare selected plugins separately
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mainSessionId]
+                properties:
+                  mainSessionId: {type: string, format: uuid}
         '400':
           description: Invalid request
         '404':
-          description: Not found
-        '409':
-          description: State conflict
+          description: Account not found
         '503':
-          description: Service unavailable
+          description: Host or main chat preparation failed
         '504':
           description: Runtime operation could not be confirmed before the deadline
+  /v1/host/plugins/prepare:
+    parameters:
+    - $ref: "#/components/parameters/AccountName"
+    post:
+      summary: Prepare missing selected packages and apply plugin enabled state
+      operationId: post__v1_host_plugins_prepare
+      responses:
+        '200':
+          description: Plugin catalog, settings and actual runtime status
+        '409':
+          description: Host is not running
+        '422':
+          description: Plugin preparation failed; successful packages remain usable
+        '503':
+          description: Account settings unavailable
   /v1/host/stop:
     parameters:
     - $ref: "#/components/parameters/AccountName"
@@ -1128,6 +1194,9 @@ paths:
                           type: string
                         cwd:
                           type: string
+                        isMain:
+                          type: boolean
+                          description: True for the account main chat
                   nextCursor:
                     type: string
         '400':
@@ -1983,6 +2052,17 @@ components:
         type: string
         pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
   schemas:
+    ProactiveStatus:
+      type: object
+      required: [enabled, phase]
+      properties:
+        enabled: {type: boolean}
+        phase: {type: string, enum: [waiting, running, waiting-for-model, waiting-for-main, disabled, host-stopped, unavailable, error]}
+        nextCheckAt: {type: integer, format: int64, description: Last successful AI decision's next check, in Unix milliseconds}
+        nextCheckReason: {type: string}
+        lastRunStartedAt: {type: integer, format: int64}
+        lastCompletedAt: {type: integer, format: int64}
+        error: {type: string, description: Safe status code without credentials or model response bodies}
     AuthorizationEntry:
       type: object
       required: [key, label, methods, inFlight, configured]
