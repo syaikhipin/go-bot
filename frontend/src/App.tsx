@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LanguagePicker, useLocale } from './locale'
-import { ArrowLeft, Globe, Image, Menu, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, Globe, Image, Menu, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Proactive } from './settings/Proactive'
 import { APIError, archiveSession, createSession, listSessions, openAccount, readHostStream, stopHost, type ProviderPage, type SessionRow } from './api/controller'
 import { AccountEntry } from './AccountEntry'
 import { Chat } from './chat/Chat'
@@ -12,13 +13,16 @@ import { ToolProviders } from './settings/ToolProviders'
 import { HostFiles } from './files/HostFiles'
 import { Plugins } from './extensions/Plugins'
 import { ExtensionDialogs } from './extensions/Dialogs'
+import { ModelRequiredDialog } from './chat/ModelRequiredDialog'
+import { preparePlugins } from './api/extensions'
 import { imageGenerationSettingsEnabled } from './features'
 
-type SettingsPage = 'models' | ProviderPage | 'plugins'
+type SettingsPage = 'models' | ProviderPage | 'plugins' | 'proactive'
 
 function currentSettings(): SettingsPage | undefined {
   if (window.location.pathname === '/settings/models') return 'models'
   if (window.location.pathname === '/settings/web-search') return 'web-search'
+  if (window.location.pathname === '/settings/proactive') return 'proactive'
   if (window.location.pathname === '/settings/image-generation') return imageGenerationSettingsEnabled ? 'image-generation' : 'models'
   if (window.location.pathname === '/plugins') return 'plugins'
 }
@@ -40,7 +44,7 @@ function errorDeleting(error: unknown) {
 export function App() {
   const [userId, setUserID] = useState<string>()
   return <ExtensionDialogs>{userId ? <AccountChat userId={userId} onExit={() => setUserID(undefined)} /> : <AccountEntry onOpen={(id, created) => {
-    if (created) window.history.pushState({ returnTo: '/' }, '', '/settings/models')
+    if (created) window.history.replaceState(null, '', '/')
     setUserID(id)
   }} />}</ExtensionDialogs>
 }
@@ -54,6 +58,17 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   const settingsOpen = settingsPage !== undefined
   const [settingsVersion, setSettingsVersion] = useState(0)
   const [hostReady, setHostReady] = useState(false)
+  const [mainSessionId, setMainSessionId] = useState('')
+  const [preparingPlugins, setPreparingPlugins] = useState(false)
+  const [prepareError, setPrepareError] = useState(false)
+  const [modelRequired, setModelRequired] = useState(false)
+  const initialLocale = useRef(language)
+  async function prepare() {
+    setPreparingPlugins(true); setPrepareError(false)
+    try { await preparePlugins(userId) }
+    catch { setPrepareError(true) }
+    finally { setPreparingPlugins(false) }
+  }
   const [stoppingHost, setStoppingHost] = useState(false)
   const [stopHostError, setStopHostError] = useState('')
   const [hostAttempt, setHostAttempt] = useState(0)
@@ -147,8 +162,10 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   useEffect(() => {
     if (hostReady) return
     let active = true
-    void openAccount(userId).then(() => {
+    void openAccount(userId, initialLocale.current).then(({ mainSessionId }) => {
       if (active) {
+        setMainSessionId(mainSessionId)
+        setSelected(current => current ?? mainSessionId)
         setHostReady(true)
         setError('')
       }
@@ -162,13 +179,17 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   }, [hostReady, hostAttempt, userId])
 
   useEffect(() => {
+    if (hostReady) void prepare()
+  }, [hostReady, userId])
+
+  useEffect(() => {
     if (hostReady) void refresh()
     function pop() {
       const settings = currentSettings()
       setSettingsPage(settings)
       if (settings) return
       setSettingsVersion(value => value + 1)
-      setSelected(currentSession())
+      setSelected(currentSession() ?? mainSessionId)
     }
     window.addEventListener('popstate', pop)
     return () => {
@@ -229,13 +250,14 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
 
   function unavailable(id: string) {
     if (selected !== id) return
+    if (id === mainSessionId) { setError('Could not load chats.'); return }
     const path = '/chat/' + id
     if (window.location.pathname === path) window.history.replaceState(null, '', '/')
     else if (window.history.state?.returnTo === path) {
       window.history.replaceState({ returnTo: '/' }, '', window.location.href)
     }
     setRows(previous => previous.filter(row => row.sessionId !== id))
-    setSelected(undefined)
+    choose(mainSessionId)
     setError('This chat is no longer available.')
   }
 
@@ -276,6 +298,7 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
       const target = typeof window.history.state?.returnTo === 'string' ? window.history.state.returnTo : '/'
       window.history.replaceState(null, '', target)
       setNeedsModel(false)
+      if (needsModel) setError('')
       setSettingsPage(undefined)
       setSettingsVersion(value => value + 1)
       requestAnimationFrame(() => document.getElementById('account-menu-toggle')?.focus())
@@ -284,6 +307,8 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
   }
 
   function markTitle(id: string, text: string) {
+    // The main chat receives its initial model selection on the first send.
+    if (id === mainSessionId) setSettingsVersion(value => value + 1)
     const clean = text.trim().replace(/\s+/g, ' ')
     const runes = Array.from(clean)
     const title = runes.length > 56 ? runes.slice(0, 55).join('') + '…' : clean
@@ -306,6 +331,7 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
       if (error instanceof APIError && error.message === 'model_default_required') {
         setError('Set up an endpoint and a default model before creating a chat.')
         setNeedsModel(true)
+        setModelRequired(true)
       } else {
         setError('Could not confirm a new chat. Check the list before trying again.')
         void refresh()
@@ -343,15 +369,15 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
         if (window.history.state?.returnTo === '/chat/' + row.sessionId) {
           window.history.replaceState({ returnTo: '/' }, '', window.location.href)
         }
-        setSelected(undefined)
-      } else choose()
+        setSelected(mainSessionId)
+      } else choose(mainSessionId)
     }
     return true
   }
 
   return (
     <div className={filesOpen ? 'app app-files-open' : 'app'}>
-      <Sidebar userId={userId} cache={transcriptCache} rows={rows} selected={selected} hasMore={Boolean(cursor)} isLoading={loading} creating={creating || !hostReady}
+      <Sidebar userId={userId} cache={transcriptCache} rows={[...(mainSessionId ? [{ sessionId: mainSessionId, title: 'Go Bot', createdAt: '', isMain: true }] : []), ...rows.filter(row => row.sessionId !== mainSessionId)]} selected={selected} hasMore={Boolean(cursor)} isLoading={loading} creating={creating || !hostReady}
         filesOpen={filesOpen} filesAvailable={hostReady} filesOverlay={filesOverlay} onFiles={toggleFiles}
         hostReady={hostReady} stoppingHost={stoppingHost} stopHostError={stopHostError} onStopHost={exitHost}
         error={error} needsModel={needsModel} drawerOpen={drawerOpen} onSettings={showSettings} onPlugins={showPlugins} pluginsOpen={settingsPage === 'plugins'} onCreate={() => { void start().catch(() => {}) }} onChoose={choose}
@@ -375,16 +401,25 @@ function AccountChat({ userId, onExit }: { userId: string; onExit: () => void })
               onClick={() => selectSettings('models')}><SlidersHorizontal size={16} /> {t('Models')}</button>
             <button type="button" aria-current={settingsPage === 'web-search' ? 'page' : undefined}
               onClick={() => selectSettings('web-search')}><Globe size={16} /> {t('Web search')}</button>
+            <button type="button" aria-current={settingsPage === 'proactive' ? 'page' : undefined}
+              onClick={() => selectSettings('proactive')}><Sparkles size={16} /> {t('Proactive assistance')}</button>
             {imageGenerationSettingsEnabled && <button type="button" aria-current={settingsPage === 'image-generation' ? 'page' : undefined}
               onClick={() => selectSettings('image-generation')}><Image size={16} /> {t('Image generation')}</button>}
           </nav>}
           <div className="settings-content">
             {settingsPage === 'models' ? <Models userId={userId} /> : settingsPage === 'plugins' ? <Plugins userId={userId} cache={transcriptCache} selected={selectedPlugin} onSelect={setSelectedPlugin} />
+              : settingsPage === 'proactive' ? <Proactive userId={userId} onModels={() => selectSettings('models')} />
               : <ToolProviders key={settingsPage} userId={userId} page={settingsPage} />}
           </div>
         </div>
       </main>}
-      {hostReady && <Chat hidden={settingsOpen} userId={userId} cache={transcriptCache} settingsVersion={settingsVersion} onSettings={showSettings} drawerOpen={drawerOpen} filesOverlay={filesOverlay} key={selected ?? 'welcome'} id={selected}
+      {hostReady && (preparingPlugins || prepareError) && <div className="preparation-banner" role="status">
+        <span>{t(preparingPlugins ? 'Preparing browser and Office capabilities…' : 'Some plugins could not be prepared.')}</span>
+        {prepareError && <button className="text-button" onClick={() => void prepare()}>{t('Retry')}</button>}
+        <button className="text-button" onClick={showPlugins}>{t('View plugins')}</button>
+      </div>}
+      {modelRequired && <ModelRequiredDialog onClose={() => setModelRequired(false)} onSettings={() => { setModelRequired(false); showSettings() }} />}
+      {hostReady && <Chat hidden={settingsOpen} userId={userId} cache={transcriptCache} settingsVersion={settingsVersion} onSettings={showSettings} onPlugins={showPlugins} isMain={selected === mainSessionId} drawerOpen={drawerOpen} filesOverlay={filesOverlay} key={selected ?? 'welcome'} id={selected}
         onOpenMenu={() => setDrawerOpen(true)} onAccepted={markTitle} onUnavailable={unavailable} onTitleRefresh={() => { void refresh() }} />}
       {hostReady && <HostFiles userId={userId} open={filesOpen} overlay={filesOverlay} onClose={closeFiles} />}
     </div>

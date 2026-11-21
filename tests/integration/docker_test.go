@@ -125,13 +125,8 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 		b, _ := io.ReadAll(res.Body)
 		return res.StatusCode, b
 	}
-	for _, operation := range []struct{ method, path, body string }{
-		{"POST", "/v1/settings/plugins/packages", `{"pluginId":"officecli"}`},
-		{"PUT", "/v1/settings/plugins/packages/%40go-bot%2Fplugin-officecli", `{"enabled":true}`},
-	} {
-		if code, body := call(operation.method, operation.path, operation.body); code != 200 {
-			t.Fatalf("prepare OfficeCLI plugin: %d %s", code, body)
-		}
+	if code, body := call("POST", "/v1/host/plugins/prepare", ""); code != 200 {
+		t.Fatalf("prepare default plugins: %d %s", code, body)
 	}
 	status, b := call("POST", "/v1/sessions", "")
 	if status != 201 {
@@ -232,7 +227,7 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 		t.Fatalf("stopped Docker Host did not clear its endpoint and keep its identity: %v", e)
 	}
 
-	if status, body := call("POST", "/v1/host/start", ""); status != http.StatusNoContent {
+	if status, body := call("POST", "/v1/host/start", ""); status != http.StatusOK {
 		t.Fatalf("reopen account: %d %s", status, body)
 	}
 	afterStart, e := manager.Store.Get(ctx, manager.account)
@@ -273,7 +268,7 @@ func TestDockerHostConversationRecoveryAndFiles(t *testing.T) {
 	if status, body := call("DELETE", "/v1/host/instance", ""); status != http.StatusNoContent {
 		t.Fatalf("delete Host: %d %s", status, body)
 	}
-	if status, body := call("POST", "/v1/host/start", ""); status != http.StatusNoContent {
+	if status, body := call("POST", "/v1/host/start", ""); status != http.StatusOK {
 		t.Fatalf("create replacement Host: %d %s", status, body)
 	}
 	replacement := manager.Instance(ctx)

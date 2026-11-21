@@ -55,6 +55,17 @@ values do not affect execution. Native local business services and events retain
 Cordis semantics. Plugin code can use its own libraries; the Go shell sandbox does
 not isolate Node plugins from the container operating system.
 
+## New external information
+
+An enabled plugin can `await ctx.host.proactive.changed()` when it has new
+external information. This records only a pending check and its time; it does
+not force a turn, steer an Agent, forward the event body, or create a Schedule.
+Keep the actual information in its normal source and make it available through
+the plugin's tools or context contribution. Go's proactive service collects
+current information when its quiet-window and minimum-interval conditions are
+satisfied; an earlier AI timer remains independent. Installation alone does not
+subscribe to third-party events automatically.
+
 ## Plugin display metadata
 
 Ship plugin.json with the package. It declares name (original product name),

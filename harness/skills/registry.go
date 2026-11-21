@@ -55,6 +55,9 @@ type Registry struct {
 	AgentsHome string
 	CustomDirs []string
 	Providers  func(context.Context, Lookup) ([]Provider, error)
+	// Visible is an optional Agent composition view, applied equally by
+	// catalog discovery and Find. It does not change installed skills.
+	Visible func(Lookup, string) bool
 }
 
 // Provider supplements filesystem discovery. Candidates retain the selected
@@ -219,7 +222,9 @@ func (r *Registry) Snapshot(ctx context.Context, lookup Lookup) (Snapshot, error
 		}
 	}
 	for _, entry := range winners {
-		snapshot.Entries = append(snapshot.Entries, entry)
+		if r.Visible == nil || r.Visible(lookup, entry.Name) {
+			snapshot.Entries = append(snapshot.Entries, entry)
+		}
 	}
 	slices.SortFunc(snapshot.Entries, func(a, b Candidate) int { return strings.Compare(a.Name, b.Name) })
 	return snapshot, ctx.Err()

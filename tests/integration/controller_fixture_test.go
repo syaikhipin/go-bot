@@ -12,6 +12,7 @@ import (
 	"go-bot/internal/config"
 	"go-bot/internal/controller"
 	"go-bot/internal/modelsettings"
+	"go-bot/internal/proactive"
 	dock "go-bot/providers/runtime/docker"
 	"go-bot/runtime"
 	dockerapi "go-bot/thirdparty/docker"
@@ -83,6 +84,11 @@ func newFixtureManagerForAccount(t *testing.T, c config.Config, account string) 
 	}
 	model := c.Model.Main
 	if err := manager.CreateAccount(ctx, account); err != nil {
+		t.Fatal(err)
+	}
+	// Unrelated deterministic fixtures exercise a requested user turn. The
+	// proactive integration explicitly enables the independent background Agent.
+	if err := store.SaveProactiveSettings(ctx, account, proactive.Settings{Enabled: false}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.SaveModelCatalog(ctx, account, modelsettings.Catalog{

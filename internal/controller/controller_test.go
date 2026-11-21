@@ -13,6 +13,7 @@ import (
 
 	"go-bot/internal/config"
 	"go-bot/internal/modelsettings"
+	proactive "go-bot/internal/proactivesettings"
 	"go-bot/internal/providersettings"
 	"go-bot/plugin"
 	"go-bot/runtime"
@@ -49,7 +50,20 @@ func (s *memoryStore) Save(_ context.Context, id string, account Account) error 
 	account.WebSearch = saved.WebSearch
 	account.ImageGeneration = saved.ImageGeneration
 	account.Plugins = saved.Plugins
+	account.Proactive = saved.Proactive
 	s.records[id] = account
+	return nil
+}
+
+func (s *memoryStore) SaveProactiveSettings(_ context.Context, id string, settings proactive.Settings) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.records[id]
+	if !ok {
+		return ErrAccountNotFound
+	}
+	record.Proactive = &settings
+	s.records[id] = record
 	return nil
 }
 
@@ -172,6 +186,12 @@ func newTestManager(t *testing.T, provider string, driver *fakeDriver, handler h
 
 func controlReply(w http.ResponseWriter, r *http.Request) bool {
 	switch r.URL.Path {
+	case proactive.InternalPath:
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`{"enabled":true,"phase":"waiting"}`))
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
 	case modelsettings.InternalPath:
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"revision":0}`))

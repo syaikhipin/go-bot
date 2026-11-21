@@ -64,6 +64,7 @@ type NativeExtensionScope interface {
 
 // NativeFactory assembles one v4 Session and Agent inside the user Host.
 type NativeFactory struct {
+	Composition          *NativeComposition
 	Storage              NativeStorage
 	Builder              NativeBuilder
 	Model                agent.Model
@@ -89,6 +90,7 @@ type NativeFactory struct {
 	Schedule        *schedule.Service
 	FileAttachments attachments.FileStore
 	Memory          *memory.Store
+	MemoryChanged   func(context.Context)
 	SessionSearch   *sessionsearch.Index
 	// WorkflowSchema is an activation-only child contract. It is not persisted
 	// and must not leak into ordinary or resumed child Sessions.
@@ -125,6 +127,9 @@ func (l *NativeLive) Close() error {
 }
 
 func (f NativeFactory) validate(identity NativeRuntimeIdentity) error {
+	if f.Composition != nil && (f.Composition.ID == "" || f.Composition.ID != identity.AgentPreset) {
+		return errors.New("Agent composition differs from the saved preset")
+	}
 	if f.Storage == nil || f.Builder == nil || f.Model == nil || f.Provider == "" || f.ModelID == "" ||
 		f.SystemPrompt == "" || f.Limits.MaxSteps <= 0 || f.Limits.MaxToolCalls <= 0 ||
 		identity.UserID == "" || identity.SessionID == "" || !filepath.IsAbs(identity.Workspace) ||
@@ -407,6 +412,7 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 		_ = resource.close()
 		return nil, errors.New("native container Builder omitted base capabilities")
 	}
+	resource.Skills = f.Composition.skills(resource.Skills)
 	toolset, err := baseTools(resource)
 	if err != nil {
 		_ = s.Close()
@@ -487,7 +493,7 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 	}
 	toolset = append(toolset, resource.ExtraTools...)
 	if f.Memory != nil {
-		toolset = append(toolset, tools.NativeMemory{Store: f.Memory})
+		toolset = append(toolset, tools.NativeMemory{Store: f.Memory, Changed: f.MemoryChanged})
 	}
 	if f.SessionSearch != nil {
 		toolset = append(toolset, tools.NativeSessionSearch{Index: f.SessionSearch, SessionID: identity.SessionID})
@@ -507,11 +513,19 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 		}
 		toolset = append(toolset, structured)
 	}
+	toolset = f.Composition.tools(toolset)
 	cwd := resource.DefaultWorkdir
 	if cwd == "" {
 		cwd = nativeCWD(identity)
 	}
-	basePrompt := composePrompt(f.SystemPrompt, toolset, cwd)
+	corePrompt := f.SystemPrompt
+	if f.Composition != nil && f.Composition.SystemPrompt != "" {
+		corePrompt = f.Composition.SystemPrompt
+	}
+	if f.Composition != nil && f.Composition.SystemSuffix != "" {
+		corePrompt += "\n\n" + f.Composition.SystemSuffix
+	}
+	basePrompt := composePrompt(corePrompt, toolset, cwd)
 	if f.Memory != nil {
 		basePrompt += "\n\n" + memory.Instruction
 	}
@@ -697,7 +711,7 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 		}
 		return sections, nil
 	})
-	if scope != nil {
+	if scope != nil || (f.Composition != nil && f.ToolSource != nil) {
 		loop.SetToolSource(func(ctx context.Context, sid string) ([]agent.Tool, error) {
 			var tools []agent.Tool
 			if f.ToolSource != nil {
@@ -707,8 +721,14 @@ func (f NativeFactory) publish(ctx context.Context, identity NativeRuntimeIdenti
 				}
 				tools = append(tools, rows...)
 			}
-			rows, err := scope.Tools(ctx, sid)
-			return append(tools, rows...), err
+			if scope != nil {
+				rows, err := scope.Tools(ctx, sid)
+				if err != nil {
+					return nil, err
+				}
+				tools = append(tools, rows...)
+			}
+			return f.Composition.tools(tools), nil
 		})
 	}
 	live := &NativeLive{Agent: loop, Session: s, Goals: goals, Plan: plans, Questions: questions, Resource: resource, Structured: structured, extensionScope: scope}

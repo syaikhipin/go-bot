@@ -22,6 +22,7 @@ import (
 var manifest []byte
 
 type Entry struct {
+	DefaultEnabled bool `json:"defaultEnabled,omitempty"`
 	plugin.CatalogEntry
 	Source plugin.Source `json:"source"`
 	Builds []string      `json:"builds,omitempty"`

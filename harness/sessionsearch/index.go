@@ -255,7 +255,7 @@ func visibleText(event sessionformat.Event) (string, string) {
 		Source  struct{ Kind string }
 		Content []struct{ Type, Text string }
 	}
-	if json.Unmarshal(raw, &message) != nil || (role == "user" && message.Source.Kind != "user") {
+	if json.Unmarshal(raw, &message) != nil || (role == "user" && message.Source.Kind != "user") || message.Source.Kind == "go-bot/welcome" {
 		return "", ""
 	}
 	var blocks []string

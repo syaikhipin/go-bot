@@ -28,6 +28,9 @@ func (h *NativeHost) ArchiveSession(ctx context.Context, id string) error {
 }
 
 func (h *NativeHost) ArchiveSessionWithActivity(ctx context.Context, id string, stopActivity bool) error {
+	if h.IsMainSession(id) {
+		return ErrMainSessionArchive
+	}
 	if h.SaveArchive == nil {
 		return errors.New("session archive storage is unavailable")
 	}

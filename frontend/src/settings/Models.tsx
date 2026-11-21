@@ -58,7 +58,7 @@ export function Models({ userId }: { userId: string }) {
       {notice && <p role="status">{t(notice)}</p>}
       {!settings && !error && <p role="status">{t('Loading model settings…')}</p>}
       {settings && <>
-        {!Object.keys(settings.endpoints).length && <p className="model-muted">{t('Add an endpoint to create your first chat.')}</p>}
+        {!Object.keys(settings.endpoints).length && <p className="model-muted">{t('Add an endpoint to start chatting.')}</p>}
         {Object.entries(settings.endpoints).map(([id, endpoint]) =>
           <section className="model-card" key={id}>
             {editing === id ? <EndpointForm endpoint={endpoint} busy={busy} onCancel={() => setEditing(undefined)}

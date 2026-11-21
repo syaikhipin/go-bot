@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -204,28 +205,33 @@ func (m *Manager) apply(ctx context.Context, s plugin.RuntimeSettings, restart b
 		}
 	}
 	reloadRuntime := restart
+	var installErrors []error
+	failed := map[string]bool{}
+	defer func() { err = errors.Join(append(installErrors, err)...) }()
 	for _, name := range missing {
-		// Existing modules must be reloaded after replacement. A new package
-		// must not take every working plugin offline during its installation.
+		installErr := func() error {
+			values, e := m.packageCredentials(s.Packages[name].Source)
+			if e != nil {
+				return e
+			}
+			if expected := s.Packages[name].Version; expected != "" {
+				available, e := m.packages().Inspect(ctx, name, s.Packages[name].Source, values)
+				if e != nil {
+					return e
+				}
+				if available.Version != expected {
+					return failure("SELECTED_RELEASE_UNAVAILABLE", name+": selected release is not present; update to the reviewed market release")
+				}
+			}
+			_, e = m.packages().Install(ctx, name, s.Packages[name].Source, values, s.Packages[name].Builds...)
+			return e
+		}()
+		if installErr != nil {
+			failed[name] = true
+			installErrors = append(installErrors, fmt.Errorf("%s: %w", name, installErr))
+			continue
+		}
 		reloadRuntime = reloadRuntime || actual[name].Present
-		var values map[string]string
-		values, err = m.packageCredentials(s.Packages[name].Source)
-		if err != nil {
-			return
-		}
-		if expected := s.Packages[name].Version; expected != "" {
-			var available plugin.PackageInfo
-			available, err = m.packages().Inspect(ctx, name, s.Packages[name].Source, values)
-			if err != nil {
-				return
-			}
-			if available.Version != expected {
-				return status, failure("SELECTED_RELEASE_UNAVAILABLE", name+": selected release is not present; update to the reviewed market release")
-			}
-		}
-		if _, err = m.packages().Install(ctx, name, s.Packages[name].Source, values, s.Packages[name].Builds...); err != nil {
-			return
-		}
 	}
 	if reloadRuntime {
 		if err = m.stopRuntime(); err != nil {
@@ -240,6 +246,15 @@ func (m *Manager) apply(ctx context.Context, s plugin.RuntimeSettings, restart b
 	for _, info := range actualPackages {
 		metadata[info.Name] = info
 	}
+	// Only ready packages contribute instances. Keep the full desired selection
+	// for status/retry, while activating successful siblings after partial failure.
+	availableInstances := s.Instances[:0:0]
+	for _, row := range s.Instances {
+		if !failed[row.Package] && metadata[row.Package].Present {
+			availableInstances = append(availableInstances, row)
+		}
+	}
+	s.Instances = availableInstances
 	for _, row := range s.Instances {
 		if !row.Enabled {
 			continue

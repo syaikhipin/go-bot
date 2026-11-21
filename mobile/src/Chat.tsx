@@ -20,12 +20,13 @@ import { useTranscript } from './useTranscript'
 
 type Props = {
   api: Controller; cache: TranscriptCache; id: string; active: boolean
+  preparation: 'running' | 'failed' | ''; retryPreparation: () => void
   resolving: boolean; lookupError: boolean; retryLookup: () => void
   selectSession: (id: string) => void; onUnavailable: (id: string) => void; openModelSettings: () => void
 }
 type Overlay = 'plugins' | 'chats' | 'files' | 'model' | 'permission' | 'tools' | 'image' | 'file' | ''
 
-export function Chat({ api, cache, id, active, resolving, lookupError, retryLookup, selectSession, onUnavailable, openModelSettings }: Props) {
+export function Chat({ api, cache, id, active, preparation, retryPreparation, resolving, lookupError, retryLookup, selectSession, onUnavailable, openModelSettings }: Props) {
   const { t } = useLocale()
   const [rows, setRows] = useState<SessionRow[]>([])
   const [, updateSummaries] = useState(0)
@@ -72,6 +73,7 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
   const createInFlight = useRef(false)
   const [picking, setPicking] = useState(false)
   const [notice, setNotice] = useState('')
+  const [modelRequired, setModelRequired] = useState<'setup' | 'selection'>()
   const [pending, setPending] = useState<{ id: string; session: string; text: string; files: LibraryEntry[] }>()
   const scopedId = useRef(id)
   scopedId.current = id
@@ -124,6 +126,7 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       switchChat(sessionId)
     } catch (error) {
       setNotice(problem(error, '无法创建会话，请重试。'))
+      if (error instanceof ApiError && error.code === 'model_default_required') { show(''); setModelRequired('setup') }
     } finally {
       createInFlight.current = false
       setCreating(false)
@@ -150,6 +153,7 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       setAttachments([])
     } catch (e) {
       setNotice(problem(e, '发送失败，输入内容已保留。'))
+      if (e instanceof ApiError && ['model_unconfigured', 'model_unavailable', 'model_default_required'].includes(e.code)) setModelRequired(e.code === 'model_unavailable' ? 'selection' : 'setup')
     } finally { setSending(false) }
   }
 
@@ -162,6 +166,14 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       <View style={{ flex: 1 }} />
       <ChatMenu onFiles={() => show('files')} onPlugins={() => show('plugins')} />
     </View>
+    {id === api.mainSessionId && <Text style={{ textAlign: 'center', color: muted, fontSize: 11, marginTop: -3, marginBottom: 5 }}>{t('主会话')}</Text>}
+    {preparation !== '' && <View style={{ paddingHorizontal: 24, paddingVertical: 9, gap: 4 }}>
+      <Text style={s.caption}>{t(preparation === 'running' ? '正在准备浏览器与 Office 能力…' : '部分插件未能准备完成。')}</Text>
+      <View style={{ flexDirection: 'row', gap: 20 }}>
+        {preparation === 'failed' && <Pressable onPress={retryPreparation}><Text style={[s.caption, { color: accent }]}>{t('重试')}</Text></Pressable>}
+        <Pressable onPress={() => show('plugins')}><Text style={[s.caption, { color: accent }]}>{t('查看插件')}</Text></Pressable>
+      </View>
+    </View>}
     {!id ? <View style={styles.emptyChat}>
       <Image source={logo} accessibilityLabel="Go Bot" resizeMode="contain" style={styles.emptyLogo} />
       {resolving && !lookupError ? <ActivityIndicator color={accent} accessibilityLabel={t('正在读取会话…')} />
@@ -183,6 +195,10 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
               <IconButton label={t('移除') + ' ' + item.name} onPress={() => setAttachments(previous => previous.filter(entry => entry.id !== item.id))}><X size={15} color={muted} /></IconButton>
             </View>)}
           </ScrollView>
+        </View>}
+        {id === api.mainSessionId && (cache.get(id)?.transcript.messages.length ?? 0) <= 1 && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24, marginBottom: 10 }}>
+          <Pressable onPress={openModelSettings}><Text style={[s.caption, { color: accent }]}>{t('配置模型')}</Text></Pressable>
+          <Pressable onPress={() => show('plugins')}><Text style={[s.caption, { color: accent }]}>{t('查看插件')}</Text></Pressable>
         </View>}
         <View style={styles.composer}>
           <TextInput accessibilityLabel={t('消息')} placeholder={t('问点什么，或交给我一项任务…')} placeholderTextColor={muted} multiline value={draft}
@@ -214,16 +230,16 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       choose={async mode => { const state = await api.selectPermission(id, mode); if (scopedId.current === id) setPermission({ id, mode: state.mode }) }} />}
     {overlay === 'chats' && <Sheet title={t('会话')} drawer onClose={() => show('')}><SheetScroll>
       <Button label={t('新会话')} primary disabled={sending} busy={creating} onPress={createChat}><Plus size={20} color="white" /></Button>
-      {rows.map(row => <View key={row.sessionId} style={[s.row, { borderRadius: 13, backgroundColor: row.sessionId === id ? wash : glass, paddingLeft: 11 }]}>
+      {[{ sessionId: api.mainSessionId, title: 'Go Bot', createdAt: '', isMain: true }, ...rows.filter(row => row.sessionId !== api.mainSessionId)].map(row => <View key={row.sessionId} style={[s.row, { borderRadius: 13, backgroundColor: row.sessionId === id ? wash : glass, paddingLeft: 11 }]}>
         <Pressable accessibilityRole="button" onPress={() => switchChat(row.sessionId)} disabled={sending || creating} style={[s.row, { flex: 1, minHeight: 44 }]}>
           <MessageCircle size={17} color={accent} /><View style={{ flex: 1, gap: 3 }}>
-            <Text style={s.body} numberOfLines={2}>{row.title || t('未命名会话')}</Text>
+            <Text style={s.body} numberOfLines={2}>{row.isMain ? 'Go Bot' : row.title || t('未命名会话')}</Text>{row.isMain && <Text style={s.caption}>{t('主会话')}</Text>}
             {cache.summary(row.sessionId)?.pending && <Text style={[s.caption, { color: '#936433' }]}>{t(cache.summary(row.sessionId)?.pending === 'approval' ? '待审批' : '待回答')}</Text>}
           </View>
         </Pressable>
-        <IconButton label={t('归档会话')} disabled={sending} onPress={() => Alert.alert(t('归档此会话？'), t('会话将从列表隐藏。'), [
+        {!row.isMain && <IconButton label={t('归档会话')} disabled={sending} onPress={() => Alert.alert(t('归档此会话？'), t('会话将从列表隐藏。'), [
           { text: t('返回'), style: 'cancel' }, { text: t('归档'), style: 'destructive', onPress: () => void archiveChat(row) },
-        ])}><X size={16} color={muted} /></IconButton>
+        ])}><X size={16} color={muted} /></IconButton>}
       </View>)}
       {!!cursor && <Button label={t('查看更早的会话')} busy={loadingRows} onPress={() => refreshChats(cursor)} />}
       {loadingRows && !rows.length && <Hint>{t('正在读取会话…')}</Hint>}
@@ -232,6 +248,12 @@ export function Chat({ api, cache, id, active, resolving, lookupError, retryLook
       <Hint error={notice !== '将在下一轮使用此模型。'}>{t(notice)}</Hint>
       {notice.includes('默认模型') && <Button label={t('打开模型设置')} onPress={() => { show(''); openModelSettings() }} />}
     </SheetScroll></Sheet>}
+    {modelRequired && <Sheet title={t(modelRequired === 'selection' ? '选择模型' : '配置模型')} onClose={() => setModelRequired(undefined)}>{afterClose => <SheetScroll>
+      <Text style={s.body}>{t(modelRequired === 'selection' ? '当前会话的模型不可用，请重新选择。' : '请先配置模型，再开始聊天。')}</Text>
+      <Hint>{t('文字和附件已保留在输入框中。')}</Hint>
+      {modelRequired === 'selection' && <Button primary label={t('选择模型')} onPress={() => afterClose(() => { setModelRequired(undefined); show('model') })} />}
+      <Button primary={modelRequired !== 'selection'} label={t('打开模型设置')} onPress={() => afterClose(() => { setModelRequired(undefined); openModelSettings() })} />
+    </SheetScroll>}</Sheet>}
     {overlay === 'plugins' && <PluginSheet api={api} cache={cache} close={() => show('')} />}
     {overlay === 'files' && <HostFilesSheet api={api} close={() => show('')} />}
     {overlay === 'model' && <ModelSheet api={api} choice={selectedModel} choose={choose} close={() => show('')} settingsOpen={openModelSettings} />}
@@ -297,7 +319,7 @@ function Conversation({ api, cache, id, pending, active, sending, onUnavailable,
   const idle = turn === null && !state.queue.length
   const generating = turn !== null
   const hasReply = generating && replies.some(message => message.role === 'assistant' && message.turn === turn)
-  const waiting = awaiting || sending && idle || generating && !hasReply
+  const waiting = awaiting || generating && !hasReply
   const title = waiting ? t('正在等待回复…') : t('生成中')
   const queue = visibleQueue(state, state.messages)
 

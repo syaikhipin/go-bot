@@ -122,6 +122,56 @@ func TestNativeTimeContextIsDurableAndRefreshesByInterval(t *testing.T) {
 	}
 }
 
+func TestExternalTimeSampleUsesInboxAndKeepsNormalRefresh(t *testing.T) {
+	journal := &nativeTestJournal{}
+	live, err := sessionformat.NewLiveSession(sessionformat.Header{Type: "session", Version: 4, ID: "external-clock", CreatedAt: 1, CWD: "/workspace"}, journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close()
+	model := &nativeInstructionModel{}
+	loop, err := NewNativeLoop(live, model, "provider", "model", "system", nil, 3, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := loop.EnableTimeContext("UTC", 10*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	for _, label := range []string{"first", "second"} {
+		before := live.Position()
+		message, err := loop.SampleTimeContext()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if live.Position() != before {
+			t.Fatal("sampling wrote to the journal")
+		}
+		if _, err := loop.InjectMessage(t.Context(), message); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loop.AcceptText(t.Context(), label); err != nil {
+			t.Fatal(err)
+		}
+		if ran, _, err := loop.RunNext(t.Context()); err != nil || !ran {
+			t.Fatalf("run: %v %v", ran, err)
+		}
+	}
+	clocks := timeContextEvents(t, live.DurableEvents())
+	if len(clocks) != 2 || !strings.Contains(string(clocks[0].Data), "preparing turn 1, step 1") || !strings.Contains(string(clocks[1].Data), "preparing turn 2, step 1") {
+		t.Fatalf("external per-turn clocks: %+v", clocks)
+	}
+	// An ordinary immediate third turn continues to obey the existing interval.
+	if _, err := loop.RunTextTurn(t.Context(), "normal refresh rule"); err != nil {
+		t.Fatal(err)
+	}
+	if clocks := timeContextEvents(t, live.DurableEvents()); len(clocks) != 2 {
+		t.Fatalf("normal refresh rule changed: %d clocks", len(clocks))
+	}
+	if err := sessionformat.ValidateV4Relationships(live.DurableEvents()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestNativeTimeContextTimestampAndDuration(t *testing.T) {
 	clock := &nativeTimeContext{zone: "Asia/Shanghai", location: time.FixedZone("Asia/Shanghai", 8*3600)}
 	stamp := nativeTimeTimestamp(time.Date(2026, 10, 12, 1, 2, 3, 0, time.UTC), clock)

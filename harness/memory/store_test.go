@@ -25,7 +25,7 @@ func TestMemoryBatchAndConcurrentWrites(t *testing.T) {
 	if err != nil || !strings.Contains(string(original), "日报用中文") || !strings.Contains(string(original), "周报用英文") {
 		t.Fatalf("concurrent memory = %q, %v", original, err)
 	}
-	if result, err := store.Apply("user", []Operation{{Action: "add", Content: "日报用中文"}}); err != nil || result.Entries != 2 {
+	if result, err := store.Apply("user", []Operation{{Action: "add", Content: "日报用中文"}}); err != nil || result.Entries != 2 || result.Changed {
 		t.Fatalf("duplicate result = %+v, %v", result, err)
 	}
 	for _, ops := range [][]Operation{

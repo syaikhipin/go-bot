@@ -9,8 +9,11 @@
 | [Troubleshooting](troubleshooting.md) | Diagnose startup, connectivity, and account settings |
 | [HTTP API](api.md) · [OpenAPI](../api/openapi.yaml) | Accounts, sessions, messages, streaming, and files |
 | [Architecture](architecture.md) | Controller, Redis, Host, and data layout |
+| [Main chat and first run](main-chat-and-first-run-plan.zh-CN.md) | Stable main conversation, model checks, welcome seed and default plugin preparation |
 | [Schedule and workspaces](schedule-parity-plan.zh-CN.md) | Upstream behavior, delivery receipts, chat archiving, and mobile task management |
 | [Proactive wake-up research](proactive-service-research-and-plan.zh-CN.md) | Verified Muse, Grok Bot and dots behavior, disclosed triggers, and limits of public implementation details |
+| [Agent composition](agent-composition-research-plan.zh-CN.md) | Implemented fixed Go composition selectors and background Agent; distinct from the full Preset subsystem |
+| [Proactive discovery](proactive-discovery-plan.zh-CN.md) | Implemented persistent background Agent, LLM-selected wake times, structured decisions and internal delivery |
 | [Extending capabilities](providers.md) · [Contributing](../CONTRIBUTING.md) | Provider contracts and development workflow |
 | [X / Google account setup](plugin-account-setup.md) | Obtain your application credentials and connect native accounts |
 | [Gemini API CLI plugin plan](gemini-api-cli-plugin-plan.zh-CN.md) | API-key connection, official CLI installation, Agent usage and file delivery |

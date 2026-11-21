@@ -29,6 +29,9 @@ var (
 // storage and initial cwd. Child Agents remain inside their parent's runtime.
 // Admission is serialized, while active Session turns run independently.
 type NativeHost struct {
+	PrepareMain          func(context.Context, string, string) error
+	MainReady            func(context.Context, string) error
+	mainSessionID        string
 	UserID               string
 	Mode                 string
 	Build                func(sessionID string, resume bool) (*NativeRuntime, error)

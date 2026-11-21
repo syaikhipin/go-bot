@@ -57,12 +57,32 @@ Serve a custom browser UI from the same origin as the Controller API, or use the
 | GET /v1/host/schedules/stream | Stream task catalog invalidation events |
 | GET /v1/host/schedules/limits | Read the configured minimum interval for a fresh session on each run |
 | GET /v1/hosts/{hostId} | Runtime state for a matching instance of the selected account |
-| POST /v1/host/start | Start or reconnect the selected account's Host |
+| POST /v1/host/start | Start/reconnect Host and prepare its stable main chat; returns `{mainSessionId}` |
+| POST /v1/host/plugins/prepare | Install missing selected plugins and apply enabled state; synchronous, independent of core startup |
 | POST /v1/host/stop | Stop Docker or release ECI for the selected account |
 | DELETE /v1/host/instance | Delete compute and retain the account and external storage |
 
 For `POST /v1/accounts`, send `{"userId":"alice"}`. Account creation returns
 the name with HTTP 201. Model settings are available before the Host starts.
+
+Account creation reserves one `mainSessionId` and selects OfficeCLI and agent-browser
+for automatic installation. `POST /v1/host/start` accepts an optional
+`{"welcomeLocale":"zh-CN"}` (`en` is the default), and returns HTTP 200 with
+`{"mainSessionId":"<uuid>"}`. The main chat is created without a model call;
+its initial system and assistant greeting are persisted exactly once.
+Clients can open it immediately, then automatically call
+`POST /v1/host/plugins/prepare` while keeping navigation and settings available.
+Preparation reuses matching installed releases and never re-adds a removed default.
+
+Bundled clients pin the main chat and open it at login. Explicit Web chat links
+and in-app navigation still open the requested conversation. Session list rows
+include `isMain: true` for the main chat; archiving it returns
+`409 main_session_cannot_archive`. Ordinary chats require a valid default model
+at creation. Sending checks the session's selection before accepting the message
+or storing attachments. A main chat without a selection binds the account's
+valid default on its first send; a previously selected model that becomes
+unavailable is never silently replaced. Search and media credentials do not gate chat.
+
 
 New chats start with `danger-full-access`. The other modes are
 `workspace-write` and `read-only`. A selection persists in the Host's session
@@ -364,6 +384,30 @@ The bundled Web UI uses the Controller's own origin. Browser requests from
 other origins are denied by default. For local Vite development, pass
 `--web-dev-origin http://127.0.0.1:5173` to the Controller. CLI requests
 without a browser origin still work. See the [frontend README](../frontend/README.md).
+
+## Proactive assistance
+
+`GET /v1/settings/proactive` reads the account preference and, when the Host is
+running, its current status. It does not start a Host. `PUT` accepts exactly
+`{"enabled": true}` or `{"enabled": false}`, saves the account's Redis Hash
+field and synchronously applies it to a running Host. `503
+settings_saved_host_apply_failed` means the preference was saved but not applied;
+the same PUT can be retried. No run-now endpoint is provided.
+
+The JSON response contains `enabled`, `phase`, optional `nextCheckAt`,
+`nextCheckReason`, `lastRunStartedAt`, `lastCompletedAt`, and a safe `error` code.
+All timestamps are Unix milliseconds. Phases are `waiting`, `running`,
+`waiting-for-model`, `waiting-for-main`, `disabled`, `host-stopped`, `unavailable`,
+or `error`. Missing next-check fields mean the first successful decision has not
+been made, not an AI choice to stop checking. An explicit invalid main-chat
+selection is not replaced silently. Internal background Session IDs and
+credential values are not returned.
+
+There is still one Host-wide SSE connection per client. Internal research does
+not appear as a separate public chat. When a background decision calls for
+contact, a durable `user/message` with source `agent-message` is admitted to the
+main chat's next-turn Inbox and hidden by the public projection. The main
+Agent's ordinary assistant reply then streams through the existing protocol.
 
 ## Model endpoint protocols
 

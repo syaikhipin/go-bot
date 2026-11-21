@@ -52,6 +52,11 @@ export class HostService extends Service {
 
   info() { return this.invoke(this.ctx, 'info', 'get') }
 
+  get proactive() {
+    const ctx = this.ctx
+    return { changed: () => this.invoke(ctx, 'proactive', 'changed') }
+  }
+
   get tools() {
     const ctx = this.ctx
     return {

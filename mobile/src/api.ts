@@ -5,6 +5,7 @@ import { createParser } from 'eventsource-parser'
 import type { ModelEndpoint, ModelSelection, ModelSettings, ProviderPage, ProviderSettings, SessionEvent, SessionModel, SessionRow, TranscriptPage } from '../../frontend/src/api/controller'
 import type { Answer, FileRef } from '../../frontend/src/chat/transcript'
 import type { LibraryEntry } from './library'
+import type { ProactiveStatus } from '../../frontend/src/settings/proactiveState'
 
 export type { ModelEndpoint, ModelSelection, ModelSettings, ProviderPage, ProviderSettings, SessionEvent, SessionRow }
 export type Profile = { server: string; account: string }
@@ -74,6 +75,7 @@ const schedulePath = '/v1/host/schedules'
 const scheduleURL = (id: string) => schedulePath + '/' + part(id)
 
 export class Controller {
+  mainSessionId = ''
   constructor(readonly profile: Profile) {}
 
   get headers() { return { 'X-User-ID': this.profile.account, 'X-Go-Bot-Controller-Origin': new URL(this.profile.server).origin } }
@@ -99,7 +101,7 @@ export class Controller {
     return response.status === 204 ? undefined as T : await response.json() as T
   }
 
-  async connect(create = false) {
+  async connect(create = false, welcomeLocale: 'en' | 'zh-CN' = 'en') {
     await this.response('/readyz', undefined, 8000)
     if (create) {
       try { await this.request('/v1/accounts', json('POST', { userId: this.profile.account })) }
@@ -117,9 +119,15 @@ export class Controller {
       if (error instanceof ApiError && error.status === 404) throw new Error('找不到这个账号。请检查账号名，或用下方入口创建。')
       throw error
     }
-    await this.response('/v1/host/start', { method: 'POST' }, 320000)
+    const started = await this.response('/v1/host/start', json('POST', { welcomeLocale }), 320000)
+    this.mainSessionId = (await started.json()).mainSessionId
+    if (!this.mainSessionId) throw new Error('主会话未能准备完成。')
   }
 
+  async preparePlugins() {
+    const result = await this.response('/v1/host/plugins/prepare', { method: 'POST' }, 900000)
+    return result.json()
+  }
   stopHost() { return this.response('/v1/host/stop', { method: 'POST' }, 320000) }
   sessions(cursor = '') {
     return this.request<{ sessions: SessionRow[]; nextCursor?: string }>('/v1/sessions?limit=30' + (cursor ? '&cursor=' + part(cursor) : ''))
@@ -191,6 +199,8 @@ export class Controller {
   sessionPermission(id: string) { return this.request<SessionPermission>(session(id) + '/permissions') }
   selectPermission(id: string, mode: PermissionMode) { return this.request<SessionPermission>(session(id) + '/permissions', json('POST', { mode })) }
   modelSettings() { return this.request<ModelSettings>('/v1/settings/models') }
+  proactiveSettings(signal?: AbortSignal) { return this.request<ProactiveStatus>('/v1/settings/proactive', { signal }) }
+  saveProactiveSettings(enabled: boolean) { return this.request<ProactiveStatus>('/v1/settings/proactive', json('PUT', { enabled })) }
   sessionModel(id: string) { return this.request<SessionModel>(session(id) + '/model') }
   selectModel(id: string, choice: ModelSelection) { return this.request<SessionModel>(session(id) + '/model', json('PUT', choice)) }
   saveEndpoint(id: string | undefined, endpoint: Omit<ModelEndpoint, 'hasApiKey'> & { apiKey?: string }) {

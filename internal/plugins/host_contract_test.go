@@ -4,11 +4,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"go-bot/internal/credentials"
 )
+
+func TestPluginInformationChangeUsesHostSignalWithoutPayloadQueue(t *testing.T) {
+	var count atomic.Int64
+	r := bridgeFixture(t, `export const inject=['host'];export async function apply(ctx){await ctx.host.proactive.changed();await ctx.host.tools.register({name:'notify',description:'Signal external information',inputSchema:{type:'object'},async execute(){await ctx.host.proactive.changed();return{content:[{type:'text',text:'signaled'}]}}})}`, func(config *RuntimeConfig) { config.ProactiveChanged = func() error { count.Add(1); return nil } })
+	status, err := r.Apply(t.Context(), []hostPluginInstance{{ID: "mail", Package: "fixture", Enabled: true}})
+	if err != nil || len(status) != 1 || status[0]["state"] != "ready" || count.Load() != 1 {
+		t.Fatalf("apply=%+v err=%v signals=%d", status, err, count.Load())
+	}
+	tools, err := r.Tools(t.Context(), "session")
+	if err != nil || len(tools) != 1 {
+		t.Fatal(err)
+	}
+	if text, err := tools[0].Execute(t.Context(), json.RawMessage(`{}`)); err != nil || text != "signaled" || count.Load() != 2 {
+		t.Fatalf("signal result=%q err=%v count=%d", text, err, count.Load())
+	}
+}
 
 func TestHostBridgeCredentialNotificationUsesPublicMetadata(t *testing.T) {
 	r := bridgeFixture(t, `export const inject=['host'];export async function apply(ctx){const changes=[];ctx.on('host/credential-changed',event=>changes.push(event));await ctx.host.tools.register({name:'changes',description:'Read received changes',inputSchema:{type:'object'},async execute(){return{content:[{type:'text',text:JSON.stringify(changes)}]}}})}`)

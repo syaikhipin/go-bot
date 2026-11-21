@@ -441,7 +441,10 @@ func validateV4RawAdmission(fields map[string]json.RawMessage, eventType string)
 		if dataErr != nil {
 			return errors.New("system/message requires object data")
 		}
-		if err := validateSystemMessage(data); err != nil {
+		var constructor Event
+		constructor.Type, constructor.Data, constructor.SurfaceOp = eventType, fields["data"], fields["surfaceOp"]
+		constructor.Seq, _ = safeCount(fields["seq"])
+		if err := validateSystemMessage(data, isInitialSystemMessage(constructor)); err != nil {
 			return err
 		}
 	}

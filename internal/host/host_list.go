@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"go-bot/harness/session"
+	"go-bot/internal/proactive"
 
 	"github.com/google/uuid"
 )
@@ -17,7 +18,7 @@ func defaultSessionWorkspace(root, id string) string {
 }
 
 func topLevelSession(header sessionformat.Header) bool {
-	return header.ParentSession == "" && header.Origin != "subagent"
+	return header.ParentSession == "" && header.Origin != "subagent" && header.AgentPreset != proactive.PresetID
 }
 
 // findHostSession locates a journal by Session ID independently of its cwd.

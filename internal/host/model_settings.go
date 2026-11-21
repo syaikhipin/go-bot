@@ -49,6 +49,24 @@ func (m *hostModels) route(sessionID string) (agent.TurnModel, error) {
 	return agent.TurnModel{Model: model, Route: route}, nil
 }
 
+// Background research follows the main conversation's explicit selection.
+// Only a genuinely absent selection can use the valid account default; a
+// removed endpoint or model must not silently switch to something else.
+func (m *hostModels) backgroundRoute(mainID string) (agent.TurnModel, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	choice, exists := m.snapshot.Sessions[mainID]
+	if !exists {
+		choice, exists = m.scheduled[mainID]
+	}
+	if !exists {
+		choice = m.snapshot.Catalog.Default()
+	}
+	route := agent.ModelRoute{Provider: choice.EndpointID, Model: choice.ModelID}
+	model, err := m.selectedLocked(route)
+	return agent.TurnModel{Model: model, Route: route}, err
+}
+
 func (m *hostModels) selected(_ context.Context, route agent.ModelRoute) (agent.Model, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -217,10 +235,13 @@ func (m *hostModels) handle(w http.ResponseWriter, r *http.Request, wake func())
 			http.Error(w, "stale model settings", http.StatusConflict)
 			return
 		}
+		changed := m.snapshot.Revision != snapshot.Revision
 		m.snapshot = snapshot
 
 		m.mu.Unlock()
-		wake()
+		if changed {
+			wake()
+		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)

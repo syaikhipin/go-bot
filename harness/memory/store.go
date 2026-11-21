@@ -31,6 +31,7 @@ type Operation struct {
 }
 
 type Result struct {
+	Changed    bool   `json:"-"`
 	Target     string `json:"target"`
 	Entries    int    `json:"entries"`
 	Characters int    `json:"characters"`
@@ -108,7 +109,8 @@ func (s *Store) Apply(target string, ops []Operation) (Result, error) {
 		return Result{}, fmt.Errorf("%s would use %d of %d characters (currently %d). Shorten or remove an existing entry in the same batch. Current entries:\n%s",
 			file.name, chars, file.limit, utf8.RuneCountInString(original), original)
 	}
-	if body != original {
+	changed := body != original
+	if changed {
 		if err := durablefs.EnsureDirectory(s.root); err != nil {
 			return Result{}, err
 		}
@@ -119,7 +121,7 @@ func (s *Store) Apply(target string, ops []Operation) (Result, error) {
 			return Result{}, err
 		}
 	}
-	return Result{Target: target, Entries: len(entries), Characters: chars, Capacity: file.limit}, nil
+	return Result{Target: target, Entries: len(entries), Characters: chars, Capacity: file.limit, Changed: changed}, nil
 }
 
 func (s *Store) read(file memoryFile) ([]string, error) {

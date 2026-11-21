@@ -41,6 +41,10 @@ type NativeRuntime struct {
 	// WorkspaceRoot is the worker-visible mounted directory used by the
 	// readiness round trip. Empty defaults to Identity.Workspace.
 	WorkspaceRoot string
+	// These Host observers receive committed dialogue/admission, not Agent
+	// execution middleware. They cannot change turn/step or tool decisions.
+	UserMessageAccepted func()
+	TurnCommitted       func([]sessionformat.Event)
 
 	approvalAudience      func() bool
 	mu                    sync.Mutex
@@ -343,6 +347,9 @@ func (r *NativeRuntime) SubmitText(ctx context.Context, content string) (string,
 	if err != nil {
 		return "", err
 	}
+	if r.UserMessageAccepted != nil {
+		r.UserMessageAccepted()
+	}
 	r.kick()
 	return id, nil
 }
@@ -361,6 +368,10 @@ func (r *NativeRuntime) SubmitMessage(ctx context.Context, message []byte) (stri
 	id, err := r.live.Agent.AcceptMessage(ctx, message)
 	if err != nil {
 		return "", err
+	}
+	var source struct{ Source struct{ Kind string } }
+	if r.UserMessageAccepted != nil && json.Unmarshal(message, &source) == nil && source.Source.Kind == "user" {
+		r.UserMessageAccepted()
 	}
 	r.kick()
 	return id, nil
@@ -713,6 +724,7 @@ func (r *NativeRuntime) drive(ctx context.Context) {
 			}
 			r.activeCancel = cancelTurn
 			r.mu.Unlock()
+			cursor := int(r.live.Session.DurableCursor() + 1)
 			ran, _, err := r.live.Agent.RunNext(turnCtx)
 			cancelTurn(nil)
 			cancelTimeout()
@@ -733,6 +745,11 @@ func (r *NativeRuntime) drive(ctx context.Context) {
 			}
 			fatal := r.fatalErr != nil
 			r.mu.Unlock()
+			if ran && r.TurnCommitted != nil {
+				if events, readErr := r.live.Session.DurableEventsFrom(cursor); readErr == nil {
+					r.TurnCommitted(events)
+				}
+			}
 			if fatal {
 				return
 			}

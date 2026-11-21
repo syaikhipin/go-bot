@@ -129,16 +129,20 @@ func TestDockerModelSettingsSwitchBetweenTurns(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	call("POST", "/v1/host/start", "", 204).Body.Close()
+	call("POST", "/v1/host/start", "", 200).Body.Close()
 	var failure map[string]string
 	decode(call("POST", "/v1/sessions", "", 409), &failure)
 	if failure["error"] != "model_default_required" {
 		t.Fatalf("missing default error: %v", failure)
 	}
-	var empty struct{ Sessions []json.RawMessage }
+	var empty struct {
+		Sessions []struct {
+			IsMain bool `json:"isMain"`
+		}
+	}
 	decode(call("GET", "/v1/sessions", "", 200), &empty)
-	if len(empty.Sessions) != 0 {
-		t.Fatal("created a session without a default model")
+	if len(empty.Sessions) != 1 || !empty.Sessions[0].IsMain {
+		t.Fatal("missing main chat or created an ordinary session without a default model")
 	}
 	add := func(path, key string, models []string) string {
 		t.Helper()

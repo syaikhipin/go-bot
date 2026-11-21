@@ -81,6 +81,11 @@ func ValidateCoreRelationships(events []Event) error {
 				}
 				continue
 			}
+			// Constructor messages have no model execution lifecycle. Only the
+			// initial system + welcome prefix can precede the first real turn.
+			if turn == 0 && nextTurn == 1 && (isInitialSystemMessage(event) || (isInitialWelcomeMessage(event) && isInitialSystemMessage(events[0]))) {
+				continue
+			}
 			if err := requireStep(data, turn, step); err != nil {
 				return fail(err)
 			}

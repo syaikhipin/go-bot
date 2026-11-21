@@ -81,6 +81,12 @@ func NewNativeHostHTTP(host *hostruntime.NativeHost, options NativeWorkerHTTPOpt
 				http.Error(w, "Session listing failed", http.StatusServiceUnavailable)
 				return
 			}
+			for i := range listed.Sessions {
+				listed.Sessions[i].IsMain = host.IsMainSession(listed.Sessions[i].SessionID)
+				if listed.Sessions[i].IsMain {
+					listed.Sessions[i].Title = "Go Bot"
+				}
+			}
 			_ = json.NewEncoder(w).Encode(listed)
 			return
 		}
@@ -109,6 +115,22 @@ func NewNativeHostHTTP(host *hostruntime.NativeHost, options NativeWorkerHTTPOpt
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(activity)
+			return
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/internal/host/sessions/main" {
+			var input struct {
+				SessionID string `json:"sessionId"`
+				Locale    string `json:"locale"`
+			}
+			if json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&input) != nil || uuid.Validate(input.SessionID) != nil || (input.Locale != "" && input.Locale != "en" && input.Locale != "zh-CN") {
+				writeSessionJSON(w, 400, map[string]string{"error": "invalid_main_session"})
+				return
+			}
+			if err := host.EnsureMainSession(r.Context(), input.SessionID, input.Locale); err != nil {
+				writeSessionJSON(w, 503, map[string]string{"error": "main_session_unavailable"})
+				return
+			}
+			writeSessionJSON(w, 200, map[string]string{"sessionId": input.SessionID})
 			return
 		}
 		if r.Method == http.MethodPost && r.URL.Path == "/internal/host/sessions" {
@@ -253,6 +275,8 @@ func NewNativeHostHTTP(host *hostruntime.NativeHost, options NativeWorkerHTTPOpt
 				w.WriteHeader(http.StatusNoContent)
 			case errors.Is(err, os.ErrNotExist):
 				http.NotFound(w, r)
+			case errors.Is(err, hostruntime.ErrMainSessionArchive):
+				writeSessionJSON(w, http.StatusConflict, map[string]string{"error": "main_session_cannot_archive"})
 			case errors.Is(err, hostruntime.ErrHostSessionBusy):
 				writeSessionJSON(w, http.StatusConflict, map[string]string{"error": "session_busy"})
 			case errors.Is(err, schedule.ErrSessionHasSchedule):

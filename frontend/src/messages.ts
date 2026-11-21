@@ -1,9 +1,19 @@
 import { extensionChinese } from './extensions/messages'
+import { proactiveChinese } from './settings/proactiveState'
 
 export type Language = 'en' | 'zh-CN'
 
 const chinese: Readonly<Record<string, string>> = {
   ...extensionChinese,
+  ...proactiveChinese,
+  'Add an endpoint to start chatting.': '添加端点后即可开始聊天。',
+  'Main chat': '主会话',
+  'Preparing browser and Office capabilities…': '正在准备浏览器与 Office 能力…',
+  'Some plugins could not be prepared.': '部分插件未能准备完成。',
+  'View plugins': '查看插件',
+  'Set up a model to start chatting.': '请先配置模型，再开始聊天。',
+  'The model for this chat is unavailable. Choose another model.': '当前会话的模型不可用，请重新选择。',
+  'Your message and attachments are kept in the composer.': '文字和附件已保留在输入框中。',
   "Brave Search API key": "Brave 搜索 API 密钥", "Tavily API key": "Tavily API 密钥",
   "Approve this plan and leave plan mode?": "确认方案后开始执行，或提出修改意见继续规划。",
   "Approve": "按此方案执行", "Keep planning": "继续完善方案",

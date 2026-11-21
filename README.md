@@ -132,14 +132,16 @@ starts Controller and Redis with Compose.
 Open the browser after startup. Controller already serves the web app.
 
 1. Open [http://127.0.0.1:8080](http://127.0.0.1:8080) and create an account by
-   name. Opening the account starts its Host in a separate Docker container.
+   name. Opening the account starts its Host in a separate Docker container and opens your main chat, with a welcome message.
 2. In **Model settings**, choose **OpenAI Responses** or **Anthropic Messages** in the protocol dropdown, then add the endpoint URL, API key,
-   and at least one model ID. Then select **New chat** and send a message.
+   and at least one model ID. Return to the main chat and send a message; **New chat** creates a separate conversation.
 3. For web search, save a key for DeepSeek, Zhipu, Doubao, Tavily, or Brave Search under **Settings → Web search**, then choose **Use provider**. For image generation and other Gemini media capabilities, install and enable **Gemini API CLI** in the plugin market and configure its API key. [Provider setup](docs/providers.md) · [Plugin connection](docs/plugin-account-setup.md#gemini-api-cli)
 
 Choose **English** or **简体中文** on the account page or in **Settings**. The browser remembers your choice.
 
-Install and enable **agent-browser** and **OfficeCLI** from the sidebar **Plugins** entry to use browser and Office tasks. First installation downloads their official CLI dependencies.
+New accounts automatically install and enable **agent-browser** and **OfficeCLI**. First installation downloads their official CLI dependencies while you can configure your model. Later logins reuse the installation and respect plugins you disable or uninstall. Manage them from the sidebar **Plugin market**.
+
+Proactive assistance is enabled by default once a model is available. It researches useful opportunities and shares relevant findings in your main chat, using your model and connected service credits. You can turn it off or view its next check in **Settings → Proactive assistance**. [How it works](docs/configuration.md#proactive-assistance)
 
 ## Phone via Tailscale
 
@@ -176,8 +178,8 @@ journals, memory, schedules, attachments, and the workspace. Each account has
 its own Host, started when the account is opened.
 
 The Host includes Chromium, Python, Node.js and the general document environment.
-Install **agent-browser** and **OfficeCLI** from **Plugins → Plugin market**, then
-enable them. Installation prepares the fixed official CLI and its original
+New accounts automatically install and enable **agent-browser** and **OfficeCLI**.
+Installation prepares the official CLI and its original
 Skills; activation only loads those capabilities. No API key is needed.
 OfficeCLI contributes 11 original Skills; agent-browser contributes its official
 discovery Skill. They remain in their plugin packages under

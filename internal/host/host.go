@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -33,6 +34,7 @@ import (
 	"go-bot/internal/mcpclient"
 	"go-bot/internal/modelsettings"
 	"go-bot/internal/plugins"
+	"go-bot/internal/proactive"
 	"go-bot/internal/websearchsettings"
 	mcpconfig "go-bot/mcp"
 	"go-bot/plugin"
@@ -100,6 +102,14 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		builder.ImageGenerator = imageGeneration
 	}
 	native := &hostruntime.NativeHost{UserID: c.Host.AccountID, Mode: "host", StartedAt: time.Now().UTC(), ReserveScheduleModel: models.reserve}
+	var backgroundRef atomic.Pointer[backgroundService]
+	noteBackgroundChange := func() {
+		if background := backgroundRef.Load(); background != nil {
+			if err := background.changed(); err != nil {
+				slog.Warn("record proactive information change", "error", err)
+			}
+		}
+	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	credentialStore, err := credentials.Open(filepath.Join(dshHome, credentials.Filename), credentials.Options{Watch: true})
@@ -108,12 +118,19 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 	}
 	defer credentialStore.Close()
 	commonAuthorization := authorization.New(credentialStore)
-	mcpManager := mcpclient.NewManager(runCtx, mcpclient.ManagerOptions{Authorization: commonAuthorization, Credentials: credentialStore, Images: images, CWD: root, Changed: native.WakeSessions})
+	capabilitiesChanged := func() { native.WakeSessions(); noteBackgroundChange() }
+	mcpManager := mcpclient.NewManager(runCtx, mcpclient.ManagerOptions{Authorization: commonAuthorization, Credentials: credentialStore, Images: images, CWD: root, Changed: capabilitiesChanged})
 	defer mcpManager.Close()
 	extensions, err := plugins.NewManager(runCtx, plugins.ManagerConfig{
-		Directory:   filepath.Join(dshHome, "plugins"),
-		Runtime:     plugins.RuntimeConfig{UserID: c.Host.AccountID, HostID: c.Host.RunID, Authorization: commonAuthorization, Credentials: credentialStore, Main: "/usr/share/go-bot/cordis/src/main.mjs", Home: "/root", DSHHome: dshHome, MCP: mcpManager, Skills: builder.Skills, Workspace: root},
-		PackageMain: "/usr/share/go-bot/cordis/src/package-main.mjs", Changed: native.WakeSessions,
+		Directory: filepath.Join(dshHome, "plugins"),
+		Runtime: plugins.RuntimeConfig{UserID: c.Host.AccountID, HostID: c.Host.RunID, Authorization: commonAuthorization, Credentials: credentialStore, Main: "/usr/share/go-bot/cordis/src/main.mjs", Home: "/root", DSHHome: dshHome, MCP: mcpManager, Skills: builder.Skills, Workspace: root,
+			ProactiveChanged: func() error {
+				if background := backgroundRef.Load(); background != nil {
+					return background.changed()
+				}
+				return errors.New("proactive service is not ready")
+			}},
+		PackageMain: "/usr/share/go-bot/cordis/src/package-main.mjs", Changed: capabilitiesChanged,
 	})
 	if err != nil {
 		return err
@@ -135,6 +152,9 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 	resolveStore := func(ctx context.Context, sid string) (sessionformat.FileStore, error) {
 		header, err := findHostSession(ctx, root, sid)
 		return atWorkspace(header.CWD), err
+	}
+	native.PrepareMain = func(ctx context.Context, sid, locale string) error {
+		return ensureMainJournal(ctx, root, sid, locale, claims.Acquire)
 	}
 	native.WorkspaceForSession = func(sid string) string {
 		header, _ := findHostSession(context.Background(), root, sid)
@@ -158,6 +178,9 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		return archiveChat(ctx, store, sid)
 	}
 	native.ReadTitle = func(sid string) string {
+		if native.IsMainSession(sid) {
+			return "Go Bot"
+		}
 		store, err := resolveStore(context.Background(), sid)
 		if err != nil {
 			return ""
@@ -215,21 +238,92 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 		return fmt.Errorf("sync Host session search index: %w", err)
 	}
 	buildRuntime := func(sid, workspace, preset string) (*hostruntime.NativeRuntime, error) {
+		if preset == proactive.PresetID {
+			return nil, errors.New("internal Agent composition cannot be selected by a public Session")
+		}
+		if preset != "" && preset != "standard" {
+			return nil, errors.New("unsupported Agent composition")
+		}
 		return &hostruntime.NativeRuntime{
 			Factory: assembly.NativeFactory{
 				Storage: executor.NativeFileStorage{Store: atWorkspace(workspace), SessionID: sid},
-				Builder: builder, Model: model, ResolveTurnModel: models.resolver(sid), ResolveSelectedModel: models.selected,
+				Builder: builder, Model: model, ResolveTurnModel: func(context.Context) (agent.TurnModel, error) {
+					if native.IsMainSession(sid) {
+						return models.backgroundRoute(sid)
+					}
+					return models.route(sid)
+				}, ResolveSelectedModel: models.selected,
 				ToolSource: extensions.Tools, PromptSource: extensions.AssemblePrompt, ToolInvocationSource: extensions.ToolInvocations,
 				ExtensionScope: func() assembly.NativeExtensionScope { return mcpManager.NewScope() },
-				Provider:       "unconfigured", ModelID: "unconfigured", SystemPrompt: assembly.DefaultCoreSystemPrompt,
+				SystemContextSource: func(_ context.Context, sessionID string) ([]agent.RuntimeContextSection, error) {
+					if native.IsMainSession(sessionID) {
+						return []agent.RuntimeContextSection{{Name: "conversation:role", Text: "This is the user's main conversation for ongoing everyday assistance."}}, nil
+					}
+					return nil, nil
+				},
+				Provider: "unconfigured", ModelID: "unconfigured", SystemPrompt: assembly.DefaultCoreSystemPrompt,
 				Limits: agent.Limits{MaxSteps: 128, MaxToolCalls: 256, MaxModelCalls: 160, MaxParallelToolCalls: 4,
 					ContextWindowTokens: config.ModelContextWindow, ReservedOutputTokens: 16 * 1024, ContextHeadroomTokens: 8 * 1024},
 				Schedule: native.Schedule, FileAttachments: files, Memory: accountMemory, SessionSearch: history,
+				MemoryChanged: func(ctx context.Context) {
+					if source, ok := agent.TurnSourceFromContext(ctx); !ok || source.Kind != "agent-message" {
+						noteBackgroundChange()
+					}
+				},
 			},
-			Identity:         assembly.NativeRuntimeIdentity{UserID: c.Host.AccountID, SessionID: sid, Workspace: workspace, AgentPreset: preset},
-			HostOwnsSchedule: true,
+			Identity:            assembly.NativeRuntimeIdentity{UserID: c.Host.AccountID, SessionID: sid, Workspace: workspace, AgentPreset: preset},
+			HostOwnsSchedule:    true,
+			UserMessageAccepted: noteBackgroundChange,
+			TurnCommitted: func(events []sessionformat.Event) {
+				if background := backgroundRef.Load(); background != nil {
+					background.observeTurn(events)
+				}
+			},
 		}, nil
 	}
+	background, err := newBackgroundService(root, native, models, history, atWorkspace, buildRuntime)
+	if err != nil {
+		return fmt.Errorf("prepare proactive service: %w", err)
+	}
+	backgroundRef.Store(background)
+	background.capabilityContext = func() ([]agent.RuntimeContextSection, error) {
+		records, err := credentialStore.ListRecords()
+		if err != nil {
+			return nil, err
+		}
+		flows := commonAuthorization.List()
+		data, _ := json.Marshal(map[string]any{"credentialEntries": records[:min(len(records), 64)], "authorizationMethods": flows[:min(len(flows), 64)], "truncated": len(records) > 64 || len(flows) > 64})
+		return []agent.RuntimeContextSection{{Name: "proactive:connections", Text: "Known authorization entry points and credential-presence metadata only. These do not prove that an external service is usable; native CLI grants can live outside this store. Actual available tools/skills and their outcomes remain authoritative. No secret values are included: " + string(data)}}, nil
+	}
+	unsubscribeCredentials := credentialStore.Subscribe(func(credentials.Update) { noteBackgroundChange() })
+	unsubscribeAuthorization := commonAuthorization.Subscribe(func(string, string) { noteBackgroundChange() })
+	defer unsubscribeCredentials()
+	defer unsubscribeAuthorization()
+	native.MainReady = background.mainReady
+	backgroundDone := make(chan error, 1)
+	go func() { backgroundDone <- background.service.Run(runCtx) }()
+	go func() {
+		for {
+			changed, closed := native.Schedule.Changes()
+			select {
+			case <-runCtx.Done():
+				return
+			case <-closed:
+				return
+			case <-changed:
+				background.version.Add(1)
+			}
+		}
+	}()
+	defer func() {
+		cancel()
+		if err := <-backgroundDone; err != nil {
+			slog.Error("proactive service stopped", "error", err)
+		}
+		if background.live != nil {
+			_ = background.live.Close()
+		}
+	}()
 	native.BuildInWorkspace = func(sid string, create schedule.TargetCreate) (*hostruntime.NativeRuntime, error) {
 		workspace := create.CWD
 		if workspace == "" {
@@ -268,11 +362,16 @@ func run(ctx context.Context, c config.Config, newSearchProvider web.Factory, fe
 	wakeForModelChange := func() {
 		native.WakeSessions()
 		native.Schedule.NotifyModelChange()
+		if err := background.service.ModelChanged(); err != nil {
+			slog.Warn("notify proactive model change", "error", err)
+		}
 	}
 	pluginHTTP := extensions.Handler()
 	mcpHTTP := mcpManager.Handler()
 	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case proactivePath:
+			background.handler(w, r)
 		case websearchsettings.InternalPath:
 			search.handle(w, r)
 		case imageproviders.InternalPath:
