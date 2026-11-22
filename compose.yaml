@@ -27,7 +27,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8080:8080"
+      # Campus-pc/Coolify: host 8080 is already taken by another app;
+      # Traefik routes gobot.arifin.uk to container port 8080 internally.
+      - "18080:8080"
     depends_on:
       redis:
         condition: service_healthy
@@ -37,8 +39,8 @@ services:
   redis:
     image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
-    ports:
-      - "6379:6379"
+    # No host port: campus-pc already runs a host Redis on 127.0.0.1:6379.
+    # Controller reaches this Redis over the compose network (redis:6379).
     volumes:
       - controller-data:/data
     healthcheck:
