@@ -6,24 +6,15 @@ services:
       context: .
       dockerfile: build/Dockerfile.controller
     image: go-bot/controller:local
-    command: ["serve", "--env-file", "/config/deployment.env", "--config", "/config/runtime.yaml"]
+    # No --env-file/--config: the controller image bakes in /app/.env
+    # (from .env.example) and tuning defaults match configs/default.yaml.
+    # Bind-mounting repo files breaks on Coolify, whose app dir has no clone.
+    command: ["serve"]
     environment:
       REDIS_ADDR: redis:6379
       CONTROLLER_CONTAINER: "1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - type: bind
-        source: ${GO_BOT_ENV_FILE:-./.env}
-        target: /config/deployment.env
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ${GO_BOT_CONFIG_FILE:-./configs/default.yaml}
-        target: /config/runtime.yaml
-        read_only: true
-        bind:
-          create_host_path: false
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
