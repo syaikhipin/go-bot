@@ -34,4 +34,11 @@ FROM docker:29-cli AS controller
 COPY --from=controller-linux /linux/controller /usr/local/bin/controller
 COPY --from=controller-linux /linux/prepare-env /usr/local/bin/prepare-env
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/go-bot/
+
+# Tiarina single-container deployment: the controller requires a deployment
+# profile (.env) in its working directory. Upstream generates it with
+# scripts/start.sh --init-env, which is not run on this platform, so ship
+# the default profile from .env.example.
+WORKDIR /app
+COPY .env.example /app/.env
 ENTRYPOINT ["/usr/local/bin/controller"]
